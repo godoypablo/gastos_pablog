@@ -399,6 +399,10 @@ function renderizarListaConceptos(containerId, conceptos) {
                         onclick="toggleActivoConcepto(${c.id}, ${c.activo ? 0 : 1})">
                         <i class="bi ${c.activo ? 'bi-eye-slash' : 'bi-eye'}"></i>
                     </button>
+                    <button class="btn btn-outline-danger btn-sm" title="Eliminar"
+                        onclick="eliminarConcepto(${c.id}, '${c.nombre.replace(/'/g, "\\'")}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
                 </div>
                 <div class="acciones-edit d-none d-flex gap-1 justify-content-end">
                     <button class="btn btn-success btn-sm" title="Guardar" onclick="guardarEdicionConcepto(${c.id})">
@@ -474,6 +478,29 @@ async function toggleActivoConcepto(id, nuevoActivo) {
         await cargarDatos();
     } catch (error) {
         mostrarError('Error: ' + error.message);
+    }
+}
+
+async function eliminarConcepto(id, nombre) {
+    if (!confirm(`¿Eliminar el concepto "${nombre}"?\n\nSolo es posible si el importe está en 0 en todos los meses.`)) return;
+
+    try {
+        const response = await fetch(CONCEPTOS_API_URL, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        const result = await response.json();
+        if (!result.success) {
+            mostrarError(result.message);
+            return;
+        }
+
+        mostrarToast('Concepto eliminado', 'success');
+        await cargarConceptosModal();
+        await cargarDatos();
+    } catch (error) {
+        mostrarError('Error al eliminar: ' + error.message);
     }
 }
 

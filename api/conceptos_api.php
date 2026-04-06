@@ -113,11 +113,23 @@ try {
 
             $id = (int)$input['id'];
 
-            // Soft-delete: marcar como inactivo
-            $stmt = $db->prepare("UPDATE conceptos SET activo = 0 WHERE id = :id");
+            // Validar que no tenga registros con importe distinto de 0
+            $stmt = $db->prepare(
+                "SELECT COUNT(*) FROM registros_mensuales WHERE concepto_id = :id AND importe != 0"
+            );
+            $stmt->execute(['id' => $id]);
+            if ((int)$stmt->fetchColumn() > 0) {
+                sendResponse(false, null, 'No se puede eliminar: el concepto tiene importes registrados. Primero ponelos en 0.', 409);
+            }
+
+            // Eliminar registros en 0 que pudieran existir y luego el concepto
+            $stmt = $db->prepare("DELETE FROM registros_mensuales WHERE concepto_id = :id");
             $stmt->execute(['id' => $id]);
 
-            sendResponse(true, null, 'Concepto desactivado correctamente');
+            $stmt = $db->prepare("DELETE FROM conceptos WHERE id = :id");
+            $stmt->execute(['id' => $id]);
+
+            sendResponse(true, null, 'Concepto eliminado correctamente');
             break;
 
         default:
