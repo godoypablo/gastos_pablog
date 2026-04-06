@@ -318,6 +318,211 @@ function mostrarError(mensaje) {
     `;
 }
 
+// ============================================================
+// ABM Conceptos
+// ============================================================
+
+const CONCEPTOS_API_URL = 'api/conceptos_api.php';
+
+async function abrirModalConceptos() {
+    const modal = new bootstrap.Modal(document.getElementById('modalConceptos'));
+    modal.show();
+    await cargarConceptosModal();
+}
+
+async function cargarConceptosModal() {
+    try {
+        const response = await fetch(CONCEPTOS_API_URL);
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+
+        const ingresos = result.data.filter(c => c.tipo === 'ingreso');
+        const gastos   = result.data.filter(c => c.tipo === 'gasto');
+
+        renderizarListaConceptos('listaIngresos', ingresos);
+        renderizarListaConceptos('listaGastos', gastos);
+    } catch (error) {
+        mostrarError('Error al cargar conceptos: ' + error.message);
+    }
+}
+
+function renderizarListaConceptos(containerId, conceptos) {
+    const container = document.getElementById(containerId);
+    if (conceptos.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center py-2">Sin conceptos.</p>';
+        return;
+    }
+
+    const tabla = document.createElement('table');
+    tabla.className = 'table table-sm table-hover align-middle mb-0';
+    tabla.innerHTML = `
+        <thead class="table-light">
+            <tr>
+                <th>Nombre</th>
+                <th class="text-center" style="width:70px">Orden</th>
+                <th class="text-center" style="width:80px">Estado</th>
+                <th style="width:80px"></th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    `;
+
+    const tbody = tabla.querySelector('tbody');
+    conceptos.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.id = `fila-concepto-${c.id}`;
+        tr.innerHTML = `
+            <td>
+                <span class="concepto-nombre-texto ${!c.activo ? 'text-muted text-decoration-line-through' : ''}">${c.nombre}</span>
+                <span class="concepto-nombre-edit d-none">
+                    <input type="text" class="form-control form-control-sm d-inline-block" style="width:180px"
+                        id="edit-nombre-${c.id}" value="${c.nombre}">
+                </span>
+            </td>
+            <td class="text-center">
+                <span class="concepto-orden-texto">${c.orden}</span>
+                <span class="concepto-orden-edit d-none">
+                    <input type="number" class="form-control form-control-sm d-inline-block text-center" style="width:60px"
+                        id="edit-orden-${c.id}" value="${c.orden}" min="1">
+                </span>
+            </td>
+            <td class="text-center">
+                <span class="badge ${c.activo ? 'bg-success' : 'bg-secondary'}">${c.activo ? 'Activo' : 'Inactivo'}</span>
+            </td>
+            <td class="text-end">
+                <div class="acciones-ver d-flex gap-1 justify-content-end">
+                    <button class="btn btn-outline-primary btn-sm" title="Editar" onclick="editarConcepto(${c.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn ${c.activo ? 'btn-outline-warning' : 'btn-outline-success'} btn-sm"
+                        title="${c.activo ? 'Desactivar' : 'Activar'}"
+                        onclick="toggleActivoConcepto(${c.id}, ${c.activo ? 0 : 1})">
+                        <i class="bi ${c.activo ? 'bi-eye-slash' : 'bi-eye'}"></i>
+                    </button>
+                </div>
+                <div class="acciones-edit d-none d-flex gap-1 justify-content-end">
+                    <button class="btn btn-success btn-sm" title="Guardar" onclick="guardarEdicionConcepto(${c.id})">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" title="Cancelar" onclick="cancelarEdicionConcepto(${c.id})">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    container.innerHTML = '';
+    container.appendChild(tabla);
+}
+
+function editarConcepto(id) {
+    const fila = document.getElementById(`fila-concepto-${id}`);
+    fila.querySelectorAll('.concepto-nombre-texto, .concepto-orden-texto, .acciones-ver').forEach(el => el.classList.add('d-none'));
+    fila.querySelectorAll('.concepto-nombre-edit, .concepto-orden-edit, .acciones-edit').forEach(el => el.classList.remove('d-none'));
+    document.getElementById(`edit-nombre-${id}`).focus();
+}
+
+function cancelarEdicionConcepto(id) {
+    const fila = document.getElementById(`fila-concepto-${id}`);
+    fila.querySelectorAll('.concepto-nombre-texto, .concepto-orden-texto, .acciones-ver').forEach(el => el.classList.remove('d-none'));
+    fila.querySelectorAll('.concepto-nombre-edit, .concepto-orden-edit, .acciones-edit').forEach(el => el.classList.add('d-none'));
+}
+
+async function guardarEdicionConcepto(id) {
+    const nombre = document.getElementById(`edit-nombre-${id}`).value.trim();
+    const orden  = document.getElementById(`edit-orden-${id}`).value;
+
+    if (!nombre) {
+        mostrarError('El nombre no puede estar vacío.');
+        return;
+    }
+
+    try {
+        const response = await fetch(CONCEPTOS_API_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, nombre, orden })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+
+        mostrarToast('Concepto actualizado', 'success');
+        await cargarConceptosModal();
+        await cargarDatos();
+    } catch (error) {
+        mostrarError('Error al guardar: ' + error.message);
+    }
+}
+
+async function toggleActivoConcepto(id, nuevoActivo) {
+    const accion = nuevoActivo ? 'activar' : 'desactivar';
+    if (!confirm(`¿Seguro que querés ${accion} este concepto?`)) return;
+
+    try {
+        const response = await fetch(CONCEPTOS_API_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, activo: nuevoActivo })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+
+        mostrarToast(`Concepto ${nuevoActivo ? 'activado' : 'desactivado'}`, 'success');
+        await cargarConceptosModal();
+        await cargarDatos();
+    } catch (error) {
+        mostrarError('Error: ' + error.message);
+    }
+}
+
+function mostrarFormNuevo(tipo) {
+    const form = document.getElementById('formNuevoConcepto');
+    document.getElementById('nuevoTipo').value = tipo;
+    document.getElementById('nuevoNombre').value = '';
+    document.getElementById('nuevoOrden').value = '';
+    form.classList.remove('d-none');
+    document.getElementById('nuevoNombre').focus();
+}
+
+function cancelarNuevoConcepto() {
+    document.getElementById('formNuevoConcepto').classList.add('d-none');
+}
+
+async function guardarNuevoConcepto() {
+    const nombre = document.getElementById('nuevoNombre').value.trim();
+    const tipo   = document.getElementById('nuevoTipo').value;
+    const orden  = document.getElementById('nuevoOrden').value;
+
+    if (!nombre) {
+        mostrarError('El nombre no puede estar vacío.');
+        return;
+    }
+
+    try {
+        const response = await fetch(CONCEPTOS_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, tipo, orden: orden || undefined })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+
+        mostrarToast('Concepto creado correctamente', 'success');
+        cancelarNuevoConcepto();
+        await cargarConceptosModal();
+        await cargarDatos();
+
+        // Cambiar al tab correspondiente
+        const tabBtn = document.getElementById(tipo === 'ingreso' ? 'tab-ingresos-btn' : 'tab-gastos-btn');
+        bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+    } catch (error) {
+        mostrarError('Error al crear: ' + error.message);
+    }
+}
+
+// ============================================================
 // Mostrar toast (notificación pequeña)
 function mostrarToast(mensaje, tipo = 'success') {
     // Crear contenedor de toasts si no existe
