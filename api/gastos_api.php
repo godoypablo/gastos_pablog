@@ -60,7 +60,8 @@ try {
                         cat.icono   AS categoria_icono,
                         COALESCE(SUM(rm.importe), 0.00) as importe,
                         MIN(rm.id) as registro_id,
-                        MAX(rm.pagado) as pagado
+                        MAX(rm.pagado) as pagado,
+                        MIN(rm.fecha_vencimiento) as fecha_vencimiento
                     FROM conceptos c
                     LEFT JOIN categorias cat ON c.categoria_id = cat.id
                     LEFT JOIN registros_mensuales rm ON c.id = rm.concepto_id
@@ -79,7 +80,7 @@ try {
             $conceptos = $stmt->fetchAll();
 
             // Detalle de registros para conceptos multi-entrada
-            $sql_detalle = "SELECT rm.id, rm.concepto_id, rm.fecha, rm.importe, rm.observaciones, rm.pagado
+            $sql_detalle = "SELECT rm.id, rm.concepto_id, rm.fecha, rm.fecha_vencimiento, rm.importe, rm.observaciones, rm.pagado
                             FROM registros_mensuales rm
                             INNER JOIN conceptos c ON rm.concepto_id = c.id
                             WHERE rm.mes = :mes AND rm.anio = :anio AND c.permite_multiples = 1
@@ -119,14 +120,22 @@ try {
 
             $saldo = $total_ingresos - $total_gastos;
 
+            // Detectar si el período tiene al menos un registro
+            $stmt_existe = $db->prepare(
+                "SELECT COUNT(*) FROM registros_mensuales WHERE mes = :mes AND anio = :anio"
+            );
+            $stmt_existe->execute(['mes' => $mes, 'anio' => $anio]);
+            $periodo_existe = (int)$stmt_existe->fetchColumn() > 0;
+
             sendResponse(true, [
-                'mes' => $mes,
-                'anio' => $anio,
-                'conceptos' => $conceptos,
-                'resumen' => [
+                'mes'          => $mes,
+                'anio'         => $anio,
+                'periodo_existe' => $periodo_existe,
+                'conceptos'    => $conceptos,
+                'resumen'      => [
                     'total_ingresos' => $total_ingresos,
-                    'total_gastos' => $total_gastos,
-                    'saldo' => $saldo
+                    'total_gastos'   => $total_gastos,
+                    'saldo'          => $saldo
                 ]
             ]);
             break;
@@ -143,6 +152,7 @@ try {
             $anio = (int)$input['anio'];
             $importe = (float)$input['importe'];
             $observaciones = isset($input['observaciones']) ? $input['observaciones'] : null;
+            $fecha_vencimiento = (isset($input['fecha_vencimiento']) && $input['fecha_vencimiento']) ? $input['fecha_vencimiento'] : null;
 
             // Verificar si el concepto permite múltiples entradas
             $stmt = $db->prepare("SELECT permite_multiples FROM conceptos WHERE id = :id");
@@ -156,16 +166,17 @@ try {
             if ($concepto['permite_multiples']) {
                 // Multi-entrada: siempre INSERT con fecha
                 $fecha = isset($input['fecha']) ? $input['fecha'] : date('Y-m-d');
-                $sql = "INSERT INTO registros_mensuales (concepto_id, mes, anio, fecha, importe, observaciones)
-                        VALUES (:concepto_id, :mes, :anio, :fecha, :importe, :observaciones)";
+                $sql = "INSERT INTO registros_mensuales (concepto_id, mes, anio, fecha, fecha_vencimiento, importe, observaciones)
+                        VALUES (:concepto_id, :mes, :anio, :fecha, :fecha_vencimiento, :importe, :observaciones)";
                 $stmt = $db->prepare($sql);
                 $stmt->execute([
-                    'concepto_id' => $concepto_id,
-                    'mes' => $mes,
-                    'anio' => $anio,
-                    'fecha' => $fecha,
-                    'importe' => $importe,
-                    'observaciones' => $observaciones
+                    'concepto_id'      => $concepto_id,
+                    'mes'              => $mes,
+                    'anio'             => $anio,
+                    'fecha'            => $fecha,
+                    'fecha_vencimiento'=> $fecha_vencimiento,
+                    'importe'          => $importe,
+                    'observaciones'    => $observaciones
                 ]);
                 sendResponse(true, ['id' => $db->lastInsertId()], 'Registro creado correctamente');
             } else {
@@ -177,26 +188,26 @@ try {
                 $registro_existente = $stmt->fetch();
 
                 if ($registro_existente) {
-                    $sql = "UPDATE registros_mensuales
-                            SET importe = :importe, observaciones = :observaciones
-                            WHERE id = :id";
-                    $stmt = $db->prepare($sql);
-                    $stmt->execute([
-                        'importe' => $importe,
-                        'observaciones' => $observaciones,
-                        'id' => $registro_existente['id']
-                    ]);
+                    $sets   = ['importe = :importe', 'observaciones = :observaciones'];
+                    $params = ['importe' => $importe, 'observaciones' => $observaciones, 'id' => $registro_existente['id']];
+                    if (array_key_exists('fecha_vencimiento', $input)) {
+                        $sets[]                    = 'fecha_vencimiento = :fecha_vencimiento';
+                        $params['fecha_vencimiento'] = $fecha_vencimiento;
+                    }
+                    $stmt = $db->prepare("UPDATE registros_mensuales SET " . implode(', ', $sets) . " WHERE id = :id");
+                    $stmt->execute($params);
                     sendResponse(true, ['id' => $registro_existente['id']], 'Registro actualizado correctamente');
                 } else {
-                    $sql = "INSERT INTO registros_mensuales (concepto_id, mes, anio, importe, observaciones)
-                            VALUES (:concepto_id, :mes, :anio, :importe, :observaciones)";
+                    $sql = "INSERT INTO registros_mensuales (concepto_id, mes, anio, importe, observaciones, fecha_vencimiento)
+                            VALUES (:concepto_id, :mes, :anio, :importe, :observaciones, :fecha_vencimiento)";
                     $stmt = $db->prepare($sql);
                     $stmt->execute([
-                        'concepto_id' => $concepto_id,
-                        'mes' => $mes,
-                        'anio' => $anio,
-                        'importe' => $importe,
-                        'observaciones' => $observaciones
+                        'concepto_id'       => $concepto_id,
+                        'mes'               => $mes,
+                        'anio'              => $anio,
+                        'importe'           => $importe,
+                        'observaciones'     => $observaciones,
+                        'fecha_vencimiento' => $fecha_vencimiento
                     ]);
                     sendResponse(true, ['id' => $db->lastInsertId()], 'Registro creado correctamente');
                 }
@@ -219,6 +230,46 @@ try {
             sendResponse(true, null, 'Registro eliminado correctamente');
             break;
 
+        case 'PUT':
+            $input = json_decode(file_get_contents('php://input'), true);
+
+            if (($input['action'] ?? '') !== 'copiar_periodo') {
+                sendResponse(false, null, 'Acción no reconocida', 400);
+            }
+
+            $from_mes  = (int)$input['from_mes'];
+            $from_anio = (int)$input['from_anio'];
+            $to_mes    = (int)$input['to_mes'];
+            $to_anio   = (int)$input['to_anio'];
+
+            // Copia registros de entrada única del período origen al destino
+            // Omite conceptos que ya tengan registro en el período destino
+            $sql_copy = "INSERT INTO registros_mensuales (concepto_id, mes, anio, importe)
+                         SELECT rm.concepto_id, :to_mes, :to_anio, rm.importe
+                         FROM registros_mensuales rm
+                         INNER JOIN conceptos c ON rm.concepto_id = c.id AND c.activo = 1
+                         WHERE rm.mes = :from_mes AND rm.anio = :from_anio
+                           AND c.permite_multiples = 0
+                           AND NOT EXISTS (
+                               SELECT 1 FROM registros_mensuales rm2
+                               WHERE rm2.concepto_id = rm.concepto_id
+                                 AND rm2.mes = :to_mes2 AND rm2.anio = :to_anio2
+                           )";
+            $stmt_copy = $db->prepare($sql_copy);
+            $stmt_copy->execute([
+                'to_mes'    => $to_mes,
+                'to_anio'   => $to_anio,
+                'from_mes'  => $from_mes,
+                'from_anio' => $from_anio,
+                'to_mes2'   => $to_mes,
+                'to_anio2'  => $to_anio,
+            ]);
+
+            $copiados = $stmt_copy->rowCount();
+            sendResponse(true, ['copiados' => $copiados],
+                "Se copiaron {$copiados} registros desde {$from_mes}/{$from_anio}");
+            break;
+
         case 'PATCH':
             $input = json_decode(file_get_contents('php://input'), true);
 
@@ -227,14 +278,29 @@ try {
             }
 
             $registro_id = (int)$input['registro_id'];
-            $pagado      = isset($input['pagado']) ? ($input['pagado'] ? 1 : 0) : 0;
 
-            $stmt = $db->prepare(
-                "UPDATE registros_mensuales SET pagado = :pagado WHERE id = :id"
-            );
-            $stmt->execute(['pagado' => $pagado, 'id' => $registro_id]);
+            $sets   = [];
+            $params = ['id' => $registro_id];
 
-            sendResponse(true, null, $pagado ? 'Marcado como pagado' : 'Marcado como no pagado');
+            if (array_key_exists('pagado', $input)) {
+                $sets[]          = 'pagado = :pagado';
+                $params['pagado'] = $input['pagado'] ? 1 : 0;
+            }
+            if (array_key_exists('fecha_vencimiento', $input)) {
+                $sets[]                    = 'fecha_vencimiento = :fecha_vencimiento';
+                $params['fecha_vencimiento'] = ($input['fecha_vencimiento'] !== '' && $input['fecha_vencimiento'] !== null)
+                    ? $input['fecha_vencimiento'] : null;
+            }
+
+            if (empty($sets)) sendResponse(false, null, 'Nada que actualizar', 400);
+
+            $stmt = $db->prepare("UPDATE registros_mensuales SET " . implode(', ', $sets) . " WHERE id = :id");
+            $stmt->execute($params);
+
+            $msg = isset($params['pagado'])
+                ? ($params['pagado'] ? 'Marcado como pagado' : 'Marcado como no pagado')
+                : 'Vencimiento actualizado';
+            sendResponse(true, null, $msg);
             break;
 
         default:

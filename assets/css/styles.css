@@ -965,6 +965,67 @@ table.dataTable > tbody > tr > td {
     color: var(--color-success);
 }
 
+/* Fila vencida: fondo rojo muy sutil */
+table.dataTable > tbody > tr.tr-vencido > td {
+    background-color: rgba(220, 38, 38, 0.08) !important;
+}
+
+[data-bs-theme="dark"] table.dataTable > tbody > tr.tr-vencido > td {
+    background-color: rgba(220, 38, 38, 0.13) !important;
+}
+
+/* Fila vencida en detalle múltiple */
+.detalle-tabla tr.tr-vencido td {
+    background-color: rgba(220, 38, 38, 0.08) !important;
+}
+
+[data-bs-theme="dark"] .detalle-tabla tr.tr-vencido td {
+    background-color: rgba(220, 38, 38, 0.13) !important;
+}
+
+/* Input fecha de vencimiento — inline en la celda concepto */
+.vencimiento-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 3px;
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
+.input-vencimiento {
+    border: none;
+    background: transparent;
+    font-size: 0.72rem;
+    padding: 0;
+    color: inherit;
+    cursor: pointer;
+    width: auto;
+    outline: none;
+    color-scheme: light;
+}
+
+[data-bs-theme="dark"] .input-vencimiento {
+    color-scheme: dark;
+}
+
+.input-vencimiento:hover {
+    text-decoration: underline;
+}
+
+/* Input vencimiento en detalle múltiple */
+.input-vencimiento-detalle {
+    font-size: 0.72rem;
+    padding: 0.1rem 0.25rem;
+    height: auto;
+    width: 115px;
+    color-scheme: light;
+}
+
+[data-bs-theme="dark"] .input-vencimiento-detalle {
+    color-scheme: dark;
+}
+
 /* Fila pagada: fondo verde muy sutil + nombre con tachado fino */
 table.dataTable > tbody > tr.tr-pagado > td {
     background-color: rgba(22, 163, 74, 0.05) !important;

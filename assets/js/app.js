@@ -261,6 +261,10 @@ function renderizarDatos() {
         iconSaldo.classList.add('bi-wallet2', 'text-primary');
     }
 
+    // Destruir DataTables ANTES de limpiar tbody (evita reinicio sucio)
+    if (app.dtIngresos) { app.dtIngresos.destroy(); app.dtIngresos = null; }
+    if (app.dtGastos)   { app.dtGastos.destroy();   app.dtGastos = null; }
+
     // Separar ingresos y gastos
     const ingresos = app.datos.conceptos.filter(c => c.tipo === 'ingreso');
     const gastos = app.datos.conceptos.filter(c => c.tipo === 'gasto');
@@ -286,12 +290,81 @@ function renderizarDatos() {
         `${obtenerNombreMes(app.mesActual)} ${app.anioActual}`;
 
     inicializarDataTables();
+    mostrarBannerPeriodo();
+}
+
+function mostrarBannerPeriodo() {
+    // Limpiar banner anterior si existía
+    document.getElementById('bannerPeriodo')?.remove();
+
+    if (app.datos.periodo_existe) return;
+
+    // Mes anterior (maneja enero → diciembre del año anterior)
+    let prevMes = app.mesActual - 1;
+    let prevAnio = app.anioActual;
+    if (prevMes < 1) { prevMes = 12; prevAnio--; }
+
+    const nombreActual = `${obtenerNombreMes(app.mesActual)} ${app.anioActual}`;
+    const nombrePrev   = `${obtenerNombreMes(prevMes)} ${prevAnio}`;
+
+    const banner = document.createElement('div');
+    banner.id = 'bannerPeriodo';
+    banner.className = 'alert alert-info d-flex align-items-center gap-3 mb-4';
+    banner.innerHTML = `
+        <i class="bi bi-calendar-plus flex-shrink-0 fs-5"></i>
+        <div class="flex-grow-1">
+            <strong>No hay datos para ${nombreActual}.</strong>
+            Podés empezar en blanco o copiar los importes del mes anterior.
+        </div>
+        <div class="d-flex gap-2 flex-shrink-0">
+            <button class="btn btn-outline-secondary btn-sm" onclick="this.closest('#bannerPeriodo').remove()">
+                <i class="bi bi-pencil me-1"></i>Empezar en blanco
+            </button>
+            <button class="btn btn-info btn-sm text-white" onclick="copiarPeriodoAnterior(${prevMes}, ${prevAnio})">
+                <i class="bi bi-copy me-1"></i>Copiar de ${nombrePrev}
+            </button>
+        </div>
+    `;
+
+    // Insertar debajo del alertContainer
+    const ref = document.getElementById('alertContainer');
+    ref.parentNode.insertBefore(banner, ref.nextSibling);
+}
+
+async function copiarPeriodoAnterior(fromMes, fromAnio) {
+    const nombreFrom   = `${obtenerNombreMes(fromMes)} ${fromAnio}`;
+    const nombreTo     = `${obtenerNombreMes(app.mesActual)} ${app.anioActual}`;
+
+    if (!confirm(
+        `¿Copiar los importes de ${nombreFrom} a ${nombreTo}?\n\n` +
+        `Solo se copian conceptos de entrada única. Podés editar los valores después.`
+    )) return;
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'copiar_periodo',
+                from_mes:  fromMes,
+                from_anio: fromAnio,
+                to_mes:    app.mesActual,
+                to_anio:   app.anioActual
+            })
+        });
+        const result = await response.json();
+        if (result.success) {
+            mostrarToast(`Copiados ${result.data.copiados} registros desde ${nombreFrom}`, 'success');
+            await cargarDatos();
+        } else {
+            mostrarError('Error al copiar: ' + result.message);
+        }
+    } catch (error) {
+        mostrarError('Error de conexión: ' + error.message);
+    }
 }
 
 function inicializarDataTables() {
-    if (app.dtIngresos) { app.dtIngresos.destroy(); app.dtIngresos = null; }
-    if (app.dtGastos)   { app.dtGastos.destroy();   app.dtGastos = null; }
-
     const opciones = {
         paging:   false,
         info:     false,
@@ -362,8 +435,14 @@ function crearFilaSimple(concepto, tipo) {
     const divNombre = document.createElement('div');
     divNombre.className = 'concepto-nombre';
 
-    // Botón pagado — solo gastos con registro existente
-    if (tipo === 'gasto' && concepto.registro_id) {
+    // Fila vencida: rojo si hay vencimiento, ya pasó y no está pagado
+    const hoy = new Date().toISOString().split('T')[0];
+    if (concepto.fecha_vencimiento && concepto.fecha_vencimiento < hoy && concepto.pagado !== 1) {
+        tr.classList.add('tr-vencido');
+    }
+
+    // Botón pagado — todos los gastos (si no hay registro se crea con importe 0 al hacer click)
+    if (tipo === 'gasto') {
         const isPaid = concepto.pagado === 1;
         const btnPagado = document.createElement('button');
         btnPagado.className = `btn-pagado${isPaid ? ' pagado' : ''}`;
@@ -371,7 +450,7 @@ function crearFilaSimple(concepto, tipo) {
         btnPagado.innerHTML = `<i class="bi ${isPaid ? 'bi-check-circle-fill' : 'bi-circle'}"></i>`;
         btnPagado.addEventListener('click', (e) => {
             e.stopPropagation();
-            togglePagado(concepto.registro_id, btnPagado, tr);
+            togglePagado(concepto.registro_id, btnPagado, tr, concepto.id);
         });
         divNombre.appendChild(btnPagado);
         if (isPaid) tr.classList.add('tr-pagado');
@@ -383,6 +462,29 @@ function crearFilaSimple(concepto, tipo) {
     icon.style.color = iconData.color;
     divNombre.appendChild(icon);
     divNombre.appendChild(document.createTextNode(concepto.nombre));
+
+    // Input fecha de vencimiento — siempre visible
+    const wrapVenc = document.createElement('div');
+    wrapVenc.className = 'vencimiento-wrap';
+    const icoVenc = document.createElement('i');
+    icoVenc.className = 'bi bi-calendar-x';
+    const inputVenc = document.createElement('input');
+    inputVenc.type  = 'date';
+    inputVenc.className = 'input-vencimiento';
+    inputVenc.title = 'Fecha de vencimiento';
+    inputVenc.value = concepto.fecha_vencimiento ? concepto.fecha_vencimiento.split('T')[0] : '';
+    inputVenc.addEventListener('click', e => e.stopPropagation());
+    inputVenc.addEventListener('change', () => {
+        if (concepto.registro_id) {
+            // Ya tiene registro: PATCH directo
+            guardarVencimiento(concepto.registro_id, inputVenc.value, tr);
+        }
+        // Sin registro aún: se incluirá en el POST cuando se guarde el importe
+    });
+    wrapVenc.appendChild(icoVenc);
+    wrapVenc.appendChild(inputVenc);
+    divNombre.appendChild(wrapVenc);
+
     tdNombre.appendChild(divNombre);
     tr.appendChild(tdNombre);
 
@@ -618,8 +720,22 @@ function crearFilaRegistroDetalle(reg, conceptoId) {
     const isPaid = reg.pagado === 1;
     if (isPaid) tr.classList.add('tr-pagado');
 
+    const hoy = new Date().toISOString().split('T')[0];
+    if (reg.fecha_vencimiento && reg.fecha_vencimiento.split('T')[0] < hoy && !isPaid) {
+        tr.classList.add('tr-vencido');
+    }
+
+    const fechaVenc = reg.fecha_vencimiento ? reg.fecha_vencimiento.split('T')[0] : '';
+
     tr.innerHTML = `
-        <td class="ps-4 text-muted" style="width:110px">${formatearFecha(reg.fecha)}</td>
+        <td class="ps-4 text-muted" style="width:110px">
+            ${formatearFecha(reg.fecha)}
+            <div style="margin-top:2px">
+                <input type="date" class="form-control form-control-sm input-vencimiento-detalle"
+                    value="${fechaVenc}" title="Vencimiento"
+                    onchange="guardarVencimiento(${reg.id}, this.value, this.closest('tr'))">
+            </div>
+        </td>
         <td class="text-end fw-medium">${formatearMoneda(reg.importe)}</td>
         <td class="text-muted fst-italic">${reg.observaciones || ''}</td>
         <td class="text-end pe-3" style="width:80px">
@@ -650,6 +766,8 @@ function crearFilaFormNuevoRegistro(conceptoId) {
         <td class="ps-3" style="width:140px">
             <input type="date" class="form-control form-control-sm"
                 id="fecha-nuevo-${conceptoId}" value="${hoy}">
+            <input type="date" class="form-control form-control-sm input-vencimiento-detalle mt-1"
+                id="vence-nuevo-${conceptoId}" title="Vencimiento (opcional)">
         </td>
         <td>
             <input type="number" step="0.01" min="0" class="form-control form-control-sm text-end"
@@ -703,6 +821,7 @@ async function agregarRegistroMultiple(conceptoId) {
     const fecha = document.getElementById(`fecha-nuevo-${conceptoId}`).value;
     const importeVal = document.getElementById(`importe-nuevo-${conceptoId}`).value;
     const observaciones = document.getElementById(`obs-nuevo-${conceptoId}`).value.trim();
+    const fechaVencimiento = document.getElementById(`vence-nuevo-${conceptoId}`)?.value || null;
 
     const importe = parseFloat(importeVal) || 0;
 
@@ -724,6 +843,7 @@ async function agregarRegistroMultiple(conceptoId) {
                 mes: app.mesActual,
                 anio: app.anioActual,
                 fecha,
+                fecha_vencimiento: fechaVencimiento || null,
                 importe,
                 observaciones: observaciones || null
             })
@@ -1042,6 +1162,10 @@ async function guardarImporte(conceptoId, importe, registroId, inputElement) {
         inputElement.classList.remove('unsaved');
     }
 
+    // Leer fecha de vencimiento del mismo row (si el usuario la completó)
+    const trRow = inputElement?.closest('tr');
+    const fechaVencimiento = trRow?.querySelector('.input-vencimiento')?.value || null;
+
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -1050,7 +1174,8 @@ async function guardarImporte(conceptoId, importe, registroId, inputElement) {
                 concepto_id: conceptoId,
                 mes: app.mesActual,
                 anio: app.anioActual,
-                importe: importeNumerico
+                importe: importeNumerico,
+                ...(fechaVencimiento ? { fecha_vencimiento: fechaVencimiento } : {})
             })
         });
 
@@ -1079,12 +1204,48 @@ async function guardarImporte(conceptoId, importe, registroId, inputElement) {
     }
 }
 
+// Guardar fecha de vencimiento de un registro
+async function guardarVencimiento(registroId, fecha, trElement) {
+    try {
+        const response = await fetch(API_URL, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ registro_id: registroId, fecha_vencimiento: fecha || null })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+
+        const hoy = new Date().toISOString().split('T')[0];
+        if (trElement) {
+            const isPaid = trElement.classList.contains('tr-pagado');
+            const vencido = fecha && fecha < hoy && !isPaid;
+            trElement.classList.toggle('tr-vencido', vencido);
+        }
+    } catch (error) {
+        mostrarError('Error al guardar vencimiento: ' + error.message);
+    }
+}
+
 // Toggle estado pagado de un registro
-async function togglePagado(registroId, btnElement, trElement) {
-    const isPaid    = btnElement.classList.contains('pagado');
-    const newPagado = isPaid ? 0 : 1;
+async function togglePagado(registroId, btnElement, trElement, conceptoId = null) {
+    const isPaid       = btnElement.classList.contains('pagado');
+    const newPagado    = isPaid ? 0 : 1;
+    let registroCreado = false;
 
     try {
+        // Si no hay registro todavía, crear uno con importe 0 antes de patchear
+        if (!registroId && conceptoId && newPagado === 1) {
+            const respCrear = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ concepto_id: conceptoId, mes: app.mesActual, anio: app.anioActual, importe: 0 })
+            });
+            const resCrear = await respCrear.json();
+            if (!resCrear.success) throw new Error(resCrear.message);
+            registroId     = resCrear.data.id;
+            registroCreado = true;
+        }
+
         const response = await fetch(API_URL, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -1097,7 +1258,12 @@ async function togglePagado(registroId, btnElement, trElement) {
         btnElement.classList.toggle('pagado', paid);
         btnElement.querySelector('i').className = paid ? 'bi bi-check-circle-fill' : 'bi bi-circle';
         btnElement.title = paid ? 'Marcar como no pagado' : 'Marcar como pagado';
-        if (trElement) trElement.classList.toggle('tr-pagado', paid);
+        if (trElement) {
+            trElement.classList.toggle('tr-pagado', paid);
+            if (paid) trElement.classList.remove('tr-vencido'); // pagado → no mostrar rojo
+        }
+        // Recargar para que el botón tenga el registro_id correcto en su closure
+        if (registroCreado) await cargarDatos();
     } catch (error) {
         mostrarError('Error al actualizar: ' + error.message);
     }
