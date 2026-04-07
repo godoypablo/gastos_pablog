@@ -14,6 +14,10 @@ require_auth_or_redirect();
         if (t) document.documentElement.setAttribute('data-bs-theme', t);
     </script>
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg">
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
+
     <!-- PWA: Manifest + tema -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1F2A37">
@@ -76,7 +80,7 @@ require_auth_or_redirect();
         <div class="card shadow-sm mb-4">
             <div class="card-body">
                 <div class="row g-3 align-items-end">
-                    <div class="col-md-4">
+                    <div class="col">
                         <label for="selectMes" class="form-label">
                             <i class="bi bi-calendar-month me-1"></i>
                             Mes
@@ -97,7 +101,7 @@ require_auth_or_redirect();
                         </select>
                     </div>
 
-                    <div class="col-md-4">
+                    <div class="col">
                         <label for="selectAnio" class="form-label">
                             <i class="bi bi-calendar-event me-1"></i>
                             Año
@@ -107,10 +111,9 @@ require_auth_or_redirect();
                         </select>
                     </div>
 
-                    <div class="col-md-4">
-                        <button id="btnCargar" class="btn btn-primary w-100">
-                            <i class="bi bi-arrow-clockwise me-2"></i>
-                            Cargar
+                    <div class="col-auto">
+                        <button id="btnCargar" class="btn btn-outline-secondary" title="Recargar">
+                            <i class="bi bi-arrow-clockwise"></i>
                         </button>
                     </div>
                 </div>
@@ -170,12 +173,19 @@ require_auth_or_redirect();
                         <!-- Saldo -->
                         <div class="col-md-4">
                             <div class="card border-primary h-100" id="cardSaldo">
-                                <div class="card-body text-center">
+                                <div class="card-body text-center d-flex flex-column justify-content-center">
                                     <div class="d-flex align-items-center justify-content-center mb-2">
                                         <i class="bi bi-wallet2 fs-3 me-2" id="iconSaldo"></i>
                                         <small class="text-uppercase fw-bold text-muted">Saldo</small>
                                     </div>
-                                    <h3 class="h2 mb-0" id="saldo">$0,00</h3>
+                                    <div class="d-flex justify-content-between align-items-baseline mb-1">
+                                        <small class="text-muted">Disponible</small>
+                                        <span class="fw-bold fs-5" id="saldoDisponible">$0,00</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-baseline">
+                                        <small class="text-muted">Al cerrar</small>
+                                        <span class="text-muted" id="saldo">$0,00</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -241,11 +251,11 @@ require_auth_or_redirect();
     <div class="modal fade" id="modalConceptos" tabindex="-1" aria-labelledby="modalConceptosLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+                <div class="modal-header">
                     <h5 class="modal-title" id="modalConceptosLabel">
                         <i class="bi bi-list-ul me-2"></i>Administrar Conceptos
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
 

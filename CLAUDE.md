@@ -1,42 +1,26 @@
-# CLAUDE.md — Cifra (finanzas personales, single-user, sin auth)
+# Cifra — finanzas personales, single-user
 
-## Repo
-github.com/godoypablo/gastos_pablog.git
+## Stack
+PHP+MySQL | Bootstrap5 | DataTables | PWA | php -S localhost:8000
+DB: gastos_personales — config/database.php
 
-## Setup
-mysql -u root -p < scripts/schema.sql
-mysql -u root -p gastos_personales < scripts/migration_permite_multiples.sql
-mysql -u root -p gastos_personales < scripts/migration_categorias.sql
-php scripts/generate_icons.php
-php -S localhost:8000
-DB config: config/database.php (DB_HOST, DB_NAME, DB_USER, DB_PASS)
+## DB
+conceptos: tipo ingreso|gasto, activo(soft-del), permite_multiples, categoria_id(FK nullable)
+registros_mensuales: importe, mes, anio, fecha, pagado, fecha_vencimiento — sin UNIQUE
+categorias: nombre, color(hex), icono(BS class), orden, activo
 
-## APIs
-gastos_api.php     GET ?mes&anio | POST {concepto_id,mes,anio,importe,obs?,fecha?} | DELETE {registro_id}
-conceptos_api.php  GET | POST {nombre,tipo,orden?,permite_multiples?,categoria_id?} | PUT {id,...} | DELETE {id}
-categorias_api.php GET | POST {nombre,color,icono?,orden?} | PUT {id,...} | DELETE {id}
+## APIs (api/)
+gastos_api.php     GET ?mes&anio | POST | PATCH {registro_id,pagado|fecha_vencimiento} | DELETE
+conceptos_api.php  GET | POST | PUT | DELETE
+categorias_api.php GET | POST | PUT | DELETE
 
-## DB (gastos_personales)
-conceptos           tipo:ingreso|gasto, activo(soft-del), permite_multiples, categoria_id(FK nullable)
-registros_mensuales monthly amounts, fecha col, sin UNIQUE (soporta múltiples)
-categorias          nombre, color(hex), icono(BS class), orden, activo
-vista_resumen_mensual view totals
+## Resumen (tarjeta Saldo)
+total_ingresos, total_gastos, gastos_pagados, saldo_disponible(=ingresos-pagados), saldo(=ingresos-total)
 
-## Frontend (assets/js/app.js)
+## Frontend
 Estado: mesActual, anioActual, datos, guardandoCambios, dtIngresos, dtGastos, categorias[]
-DataTables: ordering:false; drawCallback inyecta <tr.categoria-header> leyendo data-categoria-*
-Sugerencias (.btn-smvm): SMVM←dtos.gob.ar | Elena←hardcoded | Spotify←hardcoded | YouTube←USD×dolarapi.com
-
-## PWA
-manifest: theme #1F2A37, standalone
-sw.js: cache-first local, network-only /api/, best-effort CDN
-iOS: manual "Add to Home Screen"
-
-## Comportamientos clave
-- No guarda si importe===0 && !registroId
-- guardandoCambios previene saves concurrentes
-- Input: neutral→rojo(unsaved)→pulso(saving)→verde 2s(saved)
-- Año: -5/+2 desde año actual
-- Dark mode: localStorage('cifra-theme'), aplicado en <head>
-- Mobile: font 0.875rem en inputs; flex-direction:column-reverse en col importe
-- CORS: abierto (*)
+DataTables: ordering:false; drawCallback inyecta <tr.categoria-header>
+Sugerencias: SMVM←dtos.gob.ar | Elena←hardcoded | Spotify←hardcoded | YouTube←USD×dolarapi.com
+Input: neutral→rojo→pulso→verde 2s | guardandoCambios previene saves concurrentes
+Dark mode: localStorage('cifra-theme') | sw.js: cache-first local, network-only /api/
+Mobile: vencimiento oculto en grilla principal (no desplaza col importe)

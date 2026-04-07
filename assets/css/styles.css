@@ -171,6 +171,12 @@ h1, h2, h3, h4, h5, h6,
     border-bottom: 1px solid rgba(0, 0, 0, 0.07);
 }
 
+/* Headers de sección Ingresos/Gastos: texto en tono oscuro de la paleta */
+.card-header.bg-success.bg-opacity-10 .text-success { color: var(--color-success-dark) !important; }
+.card-header.bg-danger.bg-opacity-10  .text-danger  { color: var(--color-danger-dark)  !important; }
+.card-header.bg-success.bg-opacity-10 { border-bottom-color: rgba(21, 128, 61, 0.25) !important; }
+.card-header.bg-danger.bg-opacity-10  { border-bottom-color: rgba(185, 28, 28, 0.25) !important; }
+
 /* Cards de resumen */
 .card.border-success { border-width: 2px; border-color: var(--color-success) !important; }
 .card.border-danger  { border-width: 2px; border-color: var(--color-danger)  !important; }
@@ -191,17 +197,19 @@ h1, h2, h3, h4, h5, h6,
 .bg-success { background-color: var(--color-success)  !important; }
 .bg-danger  { background-color: var(--color-danger)   !important; }
 
-.bg-success.bg-opacity-10 { background-color: rgba(39, 174, 96,  0.08) !important; }
-.bg-danger.bg-opacity-10  { background-color: rgba(235, 87, 87,  0.08) !important; }
+.bg-success.bg-opacity-10 { background-color: #EDF7F1 !important; }
+.bg-danger.bg-opacity-10  { background-color: #FDF2F2 !important; }
 
 .border-success { border-color: var(--color-success) !important; }
 .border-danger  { border-color: var(--color-danger)  !important; }
 .border-primary { border-color: var(--color-primary) !important; }
 
-/* ==================== SALDO NEGATIVO ==================== */
+/* ==================== SALDO ==================== */
+#saldoDisponible { color: var(--color-primary); }
+
 #cardSaldo.negativo { border-color: var(--color-danger-dark) !important; }
-#cardSaldo.negativo #saldo    { color: var(--color-danger-dark) !important; }
-#cardSaldo.negativo #iconSaldo{ color: var(--color-danger-dark) !important; }
+#cardSaldo.negativo #saldoDisponible { color: var(--color-danger-dark) !important; }
+#cardSaldo.negativo #iconSaldo       { color: var(--color-danger-dark) !important; }
 
 /* ==================== TABLAS ==================== */
 .table-responsive {
@@ -288,10 +296,10 @@ table.dataTable > tbody > tr.parent + tr.child td {
     border: 1.5px solid var(--color-gray-light);
     border-radius: 0.375rem;
     padding: 0.45rem 0.75rem;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-family: 'Inter', sans-serif;
     text-align: right;
-    font-weight: 500;
+    font-weight: 400;
     transition: all 0.2s;
     width: 100%;
     max-width: 200px;
@@ -360,7 +368,8 @@ table.dataTable > tbody > tr.parent + tr.child td {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-weight: 500;
+    font-weight: 400;
+    font-size: 0.9rem;
     color: var(--color-gray-dark);
 }
 
@@ -458,6 +467,20 @@ table.dataTable > tbody > tr.parent + tr.child td {
 .toast .btn-close-white {
     filter: brightness(0) invert(1);
 }
+
+/* ==================== DRAG & DROP CATEGORÍAS ==================== */
+
+.cat-drag-handle {
+    cursor: grab;
+    color: var(--color-gray);
+    opacity: 0.5;
+}
+.cat-drag-handle:hover { opacity: 1; }
+
+.cat-dragging { opacity: 0.4; }
+
+.cat-drag-over-top    { box-shadow: inset 0 2px 0 0 var(--color-primary); }
+.cat-drag-over-bottom { box-shadow: inset 0 -2px 0 0 var(--color-primary); }
 
 /* ==================== DARK MODE ==================== */
 
@@ -632,8 +655,8 @@ table.dataTable > tbody > tr.parent + tr.child td {
 [data-bs-theme="dark"] .card.border-danger  { border-color: #F87171 !important; }
 [data-bs-theme="dark"] .card.border-primary { border-color: #3B82F6 !important; }
 
-[data-bs-theme="dark"] .bg-success.bg-opacity-10 { background-color: rgba(34, 197, 94, 0.08) !important; }
-[data-bs-theme="dark"] .bg-danger.bg-opacity-10  { background-color: rgba(248, 113, 113, 0.08) !important; }
+[data-bs-theme="dark"] .bg-success.bg-opacity-10 { background-color: rgba(22, 163, 74, 0.14) !important; }
+[data-bs-theme="dark"] .bg-danger.bg-opacity-10  { background-color: rgba(220, 38, 38, 0.14) !important; }
 
 [data-bs-theme="dark"] .concepto-nombre { color: #F1F5F9; }
 
@@ -791,6 +814,11 @@ table.dataTable > tbody > tr > td {
         font-size: var(--fs-small);
     }
 
+    /* Ocultar selector de vencimiento en grilla principal — evita desplazar columna importe */
+    .concepto-nombre .vencimiento-wrap {
+        display: none;
+    }
+
     .concepto-icon { font-size: 0.9rem; }
 
     /* Cards de resumen: más compactas */
@@ -823,13 +851,25 @@ table.dataTable > tbody > tr > td {
 }
 
 /* ==================== CATEGORÍAS ==================== */
+.categoria-header {
+    cursor: pointer;
+    user-select: none;
+}
+.categoria-header:hover td {
+    background-color: #D8DDE6 !important;
+}
+[data-bs-theme="dark"] .categoria-header:hover td {
+    background-color: #253347 !important;
+}
+
 .categoria-header td {
-    padding: 0.3rem 1rem 0.15rem !important;
+    padding: 0.45rem 1rem !important;
     border-bottom: none !important;
     border-top: none !important;
-    background-color: transparent !important;
-    pointer-events: none;
+    background-color: #E9EDF2 !important;
 }
+
+.cat-fila-colapsada { display: none !important; }
 
 .categoria-header-inner {
     display: flex;
@@ -853,6 +893,14 @@ table.dataTable > tbody > tr > td {
     font-family: 'Montserrat', sans-serif;
 }
 
+.categoria-header-total {
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-family: 'Montserrat', sans-serif;
+    color: var(--color-gray);
+    padding-right: 0.25rem;
+}
+
 /* Input color en el formulario de categoría */
 .form-control-color {
     padding: 0.25rem;
@@ -861,7 +909,7 @@ table.dataTable > tbody > tr > td {
 
 /* Dark mode: header de categoría */
 [data-bs-theme="dark"] .categoria-header td {
-    background-color: transparent !important;
+    background-color: #1E293B !important;
 }
 
 /* ==================== LISTA DE CONCEPTOS (modal ABM) ==================== */
@@ -989,6 +1037,7 @@ table.dataTable > tbody > tr.tr-vencido > td {
     align-items: center;
     gap: 4px;
     margin-top: 3px;
+    margin-left: 1rem;
     font-size: 0.72rem;
     color: var(--bs-secondary-color);
 }

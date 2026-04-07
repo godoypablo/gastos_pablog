@@ -23,7 +23,8 @@ const app = {
     guardandoCambios: false,
     dtIngresos: null,
     dtGastos: null,
-    categorias: []
+    categorias: [],
+    categoriasColapsadas: new Set()
 };
 
 // Inicializar aplicación
@@ -32,6 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
     cargarDatos();
     sincronizarIconDarkMode();
     document.getElementById('btnCargar').addEventListener('click', cargarDatos);
+    document.getElementById('selectMes').addEventListener('change', cargarDatos);
+    document.getElementById('selectAnio').addEventListener('change', cargarDatos);
 
     // iOS: no dispara beforeinstallprompt → banner propio
     const isIOS        = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -242,13 +245,16 @@ function renderizarDatos() {
     // Actualizar resumen
     document.getElementById('totalIngresos').textContent = formatearMoneda(app.datos.resumen.total_ingresos);
     document.getElementById('totalGastos').textContent = formatearMoneda(app.datos.resumen.total_gastos);
+    const elDisponible = document.getElementById('saldoDisponible');
+    if (elDisponible) elDisponible.textContent = formatearMoneda(app.datos.resumen.saldo_disponible);
     document.getElementById('saldo').textContent = formatearMoneda(app.datos.resumen.saldo);
 
-    // Cambiar estilo del saldo según si es positivo o negativo
+    // Color del saldo según disponible (ingresos - gastos pagados)
     const cardSaldo = document.getElementById('cardSaldo');
     const iconSaldo = document.getElementById('iconSaldo');
+    const disponible = app.datos.resumen.saldo_disponible;
 
-    if (app.datos.resumen.saldo < 0) {
+    if (disponible < 0) {
         cardSaldo.classList.add('negativo');
         cardSaldo.classList.remove('border-primary');
         cardSaldo.classList.add('border-warning');
@@ -287,7 +293,7 @@ function renderizarDatos() {
 
     // Actualizar título del mes
     document.getElementById('mesAnioActual').textContent =
-        `${obtenerNombreMes(app.mesActual)} ${app.anioActual}`;
+        `${String(app.mesActual).padStart(2, '0')}/${app.anioActual}`;
 
     inicializarDataTables();
     mostrarBannerPeriodo();
@@ -383,6 +389,16 @@ function inicializarDataTables() {
 
 // Inyectar filas de cabecera de categoría en el tbody después de cada draw de DataTables
 function inyectarCabecerasCategorias(api) {
+    // Calcular totales por categoría desde los datos en memoria
+    const totalesPorCat = {};
+    if (app.datos && app.datos.conceptos) {
+        app.datos.conceptos.forEach(c => {
+            if (c.categoria_id) {
+                totalesPorCat[c.categoria_id] = (totalesPorCat[c.categoria_id] || 0) + parseFloat(c.importe || 0);
+            }
+        });
+    }
+
     let lastCatId = null;
     api.rows().every(function() {
         const tr = this.node();
@@ -396,17 +412,70 @@ function inyectarCabecerasCategorias(api) {
         if (!catId || catId === lastCatId) return;
         lastCatId = catId;
 
+        const colapsada = app.categoriasColapsadas.has(catId);
+        const total     = totalesPorCat[catId] || 0;
+
         const headerTr = document.createElement('tr');
         headerTr.className = 'categoria-header';
+        headerTr.dataset.catToggleId = catId;
         const td = document.createElement('td');
         td.colSpan = 2;
         td.innerHTML = `<div class="categoria-header-inner">
+            <i class="bi ${colapsada ? 'bi-chevron-right' : 'bi-chevron-down'} categoria-toggle-chevron" style="color:${color}; font-size:0.65rem;"></i>
             <span class="categoria-dot" style="background:${color}"></span>
             ${icono ? `<i class="bi ${icono}" style="color:${color}; font-size:0.78rem;"></i>` : ''}
             <span class="categoria-header-label" style="color:${color}">${nombre}</span>
+            <span class="categoria-header-total ms-auto">${formatearMoneda(total)}</span>
         </div>`;
         headerTr.appendChild(td);
+        headerTr.addEventListener('click', () => toggleCategoria(catId));
         tr.parentNode.insertBefore(headerTr, tr);
+    });
+
+    // Reaplicar estado colapsado a las filas de concepto
+    api.rows().every(function() {
+        const tr = this.node();
+        if (!tr || tr.classList.contains('categoria-header')) return;
+        const catId = tr.dataset.categoriaId || '';
+        if (catId && app.categoriasColapsadas.has(catId)) {
+            tr.classList.add('cat-fila-colapsada');
+        } else {
+            tr.classList.remove('cat-fila-colapsada');
+        }
+    });
+}
+
+function toggleCategoria(catId) {
+    const colapsada = app.categoriasColapsadas.has(catId);
+    if (colapsada) {
+        app.categoriasColapsadas.delete(catId);
+    } else {
+        app.categoriasColapsadas.add(catId);
+    }
+    const ahoraColapsada = !colapsada;
+
+    // Actualizar ícono del encabezado
+    const headerTr = document.querySelector(`[data-cat-toggle-id="${catId}"]`);
+    if (headerTr) {
+        const chevron = headerTr.querySelector('.categoria-toggle-chevron');
+        if (chevron) chevron.className = `bi ${ahoraColapsada ? 'bi-chevron-right' : 'bi-chevron-down'} categoria-toggle-chevron`;
+    }
+
+    // Mostrar/ocultar filas de conceptos de esa categoría
+    document.querySelectorAll(`[data-categoria-id="${catId}"]`).forEach(tr => {
+        tr.classList.toggle('cat-fila-colapsada', ahoraColapsada);
+        // Si es una fila de concepto múltiple con detalle abierto, cerrarlo
+        if (ahoraColapsada && tr.classList.contains('concepto-multiple-header')) {
+            const dtInstance = tr.closest('#dtIngresos') ? app.dtIngresos : app.dtGastos;
+            if (dtInstance) {
+                const row = dtInstance.row(tr);
+                if (row.child.isShown()) {
+                    row.child.hide();
+                    const arrow = tr.querySelector('.detalle-arrow');
+                    if (arrow) arrow.classList.replace('bi-chevron-up', 'bi-chevron-down');
+                }
+            }
+        }
     });
 }
 
@@ -456,11 +525,6 @@ function crearFilaSimple(concepto, tipo) {
         if (isPaid) tr.classList.add('tr-pagado');
     }
 
-    const icon = document.createElement('i');
-    const iconData = obtenerIconoConcepto(concepto.nombre, tipo);
-    icon.className = `bi concepto-icon ${iconData.icon}`;
-    icon.style.color = iconData.color;
-    divNombre.appendChild(icon);
     divNombre.appendChild(document.createTextNode(concepto.nombre));
 
     // Input fecha de vencimiento — siempre visible
@@ -471,7 +535,7 @@ function crearFilaSimple(concepto, tipo) {
     const inputVenc = document.createElement('input');
     inputVenc.type  = 'date';
     inputVenc.className = 'input-vencimiento';
-    inputVenc.title = 'Fecha de vencimiento';
+    inputVenc.title = 'Fecha de vencimiento del concepto';
     inputVenc.value = concepto.fecha_vencimiento ? concepto.fecha_vencimiento.split('T')[0] : '';
     inputVenc.addEventListener('click', e => e.stopPropagation());
     inputVenc.addEventListener('change', () => {
@@ -638,11 +702,6 @@ function crearFilasMultiple(concepto, tipo) {
     const divNombre = document.createElement('div');
     divNombre.className = 'concepto-nombre';
 
-    const icon = document.createElement('i');
-    const iconData = obtenerIconoConcepto(concepto.nombre, tipo);
-    icon.className = `bi concepto-icon ${iconData.icon}`;
-    icon.style.color = iconData.color;
-    divNombre.appendChild(icon);
     divNombre.appendChild(document.createTextNode(concepto.nombre));
 
     const badge = document.createElement('span');
@@ -1674,23 +1733,27 @@ function renderizarListaCategorias(categorias) {
     tabla.innerHTML = `
         <thead class="table-light">
             <tr>
-                <th style="width:32px"></th>
+                <th style="width:44px"></th>
                 <th>Nombre</th>
                 <th class="text-center" style="width:60px">Orden</th>
                 <th style="width:80px"></th>
             </tr>
         </thead>
-        <tbody></tbody>
+        <tbody id="tbody-categorias"></tbody>
     `;
 
     const tbody = tabla.querySelector('tbody');
+    let draggingEl = null;
 
     categorias.forEach(cat => {
         const tr = document.createElement('tr');
         tr.id = `fila-categoria-${cat.id}`;
+        tr.dataset.catId = cat.id;
+        tr.draggable = true;
         tr.innerHTML = `
             <td>
-                <span class="categoria-dot d-inline-block" style="background:${cat.color}; width:14px; height:14px; border-radius:50%;"></span>
+                <span class="cat-drag-handle" title="Arrastrar para reordenar"><i class="bi bi-grip-vertical"></i></span>
+                <span class="categoria-dot d-inline-block ms-1" style="background:${cat.color}; width:10px; height:10px; border-radius:50%; vertical-align:middle"></span>
             </td>
             <td>
                 <span class="cat-nombre-texto">
@@ -1728,6 +1791,36 @@ function renderizarListaCategorias(categorias) {
                 </div>
             </td>
         `;
+
+        tr.addEventListener('dragstart', (e) => {
+            draggingEl = tr;
+            e.dataTransfer.effectAllowed = 'move';
+            setTimeout(() => tr.classList.add('cat-dragging'), 0);
+        });
+
+        tr.addEventListener('dragend', () => {
+            tr.classList.remove('cat-dragging');
+            tbody.querySelectorAll('tr').forEach(r => r.classList.remove('cat-drag-over-top', 'cat-drag-over-bottom'));
+            draggingEl = null;
+        });
+
+        tr.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (!draggingEl || draggingEl === tr) return;
+            const mid = tr.getBoundingClientRect().top + tr.getBoundingClientRect().height / 2;
+            tbody.querySelectorAll('tr').forEach(r => r.classList.remove('cat-drag-over-top', 'cat-drag-over-bottom'));
+            tr.classList.add(e.clientY < mid ? 'cat-drag-over-top' : 'cat-drag-over-bottom');
+        });
+
+        tr.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            if (!draggingEl || draggingEl === tr) return;
+            const mid = tr.getBoundingClientRect().top + tr.getBoundingClientRect().height / 2;
+            tbody.insertBefore(draggingEl, e.clientY < mid ? tr : tr.nextSibling);
+            tr.classList.remove('cat-drag-over-top', 'cat-drag-over-bottom');
+            await guardarOrdenCategorias(tbody);
+        });
+
         tbody.appendChild(tr);
     });
 
@@ -1736,6 +1829,31 @@ function renderizarListaCategorias(categorias) {
     wrapper.appendChild(tabla);
     container.innerHTML = '';
     container.appendChild(wrapper);
+}
+
+async function guardarOrdenCategorias(tbody) {
+    const rows = Array.from(tbody.querySelectorAll('tr[data-cat-id]'));
+    const updates = rows.map((tr, i) => ({ id: parseInt(tr.dataset.catId), orden: i + 1 }));
+
+    // Actualizar visualmente los números de orden
+    updates.forEach(({ id, orden }) => {
+        const span = document.querySelector(`#fila-categoria-${id} .cat-orden-texto`);
+        if (span) span.textContent = orden;
+    });
+
+    try {
+        await Promise.all(updates.map(({ id, orden }) =>
+            fetch(CATEGORIAS_API_URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, orden })
+            })
+        ));
+        mostrarToast('Orden guardado', 'success');
+        await cargarDatos();
+    } catch (error) {
+        mostrarError('Error al guardar orden: ' + error.message);
+    }
 }
 
 function mostrarFormNuevaCategoria() {

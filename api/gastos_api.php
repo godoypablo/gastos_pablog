@@ -120,6 +120,19 @@ try {
 
             $saldo = $total_ingresos - $total_gastos;
 
+            // Gastos efectivamente pagados (para saldo disponible)
+            $stmt_pagados = $db->prepare(
+                "SELECT COALESCE(SUM(rm.importe), 0)
+                 FROM registros_mensuales rm
+                 INNER JOIN conceptos c ON rm.concepto_id = c.id
+                 WHERE rm.mes = :mes AND rm.anio = :anio
+                   AND c.tipo = 'gasto' AND c.activo = 1 AND rm.pagado = 1
+                   AND rm.importe > 0"
+            );
+            $stmt_pagados->execute(['mes' => $mes, 'anio' => $anio]);
+            $gastos_pagados = (float)$stmt_pagados->fetchColumn();
+            $saldo_disponible = $total_ingresos - $gastos_pagados;
+
             // Detectar si el período tiene al menos un registro
             $stmt_existe = $db->prepare(
                 "SELECT COUNT(*) FROM registros_mensuales WHERE mes = :mes AND anio = :anio"
@@ -133,9 +146,11 @@ try {
                 'periodo_existe' => $periodo_existe,
                 'conceptos'    => $conceptos,
                 'resumen'      => [
-                    'total_ingresos' => $total_ingresos,
-                    'total_gastos'   => $total_gastos,
-                    'saldo'          => $saldo
+                    'total_ingresos'  => $total_ingresos,
+                    'total_gastos'    => $total_gastos,
+                    'gastos_pagados'  => $gastos_pagados,
+                    'saldo_disponible'=> $saldo_disponible,
+                    'saldo'           => $saldo
                 ]
             ]);
             break;
