@@ -846,3 +846,32 @@ table.dataTable > tbody > tr > td {
 [data-bs-theme="dark"] .categoria-header td {
     background-color: transparent !important;
 }
+
+/* ==================== PWA INSTALL BANNER ==================== */
+.banner-instalar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 2000;
+    background: linear-gradient(135deg, var(--color-primary-dark) 0%, #253445 100%);
+    color: #fff;
+    padding: 0.75rem 1rem;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.25);
+    animation: slideInUp 0.35s ease-out;
+}
+
+.banner-instalar-inner {
+    display: flex;
+    align-items: center;
+    max-width: 640px;
+    margin: 0 auto;
+    font-size: 0.9rem;
+    font-weight: 500;
+    gap: 0.5rem;
+}
+
+@keyframes slideInUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}

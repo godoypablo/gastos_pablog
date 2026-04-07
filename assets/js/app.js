@@ -31,6 +31,60 @@ if ('serviceWorker' in navigator) {
     });
 }
 
+// ── PWA Install prompt (Android Chrome) ─────────────────────
+let _deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    _deferredInstallPrompt = e;
+    // No mostrar si ya lo cerró en esta sesión
+    if (!sessionStorage.getItem('cifra-install-dismissed')) {
+        _mostrarBannerInstalar();
+    }
+});
+
+window.addEventListener('appinstalled', () => {
+    _ocultarBannerInstalar();
+    _deferredInstallPrompt = null;
+});
+
+function _mostrarBannerInstalar() {
+    if (document.getElementById('bannerInstalar')) return;
+    const banner = document.createElement('div');
+    banner.id = 'bannerInstalar';
+    banner.className = 'banner-instalar';
+    banner.innerHTML = `
+        <div class="banner-instalar-inner">
+            <i class="bi bi-phone-fill me-2 flex-shrink-0"></i>
+            <span class="flex-grow-1">Instalá Cifra como app</span>
+            <button class="btn btn-sm btn-light fw-600 me-2" onclick="instalarApp()">Instalar</button>
+            <button class="btn btn-sm btn-link text-white p-0 opacity-75" onclick="_cerrarBannerInstalar()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+    `;
+    document.body.appendChild(banner);
+}
+
+function _ocultarBannerInstalar() {
+    document.getElementById('bannerInstalar')?.remove();
+}
+
+function _cerrarBannerInstalar() {
+    _ocultarBannerInstalar();
+    sessionStorage.setItem('cifra-install-dismissed', '1');
+}
+
+async function instalarApp() {
+    if (!_deferredInstallPrompt) return;
+    _deferredInstallPrompt.prompt();
+    const { outcome } = await _deferredInstallPrompt.userChoice;
+    if (outcome === 'accepted') {
+        _deferredInstallPrompt = null;
+        _ocultarBannerInstalar();
+    }
+}
+
 // ============================================================
 // Dark mode
 // ============================================================
