@@ -9,17 +9,68 @@ const app = {
     mesActual: new Date().getMonth() + 1,
     anioActual: new Date().getFullYear(),
     datos: null,
-    guardandoCambios: false
+    guardandoCambios: false,
+    dtIngresos: null,
+    dtGastos: null,
+    categorias: []
 };
 
 // Inicializar aplicación
 document.addEventListener('DOMContentLoaded', () => {
     inicializarSelectores();
     cargarDatos();
-
-    // Event listeners
+    sincronizarIconDarkMode();
     document.getElementById('btnCargar').addEventListener('click', cargarDatos);
 });
+
+// Registrar Service Worker (PWA)
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .catch(err => console.warn('Service Worker no registrado:', err));
+    });
+}
+
+// ============================================================
+// Dark mode
+// ============================================================
+function toggleDarkMode() {
+    const html = document.documentElement;
+    const isDark = html.getAttribute('data-bs-theme') === 'dark';
+    const newTheme = isDark ? 'light' : 'dark';
+    html.setAttribute('data-bs-theme', newTheme);
+    localStorage.setItem('cifra-theme', newTheme);
+    sincronizarIconDarkMode();
+}
+
+function sincronizarIconDarkMode() {
+    const icon = document.getElementById('iconDarkMode');
+    if (!icon) return;
+    const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    icon.className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+}
+
+// ============================================================
+// Formato currency para inputs
+// ============================================================
+function formatearImporteDisplay(valor) {
+    const n = parseFloat(valor) || 0;
+    if (n === 0) return '';
+    return new Intl.NumberFormat('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(n);
+}
+
+function parsearImporte(texto) {
+    if (!texto && texto !== 0) return 0;
+    return parseFloat(
+        String(texto)
+            .replace(/[$ ]/g, '')   // eliminar signo $ y espacios
+            .replace(/\./g, '')     // eliminar separadores de miles
+            .replace(',', '.')      // coma decimal → punto
+    ) || 0;
+}
 
 // Inicializar selectores de mes y año
 function inicializarSelectores() {
@@ -87,7 +138,6 @@ function renderizarDatos() {
     // Cambiar estilo del saldo según si es positivo o negativo
     const cardSaldo = document.getElementById('cardSaldo');
     const iconSaldo = document.getElementById('iconSaldo');
-    const textSaldo = document.getElementById('saldo');
 
     if (app.datos.resumen.saldo < 0) {
         cardSaldo.classList.add('negativo');
@@ -110,106 +160,740 @@ function renderizarDatos() {
     const tbodyIngresos = document.getElementById('tablaIngresos');
     tbodyIngresos.innerHTML = '';
     ingresos.forEach(concepto => {
-        tbodyIngresos.appendChild(crearFilaConcepto(concepto, 'ingreso'));
+        const filas = crearFilasConcepto(concepto, 'ingreso');
+        filas.forEach(fila => tbodyIngresos.appendChild(fila));
     });
 
     // Renderizar gastos
     const tbodyGastos = document.getElementById('tablaGastos');
     tbodyGastos.innerHTML = '';
     gastos.forEach(concepto => {
-        tbodyGastos.appendChild(crearFilaConcepto(concepto, 'gasto'));
+        const filas = crearFilasConcepto(concepto, 'gasto');
+        filas.forEach(fila => tbodyGastos.appendChild(fila));
     });
 
     // Actualizar título del mes
     document.getElementById('mesAnioActual').textContent =
         `${obtenerNombreMes(app.mesActual)} ${app.anioActual}`;
+
+    inicializarDataTables();
 }
 
-// Crear fila de concepto
-function crearFilaConcepto(concepto, tipo) {
+function inicializarDataTables() {
+    if (app.dtIngresos) { app.dtIngresos.destroy(); app.dtIngresos = null; }
+    if (app.dtGastos)   { app.dtGastos.destroy();   app.dtGastos = null; }
+
+    const opciones = {
+        paging:   false,
+        info:     false,
+        ordering: false,      // orden fijo desde la API — respeta agrupación por categoría
+        dom:      't',
+        autoWidth: false,
+        language: { emptyTable: 'Sin datos para este período' },
+        drawCallback: function() {
+            inyectarCabecerasCategorias(this.api());
+        }
+    };
+
+    app.dtIngresos = $('#dtIngresos').DataTable(opciones);
+    app.dtGastos   = $('#dtGastos').DataTable(opciones);
+}
+
+// Inyectar filas de cabecera de categoría en el tbody después de cada draw de DataTables
+function inyectarCabecerasCategorias(api) {
+    let lastCatId = null;
+    api.rows().every(function() {
+        const tr = this.node();
+        if (!tr || tr.classList.contains('categoria-header')) return;
+
+        const catId    = tr.dataset.categoriaId    || '';
+        const nombre   = tr.dataset.categoriaNombre || '';
+        const color    = tr.dataset.categoriaColor  || '';
+        const icono    = tr.dataset.categoriaIcono  || '';
+
+        if (!catId || catId === lastCatId) return;
+        lastCatId = catId;
+
+        const headerTr = document.createElement('tr');
+        headerTr.className = 'categoria-header';
+        const td = document.createElement('td');
+        td.colSpan = 2;
+        td.innerHTML = `<div class="categoria-header-inner">
+            <span class="categoria-dot" style="background:${color}"></span>
+            ${icono ? `<i class="bi ${icono}" style="color:${color}; font-size:0.78rem;"></i>` : ''}
+            <span class="categoria-header-label" style="color:${color}">${nombre}</span>
+        </div>`;
+        headerTr.appendChild(td);
+        tr.parentNode.insertBefore(headerTr, tr);
+    });
+}
+
+// Crear filas de concepto — devuelve array de <tr>
+function crearFilasConcepto(concepto, tipo) {
+    if (concepto.permite_multiples) {
+        return crearFilasMultiple(concepto, tipo);
+    }
+    return [crearFilaSimple(concepto, tipo)];
+}
+
+// Fila para concepto de entrada única (comportamiento original)
+function crearFilaSimple(concepto, tipo) {
     const tr = document.createElement('tr');
 
-    // Columna nombre con icono
+    if (concepto.categoria_id) {
+        tr.dataset.categoriaId     = concepto.categoria_id;
+        tr.dataset.categoriaNombre = concepto.categoria_nombre || '';
+        tr.dataset.categoriaColor  = concepto.categoria_color  || '';
+        tr.dataset.categoriaIcono  = concepto.categoria_icono  || '';
+    }
+
+    // Columna nombre
     const tdNombre = document.createElement('td');
-    tdNombre.className = 'concepto-nombre';
-
+    tdNombre.setAttribute('data-order', concepto.nombre);
+    const divNombre = document.createElement('div');
+    divNombre.className = 'concepto-nombre';
     const icon = document.createElement('i');
-    icon.className = `bi concepto-icon ${obtenerIconoConcepto(concepto.nombre, tipo)}`;
-    tdNombre.appendChild(icon);
-
-    const nombreText = document.createTextNode(concepto.nombre);
-    tdNombre.appendChild(nombreText);
+    const iconData = obtenerIconoConcepto(concepto.nombre, tipo);
+    icon.className = `bi concepto-icon ${iconData.icon}`;
+    icon.style.color = iconData.color;
+    divNombre.appendChild(icon);
+    divNombre.appendChild(document.createTextNode(concepto.nombre));
+    tdNombre.appendChild(divNombre);
     tr.appendChild(tdNombre);
 
     // Columna importe
     const tdImporte = document.createElement('td');
     tdImporte.className = 'text-end';
+    tdImporte.setAttribute('data-order', concepto.importe);
 
     const inputGroup = document.createElement('div');
     inputGroup.className = 'd-flex justify-content-end align-items-center gap-2';
 
     const input = document.createElement('input');
-    input.type = 'number';
-    input.step = '0.01';
+    input.type = 'text';
+    input.inputMode = 'decimal';
     input.className = 'input-importe form-control';
-    input.value = concepto.importe;
+    input.value = concepto.importe > 0 ? formatearMoneda(concepto.importe) : '';
     input.dataset.conceptoId = concepto.id;
     input.dataset.registroId = concepto.registro_id || '';
-    input.placeholder = '0.00';
+    input.placeholder = '$ 0,00';
 
-    // Evento para guardar cambios al perder foco o presionar Enter
-    input.addEventListener('blur', () => guardarImporte(concepto.id, input.value, concepto.registro_id, input));
-    input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            input.blur();
-        }
+    input.addEventListener('focus', () => {
+        const raw = parsearImporte(input.value);
+        input.value = raw > 0 ? String(raw).replace('.', ',') : '';
+        input.select();
     });
-
-    // Marcar como no guardado al cambiar
+    input.addEventListener('blur', () => {
+        const importe = parsearImporte(input.value);
+        input.value = importe > 0 ? formatearMoneda(importe) : '';
+        guardarImporte(concepto.id, importe, concepto.registro_id, input);
+    });
+    input.addEventListener('keypress', (e) => { if (e.key === 'Enter') input.blur(); });
     input.addEventListener('input', () => {
         input.classList.add('unsaved');
         input.classList.remove('saved');
     });
 
+    // Botón SMVM para Cuota Alimentaria (va a la izquierda del input)
+    if (concepto.nombre.toLowerCase().includes('alimentaria')) {
+        const btnSmvm = document.createElement('button');
+        btnSmvm.className = 'btn btn-outline-info btn-sm btn-smvm';
+        btnSmvm.title = 'Sugerir valor del SMVM vigente';
+        btnSmvm.innerHTML = '<i class="bi bi-robot"></i>';
+        btnSmvm.addEventListener('click', () => sugerirSMVM(input, btnSmvm, app.mesActual, app.anioActual));
+        inputGroup.appendChild(btnSmvm);
+    }
+
+    // Botón Elena Limpieza (va a la izquierda del input)
+    if (concepto.nombre.toLowerCase().includes('elena')) {
+        const btnElena = document.createElement('button');
+        btnElena.className = 'btn btn-outline-secondary btn-sm btn-smvm';
+        btnElena.title = 'Sugerir importe empleada doméstica (4h/semana)';
+        btnElena.innerHTML = '<i class="bi bi-robot"></i>';
+        btnElena.addEventListener('click', () => sugerirElena(input, btnElena, app.mesActual, app.anioActual));
+        inputGroup.appendChild(btnElena);
+    }
+
+    // Botón Spotify Duo (va a la izquierda del input)
+    if (concepto.nombre.toLowerCase().includes('spotify')) {
+        const btnSpotify = document.createElement('button');
+        btnSpotify.className = 'btn btn-outline-success btn-sm btn-smvm';
+        btnSpotify.title = 'Sugerir precio Spotify Duo para el mes seleccionado';
+        btnSpotify.innerHTML = '<i class="bi bi-robot"></i>';
+        btnSpotify.addEventListener('click', () => sugerirSpotifyDuo(input, btnSpotify, app.mesActual, app.anioActual));
+        inputGroup.appendChild(btnSpotify);
+    }
+
+    // Botón cotización YouTube Premium (va a la izquierda del input)
+    if (concepto.nombre.toLowerCase().includes('youtube')) {
+        const btnYt = document.createElement('button');
+        btnYt.className = 'btn btn-outline-danger btn-sm btn-smvm';
+        btnYt.title = 'Sugerir precio YouTube Premium al tipo de cambio actual';
+        btnYt.innerHTML = '<i class="bi bi-robot"></i>';
+        btnYt.addEventListener('click', () => sugerirYoutubePremium(input, btnYt));
+        inputGroup.appendChild(btnYt);
+    }
+
     inputGroup.appendChild(input);
+
     tdImporte.appendChild(inputGroup);
     tr.appendChild(tdImporte);
 
     return tr;
 }
 
-// Obtener icono según el concepto
-function obtenerIconoConcepto(nombre, tipo) {
-    const nombreLower = nombre.toLowerCase();
+// Sugerir SMVM desde la API de datos.gob.ar para el mes/año seleccionado
+async function sugerirSMVM(inputElement, btnElement, mes, anio) {
+    const iconOriginal = btnElement.innerHTML;
+    btnElement.disabled = true;
+    btnElement.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
-    if (tipo === 'ingreso') {
-        if (nombreLower.includes('sueldo')) return 'bi-briefcase-fill text-success';
-        if (nombreLower.includes('ahorro')) return 'bi-piggy-bank-fill text-success';
-        return 'bi-currency-dollar text-success';
+    try {
+        // Último día del mes seleccionado como límite de la consulta
+        const ultimoDia = new Date(anio, mes, 0).getDate();
+        const endDate = `${anio}-${String(mes).padStart(2, '0')}-${ultimoDia}`;
+
+        const response = await fetch(
+            `https://apis.datos.gob.ar/series/api/series/?ids=57.1_SMVMM_0_M_34&end_date=${endDate}&limit=1&sort=desc`
+        );
+        if (!response.ok) throw new Error('No se pudo obtener el SMVM');
+        const json = await response.json();
+
+        if (!json.data || json.data.length === 0) {
+            throw new Error('No hay datos disponibles para el período seleccionado');
+        }
+
+        const [fechaISO, valor] = json.data[0];
+        const [anioSmvm, mesSmvm] = fechaISO.split('-');
+        const fechaFormateada = `${obtenerNombreMes(parseInt(mesSmvm))} ${anioSmvm}`;
+
+        const confirmar = confirm(
+            `SMVM vigente en ${obtenerNombreMes(mes)} ${anio}:\n${formatearMoneda(valor)} (ref: ${fechaFormateada})\n\n¿Usar este valor para Cuota Alimentaria?`
+        );
+
+        if (confirmar) {
+            inputElement.value = valor;
+            inputElement.classList.add('unsaved');
+            inputElement.focus();
+            inputElement.blur();
+        }
+    } catch (error) {
+        mostrarError('No se pudo obtener el SMVM: ' + error.message);
+    } finally {
+        btnElement.disabled = false;
+        btnElement.innerHTML = iconOriginal;
     }
-
-    // Gastos
-    if (nombreLower.includes('alquiler') || nombreLower.includes('departamento')) return 'bi-house-fill text-primary';
-    if (nombreLower.includes('supermercado')) return 'bi-cart-fill text-info';
-    if (nombreLower.includes('nafta') || nombreLower.includes('etios') || nombreLower.includes('tornado')) return 'bi-fuel-pump-fill text-warning';
-    if (nombreLower.includes('gimnasio') || nombreLower.includes('rowing')) return 'bi-heart-pulse-fill text-danger';
-    if (nombreLower.includes('youtube') || nombreLower.includes('spotify') || nombreLower.includes('flow')) return 'bi-play-circle-fill text-danger';
-    if (nombreLower.includes('enersa') || nombreLower.includes('gas')) return 'bi-lightning-charge-fill text-warning';
-    if (nombreLower.includes('remedios')) return 'bi-capsule-pill text-danger';
-    if (nombreLower.includes('cochera')) return 'bi-car-front-fill text-secondary';
-    if (nombreLower.includes('alimentaria')) return 'bi-people-fill text-info';
-    if (nombreLower.includes('mastercard')) return 'bi-credit-card-fill text-primary';
-    if (nombreLower.includes('afip') || nombreLower.includes('monotributo')) return 'bi-file-earmark-text-fill text-secondary';
-    if (nombreLower.includes('seguro') || nombreLower.includes('rivadavia') || nombreLower.includes('ater')) return 'bi-shield-fill-check text-info';
-
-    return 'bi-cash-stack text-secondary';
 }
 
-// Guardar importe
+// Filas para concepto de múltiples entradas: solo [trHeader] — detalle via DataTables child row
+function crearFilasMultiple(concepto, tipo) {
+    const cantRegistros = concepto.detalle ? concepto.detalle.length : 0;
+
+    const trHeader = document.createElement('tr');
+    trHeader.className = 'concepto-multiple-header';
+    trHeader.style.cursor = 'pointer';
+    trHeader.dataset.conceptoId = concepto.id;
+    trHeader.addEventListener('click', () => toggleDetalle(concepto.id));
+
+    if (concepto.categoria_id) {
+        trHeader.dataset.categoriaId     = concepto.categoria_id;
+        trHeader.dataset.categoriaNombre = concepto.categoria_nombre || '';
+        trHeader.dataset.categoriaColor  = concepto.categoria_color  || '';
+        trHeader.dataset.categoriaIcono  = concepto.categoria_icono  || '';
+    }
+
+    // Guardar el nodo de detalle directamente en el tr (con sus event listeners)
+    trHeader._detalleNode = crearTablaDetalle(concepto);
+
+    // Columna nombre con flecha
+    const tdNombre = document.createElement('td');
+    tdNombre.setAttribute('data-order', concepto.nombre);
+    const divNombre = document.createElement('div');
+    divNombre.className = 'concepto-nombre';
+
+    const icon = document.createElement('i');
+    const iconData = obtenerIconoConcepto(concepto.nombre, tipo);
+    icon.className = `bi concepto-icon ${iconData.icon}`;
+    icon.style.color = iconData.color;
+    divNombre.appendChild(icon);
+    divNombre.appendChild(document.createTextNode(concepto.nombre));
+
+    const badge = document.createElement('span');
+    badge.className = 'badge bg-secondary ms-2';
+    badge.id = `badge-count-${concepto.id}`;
+    badge.textContent = cantRegistros;
+    divNombre.appendChild(badge);
+
+    const arrow = document.createElement('i');
+    arrow.className = 'bi bi-chevron-down ms-2 detalle-arrow text-muted';
+    arrow.id = `arrow-${concepto.id}`;
+    divNombre.appendChild(arrow);
+
+    tdNombre.appendChild(divNombre);
+    trHeader.appendChild(tdNombre);
+
+    // Columna total — mismo estilo visual que entrada única pero readonly
+    const tdTotal = document.createElement('td');
+    tdTotal.className = 'text-end';
+    tdTotal.setAttribute('data-order', concepto.importe);
+
+    const inputGroupTotal = document.createElement('div');
+    inputGroupTotal.className = 'd-flex justify-content-end align-items-center gap-2';
+
+    const inputTotal = document.createElement('input');
+    inputTotal.type = 'text';
+    inputTotal.className = 'input-importe form-control input-importe-readonly';
+    inputTotal.id = `total-concepto-${concepto.id}`;
+    inputTotal.value = formatearMoneda(concepto.importe);
+    inputTotal.readOnly = true;
+    inputTotal.tabIndex = -1;
+    inputTotal.title = 'Total del mes — expandí para ver el detalle';
+
+    inputGroupTotal.appendChild(inputTotal);
+    tdTotal.appendChild(inputGroupTotal);
+    trHeader.appendChild(tdTotal);
+
+    return [trHeader];
+}
+
+// Tabla interior con los registros del concepto múltiple
+function crearTablaDetalle(concepto) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'detalle-wrapper';
+
+    const tabla = document.createElement('table');
+    tabla.className = 'table table-sm mb-0 detalle-tabla';
+
+    const tbody = document.createElement('tbody');
+
+    // Filas de registros existentes
+    if (concepto.detalle && concepto.detalle.length > 0) {
+        concepto.detalle.forEach(reg => {
+            tbody.appendChild(crearFilaRegistroDetalle(reg, concepto.id));
+        });
+    } else {
+        const trVacio = document.createElement('tr');
+        trVacio.className = 'fila-sin-registros';
+        trVacio.innerHTML = `<td colspan="4" class="text-muted text-center py-2 fst-italic">Sin registros este mes</td>`;
+        tbody.appendChild(trVacio);
+    }
+
+    // Fila formulario para agregar
+    tbody.appendChild(crearFilaFormNuevoRegistro(concepto.id));
+
+    tabla.appendChild(tbody);
+    wrapper.appendChild(tabla);
+    return wrapper;
+}
+
+// Fila de un registro individual dentro del detalle
+function crearFilaRegistroDetalle(reg, conceptoId) {
+    const tr = document.createElement('tr');
+    tr.id = `registro-${reg.id}`;
+
+    tr.innerHTML = `
+        <td class="ps-4 text-muted" style="width:110px">${formatearFecha(reg.fecha)}</td>
+        <td class="text-end fw-medium">${formatearMoneda(reg.importe)}</td>
+        <td class="text-muted fst-italic">${reg.observaciones || ''}</td>
+        <td class="text-end pe-3" style="width:50px">
+            <button class="btn btn-outline-danger btn-sm py-0 px-1"
+                title="Eliminar"
+                onclick="eliminarRegistroMultiple(${reg.id}, ${conceptoId})">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    `;
+    return tr;
+}
+
+// Fila con formulario para agregar nuevo registro
+function crearFilaFormNuevoRegistro(conceptoId) {
+    const tr = document.createElement('tr');
+    tr.className = 'fila-nuevo-registro bg-light';
+    tr.id = `form-nuevo-${conceptoId}`;
+
+    const hoy = new Date().toISOString().split('T')[0];
+
+    tr.innerHTML = `
+        <td class="ps-3" style="width:140px">
+            <input type="date" class="form-control form-control-sm"
+                id="fecha-nuevo-${conceptoId}" value="${hoy}">
+        </td>
+        <td>
+            <input type="number" step="0.01" min="0" class="form-control form-control-sm text-end"
+                id="importe-nuevo-${conceptoId}" placeholder="0.00">
+        </td>
+        <td>
+            <input type="text" class="form-control form-control-sm"
+                id="obs-nuevo-${conceptoId}" placeholder="Observaciones (opcional)">
+        </td>
+        <td class="text-end pe-3" style="width:50px">
+            <button class="btn btn-success btn-sm py-0 px-2"
+                title="Agregar"
+                onclick="agregarRegistroMultiple(${conceptoId})">
+                <i class="bi bi-plus-lg"></i>
+            </button>
+        </td>
+    `;
+
+    // Seleccionar todo al enfocar y guardar con Enter en el campo importe
+    const inputImporte = tr.querySelector(`#importe-nuevo-${conceptoId}`);
+    inputImporte.addEventListener('focus', () => inputImporte.select());
+    inputImporte.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') agregarRegistroMultiple(conceptoId);
+    });
+
+    return tr;
+}
+
+// Toggle expandir/colapsar detalle (usa DataTables child rows)
+function toggleDetalle(conceptoId) {
+    const trHeader = document.querySelector(`tr[data-concepto-id="${conceptoId}"]`);
+    if (!trHeader) return;
+
+    const arrow = document.getElementById(`arrow-${conceptoId}`);
+    const dtInstance = trHeader.closest('#dtIngresos') ? app.dtIngresos : app.dtGastos;
+    if (!dtInstance) return;
+
+    const row = dtInstance.row(trHeader);
+
+    if (row.child.isShown()) {
+        row.child.hide();
+        arrow.classList.replace('bi-chevron-up', 'bi-chevron-down');
+    } else {
+        row.child(trHeader._detalleNode).show();
+        arrow.classList.replace('bi-chevron-down', 'bi-chevron-up');
+    }
+}
+
+// Agregar nuevo registro a concepto múltiple
+async function agregarRegistroMultiple(conceptoId) {
+    const fecha = document.getElementById(`fecha-nuevo-${conceptoId}`).value;
+    const importeVal = document.getElementById(`importe-nuevo-${conceptoId}`).value;
+    const observaciones = document.getElementById(`obs-nuevo-${conceptoId}`).value.trim();
+
+    const importe = parseFloat(importeVal) || 0;
+
+    if (!fecha) {
+        mostrarError('Ingresá una fecha.');
+        return;
+    }
+    if (importe <= 0) {
+        mostrarError('El importe debe ser mayor a 0.');
+        return;
+    }
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                concepto_id: conceptoId,
+                mes: app.mesActual,
+                anio: app.anioActual,
+                fecha,
+                importe,
+                observaciones: observaciones || null
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            mostrarToast('Registro agregado', 'success');
+            await cargarDatos();
+            toggleDetalle(conceptoId);
+        } else {
+            mostrarError('Error al guardar: ' + result.message);
+        }
+    } catch (error) {
+        mostrarError('Error de conexión: ' + error.message);
+    }
+}
+
+// Eliminar registro individual de concepto múltiple
+async function eliminarRegistroMultiple(registroId, conceptoId) {
+    if (!confirm('¿Eliminar este registro?')) return;
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ registro_id: registroId })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            mostrarToast('Registro eliminado', 'success');
+            await cargarDatos();
+            toggleDetalle(conceptoId);
+        } else {
+            mostrarError('Error al eliminar: ' + result.message);
+        }
+    } catch (error) {
+        mostrarError('Error de conexión: ' + error.message);
+    }
+}
+
+// Historial de tarifas hora — Personal casas particulares, tareas generales, sin retiro
+// Fuente: ARCA (ex-AFIP) — actualizar cuando la CNTCP publique nuevas escalas
+const ELENA_TARIFAS = {
+    '2025-01': 3089.00,
+    '2025-02': 3089.00,
+    '2025-03': 3089.00,
+    '2025-04': 3089.00,
+    '2025-05': 3089.00,
+    '2025-06': 3089.00,
+    '2025-07': 3229.09,
+    '2025-08': 3261.38,
+    '2025-09': 3293.99,
+    '2025-10': 3293.99,
+    '2025-11': 3340.11,
+    '2025-12': 3383.53,
+    '2026-01': 3494.25,
+    '2026-02': 3546.67,
+    '2026-03': 3599.87,
+    '2026-04': 3599.87
+};
+
+// Obtener tarifa hora vigente para un mes/año dado
+function getTarifaElena(mes, anio) {
+    const claveBuscada = `${anio}-${String(mes).padStart(2, '0')}`;
+    const claves = Object.keys(ELENA_TARIFAS).sort();
+    let tarifa = null;
+    let claveVigente = null;
+    for (const clave of claves) {
+        if (clave <= claveBuscada) {
+            tarifa = ELENA_TARIFAS[clave];
+            claveVigente = clave;
+        }
+    }
+    return { tarifa, desde: claveVigente };
+}
+
+// Sugerir importe de Elena para el mes/año seleccionado
+function sugerirElena(inputElement, btnElement, mes, anio) {
+    const { tarifa, desde } = getTarifaElena(mes, anio);
+
+    if (!tarifa) {
+        mostrarError(`No hay tarifa registrada para ${obtenerNombreMes(mes)} ${anio}.`);
+        return;
+    }
+
+    const HORAS_POR_VISITA = 4;
+    const total4 = Math.round(tarifa * HORAS_POR_VISITA * 4);
+    const total5 = Math.round(tarifa * HORAS_POR_VISITA * 5);
+
+    const [anioDesde, mesDesde] = desde.split('-');
+    const refTexto = desde === `${anio}-${String(mes).padStart(2, '0')}`
+        ? ''
+        : ` (vigente desde ${obtenerNombreMes(parseInt(mesDesde))} ${anioDesde})`;
+
+    const msg =
+        `Empleada doméstica — ${obtenerNombreMes(mes)} ${anio}\n` +
+        `Tareas generales, sin retiro${refTexto}\n` +
+        `Valor hora: ${formatearMoneda(tarifa)}\n\n` +
+        `  • 4 semanas (16h): ${formatearMoneda(total4)}\n` +
+        `  • 5 semanas (20h): ${formatearMoneda(total5)}\n\n` +
+        `¿Usar cálculo de 4 semanas (${formatearMoneda(total4)})?`;
+
+    const confirmar = confirm(msg);
+
+    if (confirmar) {
+        inputElement.value = total4;
+        inputElement.classList.add('unsaved');
+        inputElement.focus();
+        inputElement.blur();
+    }
+}
+
+// Historial de precios Spotify Duo en Argentina (ARS)
+// Clave: 'YYYY-MM' — agregar nueva entrada cada vez que Spotify actualice el precio
+const SPOTIFY_DUO_PRECIOS = {
+    '2026-04': 4399
+};
+
+// Obtener el precio de Spotify Duo para un mes/año dado
+// Si no existe entrada exacta, usa el precio vigente más reciente anterior a esa fecha
+function getPrecioSpotifyDuo(mes, anio) {
+    const claveBuscada = `${anio}-${String(mes).padStart(2, '0')}`;
+    const claves = Object.keys(SPOTIFY_DUO_PRECIOS).sort();
+
+    let precioVigente = null;
+    let claveVigente = null;
+
+    for (const clave of claves) {
+        if (clave <= claveBuscada) {
+            precioVigente = SPOTIFY_DUO_PRECIOS[clave];
+            claveVigente = clave;
+        }
+    }
+
+    return { precio: precioVigente, desde: claveVigente };
+}
+
+// Sugerir precio Spotify Duo para el mes/año seleccionado
+function sugerirSpotifyDuo(inputElement, btnElement, mes, anio) {
+    const { precio, desde } = getPrecioSpotifyDuo(mes, anio);
+
+    if (!precio) {
+        mostrarError(`No hay precio registrado de Spotify Duo para ${obtenerNombreMes(mes)} ${anio}.`);
+        return;
+    }
+
+    const [anioDesde, mesDesde] = desde.split('-');
+    const refTexto = desde === `${anio}-${String(mes).padStart(2, '0')}`
+        ? ''
+        : ` (vigente desde ${obtenerNombreMes(parseInt(mesDesde))} ${anioDesde})`;
+
+    const confirmar = confirm(
+        `Spotify Plan Duo — ${obtenerNombreMes(mes)} ${anio}${refTexto}:\n\n` +
+        `${formatearMoneda(precio)}\n\n` +
+        `¿Usar este valor?`
+    );
+
+    if (confirmar) {
+        inputElement.value = precio;
+        inputElement.classList.add('unsaved');
+        inputElement.focus();
+        inputElement.blur();
+    }
+}
+
+// Precio base YouTube Premium individual en Argentina (USD)
+// Verificar en tu cuenta de YouTube si cambia
+const YOUTUBE_PREMIUM_USD = 3.19;
+
+// Sugerir precio de YouTube Premium convertido a ARS al dólar oficial
+async function sugerirYoutubePremium(inputElement, btnElement) {
+    const iconOriginal = btnElement.innerHTML;
+    btnElement.disabled = true;
+    btnElement.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    try {
+        const response = await fetch('https://dolarapi.com/v1/dolares/oficial');
+        if (!response.ok) throw new Error('No se pudo obtener la cotización');
+        const oficial = await response.json();
+
+        const venta = oficial.venta;
+        const valorARS = Math.round(YOUTUBE_PREMIUM_USD * venta);
+        const fecha = new Date(oficial.fechaActualizacion).toLocaleDateString('es-AR');
+
+        const confirmar = confirm(
+            `YouTube Premium Individual: USD ${YOUTUBE_PREMIUM_USD}\n` +
+            `Dólar oficial al ${fecha}: $${venta.toLocaleString('es-AR')}\n\n` +
+            `Valor estimado: ${formatearMoneda(valorARS)}\n\n` +
+            `¿Usar este valor?`
+        );
+
+        if (confirmar) {
+            inputElement.value = valorARS;
+            inputElement.classList.add('unsaved');
+            inputElement.focus();
+            inputElement.blur();
+        }
+    } catch (error) {
+        mostrarError('No se pudo obtener la cotización: ' + error.message);
+    } finally {
+        btnElement.disabled = false;
+        btnElement.innerHTML = iconOriginal;
+    }
+}
+
+// Obtener icono según el concepto
+// Retorna { icon, color } — colores de la paleta Cifra
+function obtenerIconoConcepto(nombre, tipo) {
+    const n = nombre.toLowerCase();
+
+    // ── INGRESOS ──────────────────────────────────────────────
+    if (tipo === 'ingreso') {
+        if (n.includes('sueldo') || n.includes('salario'))          return { icon: 'bi-briefcase-fill',          color: '#16A34A' };
+        if (n.includes('ahorro'))                                   return { icon: 'bi-piggy-bank-fill',          color: '#0891B2' };
+        if (n.includes('ipem') || n.includes('jubilacion'))         return { icon: 'bi-mortarboard-fill',         color: '#2563EB' };
+        if (n.includes('tcer') || n.includes('hsc'))                return { icon: 'bi-building-fill-check',     color: '#16A34A' };
+        return                                                             { icon: 'bi-plus-circle-fill',          color: '#16A34A' };
+    }
+
+    // ── VIVIENDA ──────────────────────────────────────────────
+    if (n.includes('alquiler') || n.includes('departamento'))       return { icon: 'bi-building',                color: '#2563EB' };
+
+    // ── SUPERMERCADO / COMPRAS ────────────────────────────────
+    if (n.includes('supermercado') || n.includes('mercado'))        return { icon: 'bi-cart4',                   color: '#0891B2' };
+
+    // ── COMBUSTIBLE ───────────────────────────────────────────
+    if (n.includes('nafta') || n.includes('combustible')
+        || n.includes('etios') || n.includes('tornado'))            return { icon: 'bi-fuel-pump-fill',           color: '#D97706' };
+
+    // ── ENERGÍA ELÉCTRICA ─────────────────────────────────────
+    if (n.includes('enersa') || n.includes('electric')
+        || n.includes('luz'))                                       return { icon: 'bi-lightning-charge-fill',    color: '#FBBF24' };
+
+    // ── GAS ───────────────────────────────────────────────────
+    if (n.includes('redengas') || n.includes(' gas'))               return { icon: 'bi-fire',                    color: '#EA580C' };
+
+    // ── DEPORTE / FITNESS ─────────────────────────────────────
+    if (n.includes('rowing'))                                       return { icon: 'bi-bicycle',                  color: '#DC2626' };
+    if (n.includes('gimnasio') || n.includes('fitness'))            return { icon: 'bi-heart-pulse-fill',         color: '#DB2777' };
+
+    // ── STREAMING / ENTRETENIMIENTO ───────────────────────────
+    if (n.includes('youtube'))                                      return { icon: 'bi-youtube',                  color: '#DC2626' };
+    if (n.includes('spotify'))                                      return { icon: 'bi-music-note-beamed',        color: '#16A34A' };
+
+    // ── TARJETA DE CRÉDITO ────────────────────────────────────
+    if (n.includes('mastercard') || n.includes('visa')
+        || n.includes('tarjeta'))                                   return { icon: 'bi-credit-card-2-front-fill', color: '#2563EB' };
+
+    // ── CUOTA ALIMENTARIA / FAMILIA ───────────────────────────
+    if (n.includes('alimentaria'))                                  return { icon: 'bi-people-fill',              color: '#0891B2' };
+
+    // ── IMPUESTOS NACIONALES (AFIP) ───────────────────────────
+    if (n.includes('afip') || n.includes('monotributo'))            return { icon: 'bi-receipt',                  color: '#6B7280' };
+
+    // ── IMPUESTOS PROVINCIALES (ATER) ─────────────────────────
+    if (n.includes('ater'))                                         return { icon: 'bi-file-earmark-text-fill',   color: '#D97706' };
+
+    // ── SEGUROS (RIVADAVIA) ───────────────────────────────────
+    if (n.includes('rivadavia') || n.includes('seguro'))            return { icon: 'bi-shield-fill-check',        color: '#2563EB' };
+
+    // ── INTERNET / TELEFONÍA (PERSONAL / FLOW) ────────────────
+    if (n.includes('personal') || n.includes('flow')
+        || n.includes('internet') || n.includes('wifi'))            return { icon: 'bi-wifi',                     color: '#0891B2' };
+
+    // ── COLEGIO PROFESIONAL (COPROCIER) ──────────────────────
+    if (n.includes('coprocier') || n.includes('colegio prof'))      return { icon: 'bi-pc-display-horizontal',   color: '#4F46E5' };
+
+    // ── CRÉDITO / PRÉSTAMO BANCARIO ───────────────────────────
+    if (n.includes('credito') || n.includes('prestamo')
+        || n.includes('cuota'))                                     return { icon: 'bi-bank2',                    color: '#DC2626' };
+
+    // ── LIMPIEZA / MUCAMA (ELENA) ─────────────────────────────
+    if (n.includes('elena') || n.includes('limpieza')
+        || n.includes('mucama'))                                    return { icon: 'bi-bucket-fill',              color: '#7C3AED' };
+
+    // ── SALUD / REMEDIOS ──────────────────────────────────────
+    if (n.includes('remedios') || n.includes('farmacia')
+        || n.includes('medicamento') || n.includes('salud'))        return { icon: 'bi-capsule-pill',             color: '#DB2777' };
+
+    // ── COCHERA / ESTACIONAMIENTO ─────────────────────────────
+    if (n.includes('cochera') || n.includes('garage'))              return { icon: 'bi-p-circle-fill',            color: '#6B7280' };
+
+    // ── AIRE ACONDICIONADO ────────────────────────────────────
+    if (n.includes('aire') || n.includes('acondicionado'))          return { icon: 'bi-wind',                     color: '#0891B2' };
+
+    // ── HONORARIOS / PROFESIONALES ────────────────────────────
+    if (n.includes('roy') || n.includes('udrizar')
+        || n.includes('honorario') || n.includes('profesional'))    return { icon: 'bi-person-workspace',         color: '#4F46E5' };
+
+    return { icon: 'bi-cash-stack', color: '#6B7280' };
+}
+
+// Guardar importe (conceptos de entrada única)
 async function guardarImporte(conceptoId, importe, registroId, inputElement) {
     if (app.guardandoCambios) return;
 
-    const importeNumerico = parseFloat(importe) || 0;
+    // Acepta número directo o string formateado
+    const importeNumerico = typeof importe === 'number' ? importe : parsearImporte(importe);
 
     // No guardar si es 0 y no existe registro
     if (importeNumerico === 0 && !registroId) {
@@ -221,7 +905,6 @@ async function guardarImporte(conceptoId, importe, registroId, inputElement) {
 
     app.guardandoCambios = true;
 
-    // Mostrar feedback visual
     if (inputElement) {
         inputElement.classList.add('saving');
         inputElement.classList.remove('unsaved');
@@ -230,9 +913,7 @@ async function guardarImporte(conceptoId, importe, registroId, inputElement) {
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 concepto_id: conceptoId,
                 mes: app.mesActual,
@@ -244,33 +925,23 @@ async function guardarImporte(conceptoId, importe, registroId, inputElement) {
         const result = await response.json();
 
         if (result.success) {
-            // Mostrar feedback de éxito
             if (inputElement) {
                 inputElement.classList.add('saved');
                 inputElement.classList.remove('saving');
-
-                // Remover clase después de 2 segundos
-                setTimeout(() => {
-                    inputElement.classList.remove('saved');
-                }, 2000);
+                setTimeout(() => inputElement.classList.remove('saved'), 2000);
+                // Sincronizar data-order del td para sorting de DataTables
+                const td = inputElement.closest('td');
+                if (td) td.setAttribute('data-order', importeNumerico);
             }
-
-            // Mostrar toast de éxito
             mostrarToast('Guardado correctamente', 'success');
-
-            // Recargar datos para actualizar resumen
             await cargarDatos();
         } else {
             mostrarError('Error al guardar: ' + result.message);
-            if (inputElement) {
-                inputElement.classList.remove('saving');
-            }
+            if (inputElement) inputElement.classList.remove('saving');
         }
     } catch (error) {
         mostrarError('Error de conexión: ' + error.message);
-        if (inputElement) {
-            inputElement.classList.remove('saving');
-        }
+        if (inputElement) inputElement.classList.remove('saving');
     } finally {
         app.guardandoCambios = false;
     }
@@ -285,6 +956,13 @@ function formatearMoneda(valor) {
     }).format(valor);
 }
 
+// Formatear fecha ISO a dd/mm/yyyy
+function formatearFecha(fechaISO) {
+    if (!fechaISO) return '';
+    const [y, m, d] = fechaISO.split('T')[0].split('-');
+    return `${d}/${m}/${y}`;
+}
+
 // Obtener nombre del mes
 function obtenerNombreMes(numeroMes) {
     const meses = [
@@ -292,6 +970,30 @@ function obtenerNombreMes(numeroMes) {
         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
     ];
     return meses[numeroMes - 1];
+}
+
+// Toggle sección resumen
+function toggleResumen() {
+    const contenido = document.getElementById('contenidoResumen');
+    const icon = document.getElementById('iconToggleResumen');
+    const oculto = contenido.classList.contains('d-none');
+    contenido.classList.toggle('d-none', !oculto);
+    icon.classList.toggle('bi-chevron-down', !oculto);
+    icon.classList.toggle('bi-chevron-up', oculto);
+}
+
+// Toggle sección ingresos
+function toggleTablaIngresos() {
+    const contenido = document.getElementById('contenidoIngresos');
+    const icon = document.getElementById('iconToggleIngresos');
+    const oculto = contenido.classList.contains('d-none');
+    contenido.classList.toggle('d-none', !oculto);
+    icon.classList.toggle('bi-chevron-down', !oculto);
+    icon.classList.toggle('bi-chevron-up', oculto);
+    // Recalcular columnas de DataTables al hacerse visible
+    if (oculto && app.dtIngresos) {
+        app.dtIngresos.columns.adjust().draw(false);
+    }
 }
 
 // Mostrar loading
@@ -323,27 +1025,56 @@ function mostrarError(mensaje) {
 // ============================================================
 
 const CONCEPTOS_API_URL = 'api/conceptos_api.php';
+const CATEGORIAS_API_URL = 'api/categorias_api.php';
 
 async function abrirModalConceptos() {
     const modal = new bootstrap.Modal(document.getElementById('modalConceptos'));
     modal.show();
-    await cargarConceptosModal();
+    await Promise.all([cargarConceptosModal(), cargarCategoriasModal()]);
 }
 
 async function cargarConceptosModal() {
     try {
-        const response = await fetch(CONCEPTOS_API_URL);
-        const result = await response.json();
-        if (!result.success) throw new Error(result.message);
+        const [respConceptos, respCategorias] = await Promise.all([
+            fetch(CONCEPTOS_API_URL),
+            fetch(CATEGORIAS_API_URL)
+        ]);
+        const resC = await respConceptos.json();
+        const resCat = await respCategorias.json();
+        if (!resC.success) throw new Error(resC.message);
 
-        const ingresos = result.data.filter(c => c.tipo === 'ingreso');
-        const gastos   = result.data.filter(c => c.tipo === 'gasto');
+        app.categorias = resCat.success ? resCat.data : [];
+
+        const ingresos = resC.data.filter(c => c.tipo === 'ingreso');
+        const gastos   = resC.data.filter(c => c.tipo === 'gasto');
 
         renderizarListaConceptos('listaIngresos', ingresos);
         renderizarListaConceptos('listaGastos', gastos);
+        poblarSelectCategorias();
     } catch (error) {
         mostrarError('Error al cargar conceptos: ' + error.message);
     }
+}
+
+// Poblar todos los <select> de categorías con la lista actual de app.categorias
+function poblarSelectCategorias() {
+    const opciones = ['<option value="">— Sin categoría —</option>',
+        ...app.categorias.map(c =>
+            `<option value="${c.id}" style="color:${c.color}">${c.icono ? '● ' : ''}${c.nombre}</option>`
+        )
+    ].join('');
+
+    ['nuevoCategoria'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { const val = el.value; el.innerHTML = opciones; el.value = val; }
+    });
+
+    // También los selects de edición inline (edit-categoria-N)
+    document.querySelectorAll('[id^="edit-categoria-"]').forEach(el => {
+        const val = el.value;
+        el.innerHTML = opciones;
+        el.value = val;
+    });
 }
 
 function renderizarListaConceptos(containerId, conceptos) {
@@ -359,7 +1090,9 @@ function renderizarListaConceptos(containerId, conceptos) {
         <thead class="table-light">
             <tr>
                 <th>Nombre</th>
-                <th class="text-center" style="width:70px">Orden</th>
+                <th style="width:130px">Categoría</th>
+                <th class="text-center" style="width:60px">Orden</th>
+                <th class="text-center" style="width:80px">Múltiples</th>
                 <th class="text-center" style="width:80px">Estado</th>
                 <th style="width:80px"></th>
             </tr>
@@ -368,22 +1101,54 @@ function renderizarListaConceptos(containerId, conceptos) {
     `;
 
     const tbody = tabla.querySelector('tbody');
+
+    const opcionesCat = ['<option value="">— Sin cat. —</option>',
+        ...app.categorias.map(c =>
+            `<option value="${c.id}">${c.nombre}</option>`
+        )
+    ].join('');
+
     conceptos.forEach(c => {
+        const catBadge = c.categoria_id
+            ? `<span class="badge rounded-pill" style="background:${c.categoria_color};color:#fff;font-size:0.7rem">${c.categoria_nombre}</span>`
+            : `<span class="text-muted" style="font-size:0.78rem">—</span>`;
+
         const tr = document.createElement('tr');
         tr.id = `fila-concepto-${c.id}`;
         tr.innerHTML = `
             <td>
                 <span class="concepto-nombre-texto ${!c.activo ? 'text-muted text-decoration-line-through' : ''}">${c.nombre}</span>
                 <span class="concepto-nombre-edit d-none">
-                    <input type="text" class="form-control form-control-sm d-inline-block" style="width:180px"
+                    <input type="text" class="form-control form-control-sm d-inline-block" style="width:160px"
                         id="edit-nombre-${c.id}" value="${c.nombre}">
+                </span>
+            </td>
+            <td>
+                <span class="concepto-cat-texto">${catBadge}</span>
+                <span class="concepto-cat-edit d-none">
+                    <select class="form-select form-select-sm" style="width:120px" id="edit-categoria-${c.id}">
+                        ${opcionesCat}
+                    </select>
                 </span>
             </td>
             <td class="text-center">
                 <span class="concepto-orden-texto">${c.orden}</span>
                 <span class="concepto-orden-edit d-none">
-                    <input type="number" class="form-control form-control-sm d-inline-block text-center" style="width:60px"
+                    <input type="number" class="form-control form-control-sm d-inline-block text-center" style="width:55px"
                         id="edit-orden-${c.id}" value="${c.orden}" min="1">
+                </span>
+            </td>
+            <td class="text-center">
+                <span class="concepto-multiples-texto">
+                    ${c.permite_multiples
+                        ? '<span class="badge bg-info">Sí</span>'
+                        : '<span class="badge bg-light text-muted border">No</span>'}
+                </span>
+                <span class="concepto-multiples-edit d-none">
+                    <div class="form-check form-switch d-inline-block">
+                        <input class="form-check-input" type="checkbox" id="edit-multiples-${c.id}"
+                            ${c.permite_multiples ? 'checked' : ''}>
+                    </div>
                 </span>
             </td>
             <td class="text-center">
@@ -414,6 +1179,13 @@ function renderizarListaConceptos(containerId, conceptos) {
                 </div>
             </td>
         `;
+
+        // Pre-seleccionar categoría en el select de edición
+        if (c.categoria_id) {
+            const sel = tr.querySelector(`#edit-categoria-${c.id}`);
+            if (sel) sel.value = c.categoria_id;
+        }
+
         tbody.appendChild(tr);
     });
 
@@ -423,20 +1195,23 @@ function renderizarListaConceptos(containerId, conceptos) {
 
 function editarConcepto(id) {
     const fila = document.getElementById(`fila-concepto-${id}`);
-    fila.querySelectorAll('.concepto-nombre-texto, .concepto-orden-texto, .acciones-ver').forEach(el => el.classList.add('d-none'));
-    fila.querySelectorAll('.concepto-nombre-edit, .concepto-orden-edit, .acciones-edit').forEach(el => el.classList.remove('d-none'));
+    fila.querySelectorAll('.concepto-nombre-texto, .concepto-cat-texto, .concepto-orden-texto, .concepto-multiples-texto, .acciones-ver').forEach(el => el.classList.add('d-none'));
+    fila.querySelectorAll('.concepto-nombre-edit, .concepto-cat-edit, .concepto-orden-edit, .concepto-multiples-edit, .acciones-edit').forEach(el => el.classList.remove('d-none'));
     document.getElementById(`edit-nombre-${id}`).focus();
 }
 
 function cancelarEdicionConcepto(id) {
     const fila = document.getElementById(`fila-concepto-${id}`);
-    fila.querySelectorAll('.concepto-nombre-texto, .concepto-orden-texto, .acciones-ver').forEach(el => el.classList.remove('d-none'));
-    fila.querySelectorAll('.concepto-nombre-edit, .concepto-orden-edit, .acciones-edit').forEach(el => el.classList.add('d-none'));
+    fila.querySelectorAll('.concepto-nombre-texto, .concepto-cat-texto, .concepto-orden-texto, .concepto-multiples-texto, .acciones-ver').forEach(el => el.classList.remove('d-none'));
+    fila.querySelectorAll('.concepto-nombre-edit, .concepto-cat-edit, .concepto-orden-edit, .concepto-multiples-edit, .acciones-edit').forEach(el => el.classList.add('d-none'));
 }
 
 async function guardarEdicionConcepto(id) {
     const nombre = document.getElementById(`edit-nombre-${id}`).value.trim();
     const orden  = document.getElementById(`edit-orden-${id}`).value;
+    const permite_multiples = document.getElementById(`edit-multiples-${id}`).checked ? 1 : 0;
+    const catEl  = document.getElementById(`edit-categoria-${id}`);
+    const categoria_id = catEl && catEl.value !== '' ? parseInt(catEl.value) : null;
 
     if (!nombre) {
         mostrarError('El nombre no puede estar vacío.');
@@ -447,7 +1222,7 @@ async function guardarEdicionConcepto(id) {
         const response = await fetch(CONCEPTOS_API_URL, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, nombre, orden })
+            body: JSON.stringify({ id, nombre, orden, permite_multiples, categoria_id })
         });
         const result = await response.json();
         if (!result.success) throw new Error(result.message);
@@ -509,6 +1284,8 @@ function mostrarFormNuevo(tipo) {
     document.getElementById('nuevoTipo').value = tipo;
     document.getElementById('nuevoNombre').value = '';
     document.getElementById('nuevoOrden').value = '';
+    document.getElementById('nuevoPermiteMultiples').checked = false;
+    document.getElementById('nuevoCategoria').value = '';
     form.classList.remove('d-none');
     document.getElementById('nuevoNombre').focus();
 }
@@ -521,6 +1298,9 @@ async function guardarNuevoConcepto() {
     const nombre = document.getElementById('nuevoNombre').value.trim();
     const tipo   = document.getElementById('nuevoTipo').value;
     const orden  = document.getElementById('nuevoOrden').value;
+    const permite_multiples = document.getElementById('nuevoPermiteMultiples').checked ? 1 : 0;
+    const catVal = document.getElementById('nuevoCategoria').value;
+    const categoria_id = catVal !== '' ? parseInt(catVal) : null;
 
     if (!nombre) {
         mostrarError('El nombre no puede estar vacío.');
@@ -531,7 +1311,7 @@ async function guardarNuevoConcepto() {
         const response = await fetch(CONCEPTOS_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, tipo, orden: orden || undefined })
+            body: JSON.stringify({ nombre, tipo, orden: orden || undefined, permite_multiples, categoria_id })
         });
         const result = await response.json();
         if (!result.success) throw new Error(result.message);
@@ -541,7 +1321,6 @@ async function guardarNuevoConcepto() {
         await cargarConceptosModal();
         await cargarDatos();
 
-        // Cambiar al tab correspondiente
         const tabBtn = document.getElementById(tipo === 'ingreso' ? 'tab-ingresos-btn' : 'tab-gastos-btn');
         bootstrap.Tab.getOrCreateInstance(tabBtn).show();
     } catch (error) {
@@ -550,9 +1329,202 @@ async function guardarNuevoConcepto() {
 }
 
 // ============================================================
+// ABM Categorías
+// ============================================================
+
+async function cargarCategoriasModal() {
+    try {
+        const response = await fetch(CATEGORIAS_API_URL);
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+        app.categorias = result.data;
+        renderizarListaCategorias(result.data);
+        poblarSelectCategorias();
+    } catch (error) {
+        mostrarError('Error al cargar categorías: ' + error.message);
+    }
+}
+
+function renderizarListaCategorias(categorias) {
+    const container = document.getElementById('listaCategorias');
+    if (!container) return;
+
+    if (categorias.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center py-2">Sin categorías. Creá la primera.</p>';
+        return;
+    }
+
+    const tabla = document.createElement('table');
+    tabla.className = 'table table-sm table-hover align-middle mb-0';
+    tabla.innerHTML = `
+        <thead class="table-light">
+            <tr>
+                <th style="width:32px"></th>
+                <th>Nombre</th>
+                <th class="text-center" style="width:60px">Orden</th>
+                <th style="width:80px"></th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    `;
+
+    const tbody = tabla.querySelector('tbody');
+
+    categorias.forEach(cat => {
+        const tr = document.createElement('tr');
+        tr.id = `fila-categoria-${cat.id}`;
+        tr.innerHTML = `
+            <td>
+                <span class="categoria-dot d-inline-block" style="background:${cat.color}; width:14px; height:14px; border-radius:50%;"></span>
+            </td>
+            <td>
+                <span class="cat-nombre-texto">
+                    ${cat.icono ? `<i class="bi ${cat.icono} me-1" style="color:${cat.color}"></i>` : ''}
+                    ${cat.nombre}
+                </span>
+                <span class="cat-nombre-edit d-none d-flex gap-1 align-items-center">
+                    <input type="color" id="edit-cat-color-${cat.id}" class="form-control form-control-sm form-control-color" style="width:36px;padding:2px" value="${cat.color}">
+                    <input type="text" id="edit-cat-nombre-${cat.id}" class="form-control form-control-sm" style="width:130px" value="${cat.nombre}">
+                    <input type="text" id="edit-cat-icono-${cat.id}" class="form-control form-control-sm" style="width:110px" placeholder="bi-house-fill" value="${cat.icono || ''}">
+                </span>
+            </td>
+            <td class="text-center">
+                <span class="cat-orden-texto">${cat.orden}</span>
+                <span class="cat-orden-edit d-none">
+                    <input type="number" id="edit-cat-orden-${cat.id}" class="form-control form-control-sm text-center" style="width:55px" value="${cat.orden}">
+                </span>
+            </td>
+            <td class="text-end">
+                <div class="cat-acciones-ver d-flex gap-1 justify-content-end">
+                    <button class="btn btn-outline-primary btn-sm" title="Editar" onclick="editarCategoria(${cat.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" title="Eliminar" onclick="eliminarCategoria(${cat.id}, '${cat.nombre.replace(/'/g, "\\'")}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+                <div class="cat-acciones-edit d-none d-flex gap-1 justify-content-end">
+                    <button class="btn btn-success btn-sm" onclick="guardarEdicionCategoria(${cat.id})">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="cancelarEdicionCategoria(${cat.id})">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    container.innerHTML = '';
+    container.appendChild(tabla);
+}
+
+function mostrarFormNuevaCategoria() {
+    document.getElementById('catNombre').value = '';
+    document.getElementById('catColor').value  = '#2563EB';
+    document.getElementById('catIcono').value  = '';
+    document.getElementById('catOrden').value  = '';
+    document.getElementById('formNuevaCategoria').classList.remove('d-none');
+    document.getElementById('catNombre').focus();
+}
+
+function cancelarNuevaCategoria() {
+    document.getElementById('formNuevaCategoria').classList.add('d-none');
+}
+
+async function guardarNuevaCategoria() {
+    const nombre = document.getElementById('catNombre').value.trim();
+    const color  = document.getElementById('catColor').value;
+    const icono  = document.getElementById('catIcono').value.trim();
+    const orden  = document.getElementById('catOrden').value;
+
+    if (!nombre) {
+        mostrarError('El nombre de la categoría no puede estar vacío.');
+        return;
+    }
+
+    try {
+        const response = await fetch(CATEGORIAS_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, color, icono: icono || '', orden: orden || undefined })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+
+        mostrarToast('Categoría creada', 'success');
+        cancelarNuevaCategoria();
+        await cargarCategoriasModal();
+    } catch (error) {
+        mostrarError('Error al crear categoría: ' + error.message);
+    }
+}
+
+function editarCategoria(id) {
+    const fila = document.getElementById(`fila-categoria-${id}`);
+    fila.querySelectorAll('.cat-nombre-texto, .cat-orden-texto, .cat-acciones-ver').forEach(el => el.classList.add('d-none'));
+    fila.querySelectorAll('.cat-nombre-edit, .cat-orden-edit, .cat-acciones-edit').forEach(el => el.classList.remove('d-none'));
+    document.getElementById(`edit-cat-nombre-${id}`).focus();
+}
+
+function cancelarEdicionCategoria(id) {
+    const fila = document.getElementById(`fila-categoria-${id}`);
+    fila.querySelectorAll('.cat-nombre-texto, .cat-orden-texto, .cat-acciones-ver').forEach(el => el.classList.remove('d-none'));
+    fila.querySelectorAll('.cat-nombre-edit, .cat-orden-edit, .cat-acciones-edit').forEach(el => el.classList.add('d-none'));
+}
+
+async function guardarEdicionCategoria(id) {
+    const nombre = document.getElementById(`edit-cat-nombre-${id}`).value.trim();
+    const color  = document.getElementById(`edit-cat-color-${id}`).value;
+    const icono  = document.getElementById(`edit-cat-icono-${id}`).value.trim();
+    const orden  = document.getElementById(`edit-cat-orden-${id}`).value;
+
+    if (!nombre) {
+        mostrarError('El nombre no puede estar vacío.');
+        return;
+    }
+
+    try {
+        const response = await fetch(CATEGORIAS_API_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, nombre, color, icono, orden: parseInt(orden) || 0 })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+
+        mostrarToast('Categoría actualizada', 'success');
+        await cargarCategoriasModal();
+        await cargarDatos();
+    } catch (error) {
+        mostrarError('Error al guardar: ' + error.message);
+    }
+}
+
+async function eliminarCategoria(id, nombre) {
+    if (!confirm(`¿Eliminar la categoría "${nombre}"?\nLos conceptos asociados quedarán sin categoría.`)) return;
+
+    try {
+        const response = await fetch(CATEGORIAS_API_URL, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+
+        mostrarToast('Categoría eliminada', 'success');
+        await cargarCategoriasModal();
+        await cargarDatos();
+    } catch (error) {
+        mostrarError('Error al eliminar: ' + error.message);
+    }
+}
+
+// ============================================================
 // Mostrar toast (notificación pequeña)
 function mostrarToast(mensaje, tipo = 'success') {
-    // Crear contenedor de toasts si no existe
     let toastContainer = document.getElementById('toastContainer');
     if (!toastContainer) {
         toastContainer = document.createElement('div');
@@ -580,15 +1552,8 @@ function mostrarToast(mensaje, tipo = 'success') {
     toastContainer.insertAdjacentHTML('beforeend', toastHTML);
 
     const toastElement = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastElement, {
-        autohide: true,
-        delay: 2000
-    });
-
+    const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 2000 });
     toast.show();
 
-    // Remover el toast del DOM después de que se oculte
-    toastElement.addEventListener('hidden.bs.toast', () => {
-        toastElement.remove();
-    });
+    toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
 }

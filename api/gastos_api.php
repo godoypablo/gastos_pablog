@@ -2,6 +2,9 @@
 /**
  * API REST para Sistema de Gastos Personales
  */
+ ini_set('display_errors', 1);
+  error_reporting(E_ALL);
+
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -31,41 +34,71 @@ try {
 
     switch ($method) {
         case 'GET':
-            // Obtener datos del mes/año
             $mes = isset($_GET['mes']) ? (int)$_GET['mes'] : date('n');
             $anio = isset($_GET['anio']) ? (int)$_GET['anio'] : date('Y');
 
-            // Obtener todos los conceptos con sus importes del mes/año especificado
+            // Conceptos con total agregado, incluyendo datos de categoría
             $sql = "SELECT
                         c.id,
                         c.nombre,
                         c.tipo,
                         c.orden,
-                        COALESCE(rm.importe, 0.00) as importe,
-                        rm.observaciones,
-                        rm.id as registro_id
+                        c.permite_multiples,
+                        c.categoria_id,
+                        cat.nombre  AS categoria_nombre,
+                        cat.color   AS categoria_color,
+                        cat.icono   AS categoria_icono,
+                        COALESCE(SUM(rm.importe), 0.00) as importe,
+                        MIN(rm.id) as registro_id
                     FROM conceptos c
+                    LEFT JOIN categorias cat ON c.categoria_id = cat.id
                     LEFT JOIN registros_mensuales rm ON c.id = rm.concepto_id
                         AND rm.mes = :mes
                         AND rm.anio = :anio
                     WHERE c.activo = 1
-                    ORDER BY c.tipo DESC, c.orden ASC";
+                    GROUP BY c.id, c.nombre, c.tipo, c.orden, c.permite_multiples,
+                             c.categoria_id, cat.nombre, cat.color, cat.icono
+                    ORDER BY c.tipo DESC,
+                             COALESCE(cat.orden, 9999) ASC,
+                             COALESCE(cat.id, 9999) ASC,
+                             c.orden ASC";
 
             $stmt = $db->prepare($sql);
             $stmt->execute(['mes' => $mes, 'anio' => $anio]);
             $conceptos = $stmt->fetchAll();
 
-            // Calcular totales
+            // Detalle de registros para conceptos multi-entrada
+            $sql_detalle = "SELECT rm.id, rm.concepto_id, rm.fecha, rm.importe, rm.observaciones
+                            FROM registros_mensuales rm
+                            INNER JOIN conceptos c ON rm.concepto_id = c.id
+                            WHERE rm.mes = :mes AND rm.anio = :anio AND c.permite_multiples = 1
+                            ORDER BY rm.fecha ASC, rm.id ASC";
+            $stmt_detalle = $db->prepare($sql_detalle);
+            $stmt_detalle->execute(['mes' => $mes, 'anio' => $anio]);
+            $detalles = $stmt_detalle->fetchAll();
+
+            // Agrupar detalles por concepto_id
+            $detalles_por_concepto = [];
+            foreach ($detalles as $d) {
+                $detalles_por_concepto[$d['concepto_id']][] = $d;
+            }
+
+            // Calcular totales y agregar detalle
             $total_ingresos = 0;
             $total_gastos = 0;
 
-            foreach ($conceptos as $concepto) {
+            foreach ($conceptos as &$concepto) {
+                $concepto['permite_multiples'] = (bool)$concepto['permite_multiples'];
+                if ($concepto['permite_multiples']) {
+                    $concepto['detalle'] = $detalles_por_concepto[$concepto['id']] ?? [];
+                }
                 if ($concepto['tipo'] === 'ingreso') {
                     $total_ingresos += $concepto['importe'];
                 } else {
                     $total_gastos += $concepto['importe'];
                 }
             }
+            unset($concepto);
 
             $saldo = $total_ingresos - $total_gastos;
 
@@ -82,7 +115,6 @@ try {
             break;
 
         case 'POST':
-            // Guardar o actualizar registro
             $input = json_decode(file_get_contents('php://input'), true);
 
             if (!isset($input['concepto_id'], $input['mes'], $input['anio'], $input['importe'])) {
@@ -95,43 +127,66 @@ try {
             $importe = (float)$input['importe'];
             $observaciones = isset($input['observaciones']) ? $input['observaciones'] : null;
 
-            // Verificar si existe el registro
-            $sql = "SELECT id FROM registros_mensuales
-                    WHERE concepto_id = :concepto_id AND mes = :mes AND anio = :anio";
-            $stmt = $db->prepare($sql);
-            $stmt->execute(['concepto_id' => $concepto_id, 'mes' => $mes, 'anio' => $anio]);
-            $registro_existente = $stmt->fetch();
+            // Verificar si el concepto permite múltiples entradas
+            $stmt = $db->prepare("SELECT permite_multiples FROM conceptos WHERE id = :id");
+            $stmt->execute(['id' => $concepto_id]);
+            $concepto = $stmt->fetch();
 
-            if ($registro_existente) {
-                // Actualizar
-                $sql = "UPDATE registros_mensuales
-                        SET importe = :importe, observaciones = :observaciones
-                        WHERE id = :id";
-                $stmt = $db->prepare($sql);
-                $stmt->execute([
-                    'importe' => $importe,
-                    'observaciones' => $observaciones,
-                    'id' => $registro_existente['id']
-                ]);
-                sendResponse(true, ['id' => $registro_existente['id']], 'Registro actualizado correctamente');
-            } else {
-                // Insertar
-                $sql = "INSERT INTO registros_mensuales (concepto_id, mes, anio, importe, observaciones)
-                        VALUES (:concepto_id, :mes, :anio, :importe, :observaciones)";
+            if (!$concepto) {
+                sendResponse(false, null, 'Concepto no encontrado', 404);
+            }
+
+            if ($concepto['permite_multiples']) {
+                // Multi-entrada: siempre INSERT con fecha
+                $fecha = isset($input['fecha']) ? $input['fecha'] : date('Y-m-d');
+                $sql = "INSERT INTO registros_mensuales (concepto_id, mes, anio, fecha, importe, observaciones)
+                        VALUES (:concepto_id, :mes, :anio, :fecha, :importe, :observaciones)";
                 $stmt = $db->prepare($sql);
                 $stmt->execute([
                     'concepto_id' => $concepto_id,
                     'mes' => $mes,
                     'anio' => $anio,
+                    'fecha' => $fecha,
                     'importe' => $importe,
                     'observaciones' => $observaciones
                 ]);
                 sendResponse(true, ['id' => $db->lastInsertId()], 'Registro creado correctamente');
+            } else {
+                // Entrada única: upsert
+                $sql = "SELECT id FROM registros_mensuales
+                        WHERE concepto_id = :concepto_id AND mes = :mes AND anio = :anio";
+                $stmt = $db->prepare($sql);
+                $stmt->execute(['concepto_id' => $concepto_id, 'mes' => $mes, 'anio' => $anio]);
+                $registro_existente = $stmt->fetch();
+
+                if ($registro_existente) {
+                    $sql = "UPDATE registros_mensuales
+                            SET importe = :importe, observaciones = :observaciones
+                            WHERE id = :id";
+                    $stmt = $db->prepare($sql);
+                    $stmt->execute([
+                        'importe' => $importe,
+                        'observaciones' => $observaciones,
+                        'id' => $registro_existente['id']
+                    ]);
+                    sendResponse(true, ['id' => $registro_existente['id']], 'Registro actualizado correctamente');
+                } else {
+                    $sql = "INSERT INTO registros_mensuales (concepto_id, mes, anio, importe, observaciones)
+                            VALUES (:concepto_id, :mes, :anio, :importe, :observaciones)";
+                    $stmt = $db->prepare($sql);
+                    $stmt->execute([
+                        'concepto_id' => $concepto_id,
+                        'mes' => $mes,
+                        'anio' => $anio,
+                        'importe' => $importe,
+                        'observaciones' => $observaciones
+                    ]);
+                    sendResponse(true, ['id' => $db->lastInsertId()], 'Registro creado correctamente');
+                }
             }
             break;
 
         case 'DELETE':
-            // Eliminar registro
             $input = json_decode(file_get_contents('php://input'), true);
 
             if (!isset($input['registro_id'])) {

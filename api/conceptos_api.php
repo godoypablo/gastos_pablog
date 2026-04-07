@@ -29,9 +29,11 @@ try {
 
         case 'GET':
             $stmt = $db->query(
-                "SELECT id, nombre, tipo, orden, activo
-                 FROM conceptos
-                 ORDER BY tipo DESC, orden ASC"
+                "SELECT c.id, c.nombre, c.tipo, c.orden, c.activo, c.permite_multiples,
+                        c.categoria_id, cat.nombre AS categoria_nombre, cat.color AS categoria_color
+                 FROM conceptos c
+                 LEFT JOIN categorias cat ON c.categoria_id = cat.id
+                 ORDER BY c.tipo DESC, COALESCE(cat.orden, 9999) ASC, c.orden ASC"
             );
             sendResponse(true, $stmt->fetchAll());
             break;
@@ -56,11 +58,13 @@ try {
             $next_orden = (int)$stmt->fetchColumn();
 
             $orden = isset($input['orden']) && $input['orden'] !== '' ? (int)$input['orden'] : $next_orden;
+            $permite_multiples = !empty($input['permite_multiples']) ? 1 : 0;
+            $categoria_id = !empty($input['categoria_id']) ? (int)$input['categoria_id'] : null;
 
             $stmt = $db->prepare(
-                "INSERT INTO conceptos (nombre, tipo, orden) VALUES (:nombre, :tipo, :orden)"
+                "INSERT INTO conceptos (nombre, tipo, orden, permite_multiples, categoria_id) VALUES (:nombre, :tipo, :orden, :permite_multiples, :categoria_id)"
             );
-            $stmt->execute(['nombre' => $nombre, 'tipo' => $tipo, 'orden' => $orden]);
+            $stmt->execute(['nombre' => $nombre, 'tipo' => $tipo, 'orden' => $orden, 'permite_multiples' => $permite_multiples, 'categoria_id' => $categoria_id]);
 
             sendResponse(true, ['id' => $db->lastInsertId()], 'Concepto creado correctamente');
             break;
@@ -91,6 +95,14 @@ try {
             if (isset($input['activo'])) {
                 $fields[] = 'activo = :activo';
                 $params['activo'] = $input['activo'] ? 1 : 0;
+            }
+            if (isset($input['permite_multiples'])) {
+                $fields[] = 'permite_multiples = :permite_multiples';
+                $params['permite_multiples'] = $input['permite_multiples'] ? 1 : 0;
+            }
+            if (array_key_exists('categoria_id', $input)) {
+                $fields[] = 'categoria_id = :categoria_id';
+                $params['categoria_id'] = !empty($input['categoria_id']) ? (int)$input['categoria_id'] : null;
             }
 
             if (empty($fields)) {

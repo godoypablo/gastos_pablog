@@ -1,76 +1,151 @@
 /**
- * Estilos personalizados para Sistema de Gastos Personales
- * Compatible con Bootstrap 5
- * Paleta de colores personalizada
+ * Estilos personalizados — Sistema de Gastos Personales
+ * Tipografía: Montserrat (títulos) + Inter (UI)
+ * Paleta: azul oscuro · azul medio · verde · gris claro
  */
 
+/* ==================== VARIABLES — CIFRA ==================== */
 :root {
-    /* Paleta de colores personalizada */
-    --color-primary: #196292;
-    --color-primary-light: #5F90A7;
-    --color-primary-dark: #35587F;
-    --color-secondary: #1B32E53;
-    --color-danger: #D22A4C;
-    --color-danger-dark: #B30029;
-    --color-success: #5F90A7;
-    --color-warning: #D22A4C;
-    --color-gray-light: #919191;
-    --color-gray: #606060;
-    --color-gray-dark: #3F3F3F;
+    /* Paleta oficial Cifra */
+    --color-primary:       #2563EB;
+    --color-primary-dark:  #1F2A37;
+    --color-primary-light: #3B82F6;
+    --color-success:       #16A34A;
+    --color-success-dark:  #15803D;
+    --color-danger:        #DC2626;
+    --color-danger-dark:   #B91C1C;
+    --color-warning:       #D97706;
+    --color-gray-light:    #E5E7EB;
+    --color-gray:          #6B7280;
+    --color-gray-dark:     #111827;
+    --color-bg:            #F8FAFC;
+    --color-white:         #FFFFFF;
 
-    /* Backgrounds */
-    --bs-body-bg: #f5f5f5;
-    --bs-body-color: #3F3F3F;
-
-    /* Override Bootstrap colors */
-    --bs-primary: #196292;
-    --bs-primary-rgb: 25, 98, 146;
-    --bs-success: #5F90A7;
-    --bs-success-rgb: 95, 144, 167;
-    --bs-danger: #D22A4C;
-    --bs-danger-rgb: 210, 42, 76;
-    --bs-warning: #B30029;
-    --bs-warning-rgb: 179, 0, 41;
-    --bs-info: #5F90A7;
-    --bs-info-rgb: 95, 144, 167;
+    /* Bootstrap overrides */
+    --bs-body-bg:          #F8FAFC;
+    --bs-body-color:       #111827;
+    --bs-primary:          #2563EB;
+    --bs-primary-rgb:      37, 99, 235;
+    --bs-success:          #16A34A;
+    --bs-success-rgb:      22, 163, 74;
+    --bs-danger:           #DC2626;
+    --bs-danger-rgb:       220, 38, 38;
+    --bs-warning:          #D97706;
+    --bs-warning-rgb:      217, 119, 6;
+    --bs-info:             #3B82F6;
+    --bs-info-rgb:         59, 130, 246;
 }
 
+/* ==================== BASE ==================== */
 body {
-    background-color: var(--bs-body-bg);
-    color: var(--bs-body-color);
+    font-family: 'Inter', sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-gray);
+    font-size: 0.95rem;
+}
+
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
 }
 
 /* ==================== HEADER ==================== */
 .header {
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    background: linear-gradient(135deg, var(--color-primary-dark) 0%, #253445 100%);
 }
 
-/* ==================== BUTTONS ==================== */
+.header h1,
+.cifra-logo {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+/* ==================== BOTONES ==================== */
 .btn-primary {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    font-weight: 500;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+    background-color: #1a6fd4 !important;
+    border-color: #1a6fd4 !important;
+    box-shadow: 0 0 0 0.25rem rgba(47, 128, 237, 0.25) !important;
+}
+
+.btn-success {
+    background-color: var(--color-success);
+    border-color: var(--color-success);
+}
+
+.btn-success:hover {
+    background-color: var(--color-success-dark);
+    border-color: var(--color-success-dark);
+}
+
+.btn-danger {
+    background-color: var(--color-danger);
+    border-color: var(--color-danger);
+}
+
+.btn-outline-success {
+    color: var(--color-success);
+    border-color: var(--color-success);
+}
+
+.btn-outline-success:hover {
+    background-color: var(--color-success);
+    border-color: var(--color-success);
+}
+
+.btn-outline-danger {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+}
+
+.btn-outline-danger:hover {
+    background-color: var(--color-danger);
+    border-color: var(--color-danger);
+}
+
+.btn-outline-primary {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.btn-outline-primary:hover {
     background-color: var(--color-primary);
     border-color: var(--color-primary);
 }
 
-.btn-primary:hover {
-    background-color: var(--color-primary-dark);
-    border-color: var(--color-primary-dark);
+.btn-outline-info {
+    color: var(--color-primary-light);
+    border-color: var(--color-primary-light);
 }
 
-.btn-primary:focus,
-.btn-primary:active {
-    background-color: var(--color-primary-dark) !important;
-    border-color: var(--color-primary-dark) !important;
-    box-shadow: 0 0 0 0.25rem rgba(25, 98, 146, 0.25) !important;
+.btn-outline-info:hover {
+    background-color: var(--color-primary-light);
+    border-color: var(--color-primary-light);
+    color: white;
 }
 
 #btnCargar {
     font-weight: 600;
     transition: all 0.2s;
+    background-color: var(--color-primary-dark) !important;
+    border-color: var(--color-primary-dark) !important;
+    color: #fff !important;
 }
 
 #btnCargar:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(25, 98, 146, 0.4);
+    box-shadow: 0 4px 8px rgba(31, 42, 55, 0.4) !important;
+    background-color: #253445 !important;
+    border-color: #253445 !important;
 }
 
 #btnCargar:active {
@@ -79,293 +154,301 @@ body {
 
 /* ==================== CARDS ==================== */
 .card {
-    border: 1px solid rgba(63, 63, 63, 0.15);
-    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.2s;
 }
 
 .card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1rem rgba(63, 63, 63, 0.15) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .card-header {
+    font-family: 'Montserrat', sans-serif;
     font-weight: 600;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.07);
 }
 
-/* Cards de resumen con bordes destacados */
-.card.border-success {
-    border-width: 2px;
-    border-color: var(--color-success) !important;
-}
+/* Cards de resumen */
+.card.border-success { border-width: 2px; border-color: var(--color-success) !important; }
+.card.border-danger  { border-width: 2px; border-color: var(--color-danger)  !important; }
+.card.border-primary { border-width: 2px; border-color: var(--color-primary) !important; }
+.card.border-warning { border-width: 2px; border-color: var(--color-warning) !important; }
 
-.card.border-danger {
-    border-width: 2px;
-    border-color: var(--color-danger) !important;
-}
+/* ==================== COLORES DE TEXTO ==================== */
+.text-primary  { color: var(--color-primary)  !important; }
+.text-success  { color: var(--color-success)  !important; }
+.text-danger   { color: var(--color-danger)   !important; }
+.text-warning  { color: var(--color-warning)  !important; }
+.text-info     { color: var(--color-primary-light) !important; }
+.text-secondary{ color: var(--color-gray)     !important; }
+.text-muted    { color: var(--color-gray)     !important; }
 
-.card.border-primary {
-    border-width: 2px;
-    border-color: var(--color-primary) !important;
-}
+/* ==================== BACKGROUNDS ==================== */
+.bg-primary { background-color: var(--color-primary)  !important; }
+.bg-success { background-color: var(--color-success)  !important; }
+.bg-danger  { background-color: var(--color-danger)   !important; }
 
-.card.border-warning {
-    border-width: 2px;
-    border-color: var(--color-danger-dark) !important;
-}
+.bg-success.bg-opacity-10 { background-color: rgba(39, 174, 96,  0.08) !important; }
+.bg-danger.bg-opacity-10  { background-color: rgba(235, 87, 87,  0.08) !important; }
 
-/* Colores de texto personalizados */
-.text-primary {
-    color: var(--color-primary) !important;
-}
+.border-success { border-color: var(--color-success) !important; }
+.border-danger  { border-color: var(--color-danger)  !important; }
+.border-primary { border-color: var(--color-primary) !important; }
 
-.text-success {
-    color: var(--color-success) !important;
-}
-
-.text-danger {
-    color: var(--color-danger) !important;
-}
-
-.text-warning {
-    color: var(--color-danger-dark) !important;
-}
-
-.text-info {
-    color: var(--color-primary-light) !important;
-}
-
-.text-secondary {
-    color: var(--color-gray) !important;
-}
-
-/* Backgrounds personalizados */
-.bg-success {
-    background-color: var(--color-success) !important;
-}
-
-.bg-danger {
-    background-color: var(--color-danger) !important;
-}
-
-.bg-primary {
-    background-color: var(--color-primary) !important;
-}
-
-/* Backgrounds con opacidad */
-.bg-success.bg-opacity-10 {
-    background-color: rgba(95, 144, 167, 0.1) !important;
-}
-
-.bg-danger.bg-opacity-10 {
-    background-color: rgba(210, 42, 76, 0.1) !important;
-}
-
-/* Bordes con colores personalizados en headers */
-.border-success {
-    border-color: var(--color-success) !important;
-}
-
-.border-danger {
-    border-color: var(--color-danger) !important;
-}
-
-/* Estilo para saldo negativo */
-#cardSaldo.negativo {
-    border-color: var(--color-danger-dark) !important;
-}
-
-#cardSaldo.negativo #saldo {
-    color: var(--color-danger-dark) !important;
-}
-
-#cardSaldo.negativo #iconSaldo {
-    color: var(--color-danger-dark) !important;
-}
+/* ==================== SALDO NEGATIVO ==================== */
+#cardSaldo.negativo { border-color: var(--color-danger-dark) !important; }
+#cardSaldo.negativo #saldo    { color: var(--color-danger-dark) !important; }
+#cardSaldo.negativo #iconSaldo{ color: var(--color-danger-dark) !important; }
 
 /* ==================== TABLAS ==================== */
 .table-responsive {
     border-radius: 0;
+    overflow-x: auto;
 }
 
-.table > tbody > tr > td {
+/* Celdas del body — padding y alineación base */
+.table > tbody > tr > td,
+table.dataTable > tbody > tr > td {
     vertical-align: middle;
-    padding: 1rem;
+    padding: 0.85rem 1rem;
+    border-color: rgba(0, 0, 0, 0.05);
 }
 
-.table-hover tbody tr:hover {
-    background-color: rgba(25, 98, 146, 0.05);
+/* Hover: solo en tablas que NO son DataTables (modal de conceptos) */
+.table-hover:not(.dataTable) tbody tr:hover {
+    background-color: rgba(47, 128, 237, 0.05);
     cursor: pointer;
+}
+
+/* ==================== DATATABLES ==================== */
+
+/* Sin márgenes extras */
+table.dataTable {
+    margin: 0 !important;
+    width: 100% !important;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Headers */
+table.dataTable thead > tr > th {
+    padding: 0.6rem 1rem;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--color-gray);
+    font-weight: 600;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.08) !important;
+    background-color: transparent !important;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+/* Íconos de sort */
+table.dataTable thead th.dt-orderable-asc span.dt-column-order,
+table.dataTable thead th.dt-orderable-desc span.dt-column-order {
+    color: var(--color-primary);
+    opacity: 0.4;
+}
+table.dataTable thead th.dt-ordering-asc span.dt-column-order,
+table.dataTable thead th.dt-ordering-desc span.dt-column-order {
+    opacity: 1;
+    color: var(--color-primary);
+}
+
+/* Hover de filas — Bootstrap puro */
+table.dataTable.table-hover > tbody > tr:hover > * {
+    background-color: rgba(47, 128, 237, 0.05) !important;
+    box-shadow: none !important;
+    --bs-table-accent-bg: transparent;
+    cursor: pointer;
+}
+
+/* Child rows: sin padding, sin hover, sin borde superior */
+table.dataTable > tbody > tr.child > td {
+    padding: 0 !important;
+    background-color: transparent !important;
+    border-top: none !important;
+}
+
+table.dataTable.table-hover > tbody > tr.child:hover > td {
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+
+table.dataTable > tbody > tr.parent + tr.child td {
+    border-top: none !important;
 }
 
 /* ==================== INPUTS Y FORMS ==================== */
 .input-importe {
-    border: 2px solid var(--color-gray-light);
+    border: 1.5px solid var(--color-gray-light);
     border-radius: 0.375rem;
-    padding: 0.5rem 0.75rem;
-    font-size: 1rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.95rem;
+    font-family: 'Inter', sans-serif;
     text-align: right;
     font-weight: 500;
     transition: all 0.2s;
     width: 100%;
     max-width: 200px;
+    background-color: var(--color-white);
+    color: var(--color-gray-dark);
 }
 
 .input-importe:focus {
     outline: none;
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 0.25rem rgba(25, 98, 146, 0.25);
+    box-shadow: 0 0 0 3px rgba(47, 128, 237, 0.15);
 }
 
-/* Estilo para inputs con cambios no guardados */
 .input-importe.unsaved {
     border-color: var(--color-danger);
-    background-color: rgba(210, 42, 76, 0.1);
+    background-color: rgba(235, 87, 87, 0.06);
 }
 
 .input-importe.saved {
     border-color: var(--color-success);
 }
 
-/* Pulse animation para guardar */
 @keyframes pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(95, 144, 167, 0.7);
-    }
-    70% {
-        box-shadow: 0 0 0 10px rgba(95, 144, 167, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(95, 144, 167, 0);
-    }
+    0%   { box-shadow: 0 0 0 0   rgba(47, 128, 237, 0.6); }
+    70%  { box-shadow: 0 0 0 8px rgba(47, 128, 237, 0);   }
+    100% { box-shadow: 0 0 0 0   rgba(47, 128, 237, 0);   }
 }
 
 .input-importe.saving {
     animation: pulse 0.5s;
 }
 
-/* Form selects */
+/* Input readonly (totales múltiples) */
+.input-importe-readonly {
+    background-color: #f0f4f8;
+    cursor: default;
+    color: var(--color-gray-dark);
+    font-weight: 600;
+    border-color: transparent;
+}
+
+.input-importe-readonly:focus {
+    outline: none;
+    box-shadow: none;
+    border-color: transparent;
+}
+
+/* Form controls */
+.form-control,
 .form-select {
-    border: 2px solid var(--color-gray-light);
+    border: 1.5px solid var(--color-gray-light);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
+.form-control:focus,
 .form-select:focus {
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 0.25rem rgba(25, 98, 146, 0.25);
+    box-shadow: 0 0 0 3px rgba(47, 128, 237, 0.15);
 }
 
-/* ==================== CONCEPTOS ==================== */
+/* ==================== CONCEPTO NOMBRE ==================== */
+/* Aplicado a un <div> DENTRO del <td>, no al <td> directamente */
 .concepto-nombre {
-    font-weight: 500;
-    color: var(--color-gray-dark);
     display: flex;
     align-items: center;
-}
-
-.concepto-nombre i {
-    margin-right: 0.5rem;
-    opacity: 0.8;
+    gap: 0.5rem;
+    font-weight: 500;
+    color: var(--color-gray-dark);
 }
 
 .concepto-icon {
-    font-size: 1.1rem;
-    opacity: 0.8;
+    font-size: 1rem;
+    opacity: 0.75;
+    flex-shrink: 0;
+}
+
+/* ==================== BOTÓN SMVM / SUGERENCIA ==================== */
+.btn-smvm {
+    flex-shrink: 0;
+    opacity: 0.55;
+    transition: opacity 0.2s;
+    padding: 0.25rem 0.45rem;
+}
+
+.btn-smvm:hover {
+    opacity: 1;
+}
+
+/* ==================== CONCEPTO MULTIPLE — DETALLE ==================== */
+.concepto-multiple-header:hover {
+    background-color: rgba(47, 128, 237, 0.05) !important;
+}
+
+.detalle-arrow {
+    font-size: 0.75rem;
+    transition: transform 0.2s;
+    opacity: 0.5;
+}
+
+.fila-detalle td {
+    padding: 0 !important;
+}
+
+.detalle-wrapper {
+    border-top: 2px solid rgba(47, 128, 237, 0.12);
+    background-color: rgba(47, 128, 237, 0.02);
+}
+
+.detalle-tabla td {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.88rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.fila-nuevo-registro td {
+    padding: 0.4rem 0.5rem !important;
+    background-color: rgba(47, 128, 237, 0.04);
+}
+
+.fila-nuevo-registro input {
+    font-size: 0.85rem;
 }
 
 /* ==================== ALERTAS ==================== */
 .alert {
     border-left-width: 4px;
+    font-family: 'Inter', sans-serif;
     animation: slideInDown 0.3s ease-out;
 }
 
 .alert-danger {
-    background-color: rgba(210, 42, 76, 0.1);
+    background-color: rgba(235, 87, 87, 0.08);
     border-color: var(--color-danger);
     color: var(--color-danger-dark);
 }
 
 @keyframes slideInDown {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ==================== LOADING ==================== */
 .spinner-border {
-    width: 3rem;
-    height: 3rem;
-    border-width: 0.3rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-width: 0.25rem;
     color: var(--color-primary);
-}
-
-.text-muted {
-    color: var(--color-gray) !important;
-}
-
-/* ==================== ANIMACIONES ==================== */
-.fade-in {
-    animation: fadeIn 0.3s ease-in;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-/* ==================== RESPONSIVE ==================== */
-@media (max-width: 767.98px) {
-    .header h1 {
-        font-size: 1.5rem;
-    }
-
-    .header p {
-        font-size: 0.875rem;
-    }
-
-    .table > tbody > tr > td {
-        padding: 0.75rem 0.5rem;
-        font-size: 0.875rem;
-    }
-
-    .input-importe {
-        font-size: 0.875rem;
-        padding: 0.375rem 0.5rem;
-        max-width: 150px;
-    }
-
-    .concepto-nombre {
-        font-size: 0.875rem;
-    }
-
-    .card-body h3 {
-        font-size: 1.5rem !important;
-    }
-
-    .card-body .fs-3 {
-        font-size: 1.5rem !important;
-    }
-}
-
-@media (min-width: 768px) and (max-width: 991.98px) {
-    .input-importe {
-        max-width: 180px;
-    }
 }
 
 /* ==================== TOASTS ==================== */
 .toast {
-    background-color: var(--color-primary);
+    background-color: var(--color-primary-dark);
     color: white;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
 }
 
 .toast-body {
@@ -374,4 +457,392 @@ body {
 
 .toast .btn-close-white {
     filter: brightness(0) invert(1);
+}
+
+/* ==================== DARK MODE ==================== */
+
+[data-bs-theme="dark"] {
+    --color-primary:      #3B82F6;
+    --color-primary-dark: #0F172A;
+    --color-success:      #22C55E;
+    --color-danger:       #F87171;
+    --color-warning:      #FBBF24;
+    --color-gray-light:   #374151;
+    --color-gray:         #9CA3AF;
+    --color-gray-dark:    #F1F5F9;
+    --color-bg:           #0F172A;
+    --color-white:        #1E293B;
+}
+
+[data-bs-theme="dark"] body {
+    background-color: #0F172A;
+    color: #F1F5F9;
+}
+
+[data-bs-theme="dark"] .header {
+    background: linear-gradient(135deg, #050D18 0%, #0F172A 100%);
+}
+
+/* ── DataTables dark ─────────────────────────────────── */
+[data-bs-theme="dark"] table.dataTable {
+    color: #F1F5F9 !important;
+}
+
+[data-bs-theme="dark"] table.dataTable > thead > tr > th {
+    background-color: #1E293B !important;
+    color: #94A3B8 !important;
+    border-color: rgba(255,255,255,0.07) !important;
+}
+
+[data-bs-theme="dark"] table.dataTable > tbody > tr {
+    background-color: transparent !important;
+    color: #F1F5F9 !important;
+}
+
+[data-bs-theme="dark"] table.dataTable > tbody > tr > td {
+    border-color: rgba(255,255,255,0.05) !important;
+    background-color: transparent !important;
+    color: #F1F5F9 !important;
+}
+
+[data-bs-theme="dark"] table.dataTable.table-hover > tbody > tr:hover > * {
+    background-color: rgba(59, 130, 246, 0.1) !important;
+    box-shadow: none !important;
+}
+
+[data-bs-theme="dark"] table.dataTable > tbody > tr.child > td {
+    background-color: transparent !important;
+    color: #F1F5F9 !important;
+}
+
+[data-bs-theme="dark"] .dataTables_wrapper {
+    color: #F1F5F9;
+}
+
+/* ── Inputs ──────────────────────────────────────────── */
+[data-bs-theme="dark"] .input-importe {
+    background-color: #1E293B;
+    border-color: #374151;
+    color: #F1F5F9;
+}
+
+[data-bs-theme="dark"] .input-importe:focus {
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    background-color: #1E293B;
+}
+
+[data-bs-theme="dark"] .input-importe.unsaved {
+    border-color: #F87171;
+    background-color: rgba(248, 113, 113, 0.08);
+}
+
+[data-bs-theme="dark"] .input-importe.saved {
+    border-color: #22C55E;
+}
+
+[data-bs-theme="dark"] .input-importe-readonly {
+    background-color: rgba(255,255,255,0.04);
+    border-color: transparent;
+    color: #F1F5F9;
+}
+
+/* ── Detalle múltiples ───────────────────────────────── */
+[data-bs-theme="dark"] .detalle-wrapper {
+    background-color: #162032 !important;
+    border-top-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Tabla interna: forzar fondo transparente (Bootstrap define --bs-table-bg en blanco) */
+[data-bs-theme="dark"] .detalle-tabla {
+    --bs-table-bg: transparent !important;
+    --bs-table-color: #F1F5F9 !important;
+    background-color: transparent !important;
+}
+
+[data-bs-theme="dark"] .detalle-tabla td {
+    background-color: transparent !important;
+    border-color: rgba(255,255,255,0.05) !important;
+    color: #F1F5F9 !important;
+}
+
+/* Fila formulario: neutralizar bg-light que Bootstrap no oscurece del todo */
+[data-bs-theme="dark"] .fila-nuevo-registro {
+    --bs-light-bg-subtle: #1a2840 !important;
+    background-color: #1a2840 !important;
+}
+
+[data-bs-theme="dark"] .fila-nuevo-registro td {
+    background-color: transparent !important;
+}
+
+/* Inputs dentro del detalle: color-scheme activa el picker de fecha en dark */
+[data-bs-theme="dark"] .detalle-wrapper .form-control {
+    background-color: #1E293B !important;
+    border-color: #374151 !important;
+    color: #F1F5F9 !important;
+    color-scheme: dark;
+}
+
+[data-bs-theme="dark"] .detalle-wrapper .form-control::placeholder {
+    color: #6B7280 !important;
+}
+
+/* ── Badge count ─────────────────────────────────────── */
+[data-bs-theme="dark"] .badge.bg-secondary {
+    background-color: #374151 !important;
+    color: #9CA3AF !important;
+}
+
+/* ── Cards ───────────────────────────────────────────── */
+[data-bs-theme="dark"] .card {
+    background-color: #1E293B !important;
+    border-color: #334155 !important;
+}
+
+[data-bs-theme="dark"] .card-header {
+    background-color: #1E293B !important;
+    border-color: #334155 !important;
+    color: #F1F5F9 !important;
+}
+
+[data-bs-theme="dark"] .card-body {
+    background-color: #1E293B;
+    color: #F1F5F9;
+}
+
+[data-bs-theme="dark"] .card.border-success { border-color: #22C55E !important; }
+[data-bs-theme="dark"] .card.border-danger  { border-color: #F87171 !important; }
+[data-bs-theme="dark"] .card.border-primary { border-color: #3B82F6 !important; }
+
+[data-bs-theme="dark"] .bg-success.bg-opacity-10 { background-color: rgba(34, 197, 94, 0.08) !important; }
+[data-bs-theme="dark"] .bg-danger.bg-opacity-10  { background-color: rgba(248, 113, 113, 0.08) !important; }
+
+[data-bs-theme="dark"] .concepto-nombre { color: #F1F5F9; }
+
+[data-bs-theme="dark"] .text-muted { color: #9CA3AF !important; }
+[data-bs-theme="dark"] .text-uppercase.fw-bold.text-muted { color: #94A3B8 !important; }
+
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select {
+    background-color: #1E293B;
+    border-color: #374151;
+    color: #F1F5F9;
+}
+[data-bs-theme="dark"] .form-control:focus,
+[data-bs-theme="dark"] .form-select:focus {
+    background-color: #1E293B;
+    color: #F1F5F9;
+    border-color: #3B82F6;
+}
+
+[data-bs-theme="dark"] .modal-content {
+    background-color: #1E293B;
+    color: #F1F5F9;
+    border-color: #334155;
+}
+
+[data-bs-theme="dark"] .modal-header {
+    border-color: #334155;
+}
+
+[data-bs-theme="dark"] .modal-footer {
+    border-color: #334155;
+    background-color: #1E293B;
+}
+
+[data-bs-theme="dark"] .nav-tabs {
+    border-color: #334155;
+}
+
+[data-bs-theme="dark"] .nav-tabs .nav-link {
+    color: #9CA3AF;
+}
+
+[data-bs-theme="dark"] .nav-tabs .nav-link.active {
+    background-color: #1E293B;
+    border-color: #334155 #334155 #1E293B;
+    color: #F1F5F9;
+}
+
+[data-bs-theme="dark"] .table-light {
+    --bs-table-bg: #253445;
+    color: #94A3B8;
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary {
+    color: #9CA3AF;
+    border-color: #4B5563;
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary:hover {
+    background-color: #374151;
+    border-color: #4B5563;
+    color: #F1F5F9;
+}
+
+/* ── Botón dark mode ─────────────────────────────────── */
+[data-bs-theme="dark"] #iconDarkMode {
+    color: #FBBF24;
+}
+
+/* ==================== RESPONSIVE — MOBILE FIRST ==================== */
+
+/* Tipografía fluida */
+:root {
+    --fs-base:   clamp(0.875rem, 2.2vw, 1rem);
+    --fs-small:  clamp(0.78rem,  1.9vw, 0.875rem);
+    --fs-title:  clamp(1.1rem,   4vw,   1.5rem);
+}
+
+body { font-size: var(--fs-base); }
+
+/* Header compacto en mobile */
+@media (max-width: 575.98px) {
+    .header .container { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+    .cifra-logo        { font-size: var(--fs-title) !important; margin-bottom: 0 !important; }
+    .header p          { display: none; }           /* oculta subtítulo en mobile */
+}
+
+/* Selector mes/año: tres columnas compactas en mobile */
+@media (max-width: 575.98px) {
+    .card-body .row.g-3 { --bs-gutter-y: 0.5rem; --bs-gutter-x: 0.5rem; }
+    #selectMes,
+    #selectAnio { font-size: var(--fs-small); padding: 0.4rem 0.5rem; }
+    .col-md-4   { flex: 0 0 auto; }
+    /* Selectores lado a lado, botón debajo */
+    #selectMes ~ *,
+    .col-md-4:has(#selectMes),
+    .col-md-4:has(#selectAnio)  { width: 50%; }
+    .col-md-4:has(#btnCargar)   { width: 100%; }
+}
+
+/* Tabla: filas touch-friendly (mínimo 52px) */
+.table > tbody > tr > td,
+table.dataTable > tbody > tr > td {
+    min-height: 52px;
+}
+
+@media (max-width: 767.98px) {
+    /* Celdas más compactas pero legibles */
+    .table > tbody > tr > td,
+    table.dataTable > tbody > tr > td {
+        padding: 0.7rem 0.6rem;
+        font-size: var(--fs-small);
+    }
+
+    table.dataTable thead > tr > th {
+        padding: 0.5rem 0.6rem;
+        font-size: 0.65rem;
+    }
+
+    /* Input importe: ocupa todo el ancho de la columna */
+    .input-importe {
+        font-size: 0.875rem !important;
+        padding: 0.35rem 0.5rem;
+        max-width: 100%;
+        width: 100%;
+        min-height: 40px;
+        text-align: right;
+        flex: none;
+    }
+
+    /* Grupo importe: apilar verticalmente — input arriba, botón robot abajo */
+    .d-flex.justify-content-end.align-items-center.gap-2 {
+        flex-direction: column-reverse;
+        align-items: stretch;
+        gap: 0.2rem !important;
+    }
+
+    /* Botón robot: tira delgada bajo el input */
+    .btn-smvm {
+        padding: 0.1rem 0.4rem;
+        font-size: 0.65rem;
+        line-height: 1.3;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+    }
+
+    /* Nombre de concepto: cortar si es muy largo */
+    .concepto-nombre {
+        gap: 0.4rem;
+        font-size: var(--fs-small);
+    }
+
+    .concepto-icon { font-size: 0.9rem; }
+
+    /* Cards de resumen: más compactas */
+    .card-body h3   { font-size: clamp(1.1rem, 5vw, 1.6rem) !important; }
+    .card-body .fs-3 { font-size: 1.3rem !important; }
+
+    /* Detalle múltiples en mobile: ocultar columna observaciones */
+    .detalle-tabla td:nth-child(3) { display: none; }
+    .detalle-tabla th:nth-child(3) { display: none; }
+
+    /* Formulario nuevo registro: compacto */
+    .fila-nuevo-registro td { padding: 0.35rem 0.4rem !important; }
+    .fila-nuevo-registro input { font-size: 14px; min-height: 38px; }
+
+}
+
+/* Tablet */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .input-importe { max-width: 160px; font-size: 15px; }
+}
+
+/* Sticky header en scroll */
+@media (max-width: 991.98px) {
+    .header { position: sticky; top: 0; z-index: 1030; }
+}
+
+/* Safe area para notch/home bar en iOS */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    main { padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
+}
+
+/* ==================== CATEGORÍAS ==================== */
+.categoria-header td {
+    padding: 0.3rem 1rem 0.15rem !important;
+    border-bottom: none !important;
+    border-top: none !important;
+    background-color: transparent !important;
+    pointer-events: none;
+}
+
+.categoria-header-inner {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.categoria-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.categoria-header-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-family: 'Montserrat', sans-serif;
+}
+
+/* Input color en el formulario de categoría */
+.form-control-color {
+    padding: 0.25rem;
+    height: calc(1.5em + 0.5rem + 4px);
+}
+
+/* Dark mode: header de categoría */
+[data-bs-theme="dark"] .categoria-header td {
+    background-color: transparent !important;
 }

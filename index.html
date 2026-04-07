@@ -3,13 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gastos Personales - Sistema de Control</title>
+    <title>Cifra — Control Financiero Personal</title>
+    <!-- Aplicar tema guardado antes de renderizar (evita flash) -->
+    <script>
+        const t = localStorage.getItem('cifra-theme');
+        if (t) document.documentElement.setAttribute('data-bs-theme', t);
+    </script>
+
+    <!-- PWA: Manifest + tema -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1F2A37">
+
+    <!-- PWA iOS (Safari no usa el manifest para esto) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Cifra">
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+
+    <!-- Google Fonts: Inter + Montserrat -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
 
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
+
+    <!-- DataTables Bootstrap 5 CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.0.8/css/dataTables.bootstrap5.min.css">
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
@@ -19,16 +40,18 @@
     <header class="header bg-primary text-white shadow-sm">
         <div class="container py-4 d-flex justify-content-between align-items-center">
             <div>
-                <h1 class="h2 mb-2">
-                    <i class="bi bi-cash-coin me-2"></i>
-                    Gastos Personales
+                <h1 class="h2 mb-2 cifra-logo">
+                    <i class="bi bi-bar-chart-fill me-2"></i>
+                    Cifra
                 </h1>
-                <p class="mb-0 opacity-90">
-                    <i class="bi bi-bar-chart-line me-1"></i>
-                    Sistema de control de ingresos y gastos mensuales
+                <p class="mb-0 opacity-75" style="font-size:0.85rem;letter-spacing:0.3px">
+                    Control financiero personal
                 </p>
             </div>
-            <div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-light btn-sm" onclick="toggleDarkMode()" id="btnDarkMode" title="Cambiar tema">
+                    <i class="bi bi-moon-fill" id="iconDarkMode"></i>
+                </button>
                 <button class="btn btn-light btn-sm" onclick="abrirModalConceptos()">
                     <i class="bi bi-list-ul me-1"></i>
                     Conceptos
@@ -99,12 +122,16 @@
         <div id="contenidoPrincipal">
             <!-- Resumen -->
             <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h2 class="h5 mb-0">
                         <i class="bi bi-graph-up-arrow me-2"></i>
                         Resumen - <span id="mesAnioActual"></span>
                     </h2>
+                    <button class="btn btn-sm btn-outline-secondary" id="btnToggleResumen" onclick="toggleResumen()" title="Mostrar/ocultar resumen">
+                        <i class="bi bi-chevron-down" id="iconToggleResumen"></i>
+                    </button>
                 </div>
+                <div class="d-none" id="contenidoResumen">
                 <div class="card-body">
                     <div class="row g-3">
                         <!-- Total Ingresos -->
@@ -147,23 +174,33 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </div>
 
             <!-- Tabla de Ingresos -->
             <div class="card shadow-sm mb-4">
-                <div class="card-header bg-success bg-opacity-10 border-success">
+                <div class="card-header bg-success bg-opacity-10 border-success d-flex justify-content-between align-items-center">
                     <h3 class="h6 mb-0 text-success fw-bold">
                         <i class="bi bi-graph-up me-2"></i>
                         INGRESOS
                     </h3>
+                    <button class="btn btn-sm btn-outline-success" id="btnToggleIngresos" onclick="toggleTablaIngresos()" title="Mostrar/ocultar ingresos">
+                        <i class="bi bi-chevron-down" id="iconToggleIngresos"></i>
+                    </button>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <tbody id="tablaIngresos">
-                                <!-- Se llena dinámicamente con JavaScript -->
-                            </tbody>
-                        </table>
+                <div class="d-none" id="contenidoIngresos">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0" id="dtIngresos">
+                                <thead>
+                                    <tr>
+                                        <th>Concepto</th>
+                                        <th class="text-end">Importe</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaIngresos"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -178,10 +215,14 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <tbody id="tablaGastos">
-                                <!-- Se llena dinámicamente con JavaScript -->
-                            </tbody>
+                        <table class="table table-hover mb-0" id="dtGastos">
+                            <thead>
+                                <tr>
+                                    <th>Concepto</th>
+                                    <th class="text-end">Importe</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaGastos"></tbody>
                         </table>
                     </div>
                 </div>
@@ -215,6 +256,12 @@
                                 <i class="bi bi-graph-down text-danger me-1"></i>Gastos
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-categorias-btn" data-bs-toggle="tab"
+                                data-bs-target="#tab-categorias" type="button" role="tab">
+                                <i class="bi bi-tags me-1"></i>Categorías
+                            </button>
+                        </li>
                     </ul>
 
                     <!-- Formulario nuevo concepto -->
@@ -222,20 +269,32 @@
                         <div class="card-body">
                             <h6 class="card-title">Nuevo Concepto</h6>
                             <div class="row g-2 align-items-end">
-                                <div class="col-sm-5">
+                                <div class="col-sm-3">
                                     <label class="form-label small">Nombre</label>
                                     <input type="text" id="nuevoNombre" class="form-control form-control-sm" placeholder="Nombre del concepto">
                                 </div>
-                                <div class="col-sm-3">
+                                <div class="col-sm-2">
                                     <label class="form-label small">Tipo</label>
                                     <select id="nuevoTipo" class="form-select form-select-sm">
                                         <option value="ingreso">Ingreso</option>
                                         <option value="gasto">Gasto</option>
                                     </select>
                                 </div>
-                                <div class="col-sm-2">
+                                <div class="col-sm-3">
+                                    <label class="form-label small">Categoría</label>
+                                    <select id="nuevoCategoria" class="form-select form-select-sm">
+                                        <option value="">— Sin categoría —</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-1">
                                     <label class="form-label small">Orden</label>
                                     <input type="number" id="nuevoOrden" class="form-control form-control-sm" placeholder="Auto" min="1">
+                                </div>
+                                <div class="col-sm-1 d-flex align-items-end pb-1">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input" type="checkbox" id="nuevoPermiteMultiples">
+                                        <label class="form-check-label small" for="nuevoPermiteMultiples">Multi</label>
+                                    </div>
                                 </div>
                                 <div class="col-sm-2 d-flex gap-1">
                                     <button class="btn btn-primary btn-sm flex-fill" onclick="guardarNuevoConcepto()">
@@ -276,6 +335,50 @@
                             </div>
                         </div>
 
+                        <!-- Categorías -->
+                        <div class="tab-pane fade" id="tab-categorias" role="tabpanel">
+                            <div class="d-flex justify-content-end mb-2">
+                                <button class="btn btn-primary btn-sm" onclick="mostrarFormNuevaCategoria()">
+                                    <i class="bi bi-plus-lg me-1"></i>Nueva categoría
+                                </button>
+                            </div>
+                            <!-- Formulario nueva categoría -->
+                            <div id="formNuevaCategoria" class="card border-primary mb-3 d-none">
+                                <div class="card-body">
+                                    <h6 class="card-title">Nueva Categoría</h6>
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-sm-4">
+                                            <label class="form-label small">Nombre</label>
+                                            <input type="text" id="catNombre" class="form-control form-control-sm" placeholder="Nombre de la categoría">
+                                        </div>
+                                        <div class="col-sm-2">
+                                            <label class="form-label small">Color</label>
+                                            <input type="color" id="catColor" class="form-control form-control-sm form-control-color w-100" value="#2563EB">
+                                        </div>
+                                        <div class="col-sm-3">
+                                            <label class="form-label small">Ícono Bootstrap <span class="text-muted">(opcional)</span></label>
+                                            <input type="text" id="catIcono" class="form-control form-control-sm" placeholder="bi-house-fill">
+                                        </div>
+                                        <div class="col-sm-1">
+                                            <label class="form-label small">Orden</label>
+                                            <input type="number" id="catOrden" class="form-control form-control-sm" placeholder="Auto" min="1">
+                                        </div>
+                                        <div class="col-sm-2 d-flex gap-1">
+                                            <button class="btn btn-primary btn-sm flex-fill" onclick="guardarNuevaCategoria()">
+                                                <i class="bi bi-check-lg"></i>
+                                            </button>
+                                            <button class="btn btn-outline-secondary btn-sm" onclick="cancelarNuevaCategoria()">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="listaCategorias">
+                                <div class="text-center py-3 text-muted">Cargando...</div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -284,6 +387,13 @@
             </div>
         </div>
     </div>
+
+    <!-- jQuery (requerido por DataTables) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/2.0.8/js/dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/2.0.8/js/dataTables.bootstrap5.min.js"></script>
 
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
