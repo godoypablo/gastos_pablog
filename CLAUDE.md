@@ -1,95 +1,42 @@
-# CLAUDE.md
+# CLAUDE.md — Cifra (finanzas personales, single-user, sin auth)
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Repo
+github.com/godoypablo/gastos_pablog.git
 
-## Project Overview
-
-Personal finance tracker (single-user) for monthly income and expense management. No authentication, no multi-user support by design. App name: **Cifra**.
-
-## Repository
-
-El código se versiona en GitHub: https://github.com/godoypablo/gastos_pablog.git
-
-```bash
-git remote add origin https://github.com/godoypablo/gastos_pablog.git
-git push origin main
-```
-
-## Development Commands
-
-```bash
-# Initialize database (run once)
+## Setup
 mysql -u root -p < scripts/schema.sql
-
-# Run category migration (run once after schema)
 mysql -u root -p gastos_personales < scripts/migration_permite_multiples.sql
 mysql -u root -p gastos_personales < scripts/migration_categorias.sql
-
-# Generate PWA icons (run once, requires PHP GD)
 php scripts/generate_icons.php
-
-# Start dev server
 php -S localhost:8000
-```
+DB config: config/database.php (DB_HOST, DB_NAME, DB_USER, DB_PASS)
 
-**Database credentials:** configured in `config/database.php` — edit constants `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`.
+## APIs
+gastos_api.php     GET ?mes&anio | POST {concepto_id,mes,anio,importe,obs?,fecha?} | DELETE {registro_id}
+conceptos_api.php  GET | POST {nombre,tipo,orden?,permite_multiples?,categoria_id?} | PUT {id,...} | DELETE {id}
+categorias_api.php GET | POST {nombre,color,icono?,orden?} | PUT {id,...} | DELETE {id}
 
-## Architecture
+## DB (gastos_personales)
+conceptos           tipo:ingreso|gasto, activo(soft-del), permite_multiples, categoria_id(FK nullable)
+registros_mensuales monthly amounts, fecha col, sin UNIQUE (soporta múltiples)
+categorias          nombre, color(hex), icono(BS class), orden, activo
+vista_resumen_mensual view totals
 
-### API Endpoints
+## Frontend (assets/js/app.js)
+Estado: mesActual, anioActual, datos, guardandoCambios, dtIngresos, dtGastos, categorias[]
+DataTables: ordering:false; drawCallback inyecta <tr.categoria-header> leyendo data-categoria-*
+Sugerencias (.btn-smvm): SMVM←dtos.gob.ar | Elena←hardcoded | Spotify←hardcoded | YouTube←USD×dolarapi.com
 
-**`api/gastos_api.php`** — registros mensuales:
-- `GET ?mes=N&anio=YYYY` — returns active concepts with monthly amounts + category info (LEFT JOIN categorias). Ordered by `cat.orden, c.orden`.
-- `POST` body `{concepto_id, mes, anio, importe, observaciones?, fecha?}` — upsert for single-entry, always INSERT for multi-entry (`permite_multiples`)
-- `DELETE` body `{registro_id}` — removes a monthly entry
+## PWA
+manifest: theme #1F2A37, standalone
+sw.js: cache-first local, network-only /api/, best-effort CDN
+iOS: manual "Add to Home Screen"
 
-**`api/conceptos_api.php`** — ABM de conceptos:
-- `GET` — returns all concepts with category info (LEFT JOIN)
-- `POST` body `{nombre, tipo, orden?, permite_multiples?, categoria_id?}` — create concept
-- `PUT` body `{id, ...fields}` — update concept (supports `categoria_id: null` to remove category)
-- `DELETE` body `{id}` — deletes concept if all amounts are 0
-
-**`api/categorias_api.php`** — ABM de categorías:
-- `GET` — all active categories ordered by `orden`
-- `POST` body `{nombre, color, icono?, orden?}` — create category
-- `PUT` body `{id, ...fields}` — update category
-- `DELETE` body `{id}` — deletes category, sets `categoria_id = NULL` on associated concepts
-
-### Database (`gastos_personales`)
-
-- `conceptos` — income/expense concepts (`tipo`: `ingreso`|`gasto`), soft-delete (`activo`), `permite_multiples` flag, `categoria_id` FK (nullable)
-- `registros_mensuales` — monthly amounts; UNIQUE `(concepto_id, mes, anio)` removed for multi-entry support; has `fecha` column
-- `categorias` — groups of concepts: `nombre`, `color` (hex), `icono` (Bootstrap icon class, nullable), `orden`, `activo`
-- `vista_resumen_mensual` — view for server-side totals
-
-### Frontend (`assets/js/app.js`)
-
-Single `app` object with state: `mesActual`, `anioActual`, `datos`, `guardandoCambios`, `dtIngresos`, `dtGastos`, `categorias[]`.
-
-**DataTables:** `ordering: false` — sort is disabled to preserve category grouping from SQL. After each `drawCallback`, `inyectarCabecerasCategorias()` injects `<tr class="categoria-header">` rows between groups by reading `data-categoria-*` attributes set on each concept `<tr>`.
-
-**Suggestion buttons (`.btn-smvm`):** robot-icon buttons left of the importe input for:
-- Cuota Alimentaria → SMVM from `datos.gob.ar` API
-- Elena → hardcoded tariff table (`ELENA_TARIFAS`)
-- Spotify → hardcoded price table (`SPOTIFY_DUO_PRECIOS`)
-- YouTube → USD price × official exchange rate from `dolarapi.com`
-
-### PWA (`manifest.json`, `sw.js`)
-
-- `manifest.json` — app name, icons, theme color `#1F2A37`, `display: standalone`
-- `sw.js` — cache-first for local assets, network-only for `/api/` calls, best-effort for CDN
-- Icons at `assets/icons/` — generated by `scripts/generate_icons.php` using PHP GD
-- Install prompt: `beforeinstallprompt` event shows `.banner-instalar` fixed banner at bottom
-- iOS: requires manual "Add to Home Screen" from Safari share menu (no auto-prompt)
-
-## Key Behaviors
-
-- **Zero values with no existing record are NOT saved** — `guardarImporte()` skips if `importe === 0 && !registroId`
-- **Concurrency lock**: `guardandoCambios` flag prevents overlapping saves
-- **Input state machine**: neutral → unsaved (red border) → saving (pulse animation) → saved (green, 2s)
-- **Year selector**: 5 years back, 2 years forward from current year
-- **Resumen card**: collapsible, closed by default
-- **Ingresos card**: collapsible, closed by default
-- **Dark mode**: stored in `localStorage('cifra-theme')`, applied via inline `<script>` in `<head>` before CSS loads
-- **CORS**: open (`*`) — single-user app, development assumption
-- **Mobile**: `font-size: 0.875rem` on importe inputs; importe column uses `flex-direction: column-reverse` on mobile so buttons stack below input
+## Comportamientos clave
+- No guarda si importe===0 && !registroId
+- guardandoCambios previene saves concurrentes
+- Input: neutral→rojo(unsaved)→pulso(saving)→verde 2s(saved)
+- Año: -5/+2 desde año actual
+- Dark mode: localStorage('cifra-theme'), aplicado en <head>
+- Mobile: font 0.875rem en inputs; flex-direction:column-reverse en col importe
+- CORS: abierto (*)

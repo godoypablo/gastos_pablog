@@ -2,6 +2,17 @@
  * JavaScript para Sistema de Gastos Personales
  */
 
+// Interceptar 401 en todas las llamadas a la API propia
+const _fetch = window.fetch.bind(window);
+window.fetch = async function(...args) {
+    const response = await _fetch(...args);
+    const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url ?? '');
+    if (response.status === 401 && url.startsWith('api/')) {
+        window.location.href = 'login.php';
+    }
+    return response;
+};
+
 const API_URL = 'api/gastos_api.php';
 
 // Estado de la aplicación
@@ -21,6 +32,14 @@ document.addEventListener('DOMContentLoaded', () => {
     cargarDatos();
     sincronizarIconDarkMode();
     document.getElementById('btnCargar').addEventListener('click', cargarDatos);
+
+    // iOS: no dispara beforeinstallprompt → banner propio
+    const isIOS        = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true
+                      || window.matchMedia('(display-mode: standalone)').matches;
+    if (isIOS && !isStandalone && !localStorage.getItem('cifra-ios-dismissed')) {
+        setTimeout(_mostrarBannerInstalariOS, 2500);
+    }
 });
 
 // Registrar Service Worker (PWA)
@@ -83,6 +102,42 @@ async function instalarApp() {
         _deferredInstallPrompt = null;
         _ocultarBannerInstalar();
     }
+}
+
+// ── Banner iOS (Safari no dispara beforeinstallprompt) ───────
+function _mostrarBannerInstalariOS() {
+    if (document.getElementById('bannerInstalariOS')) return;
+    const banner = document.createElement('div');
+    banner.id = 'bannerInstalar';          // mismo id → mismo CSS
+    banner.className = 'banner-instalar banner-instalar-ios';
+    banner.innerHTML = `
+        <div class="banner-instalar-inner" style="flex-direction:column;align-items:flex-start;gap:0.4rem">
+            <div class="d-flex align-items-center justify-content-between w-100">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-phone-fill flex-shrink-0"></i>
+                    <strong>Instalá Cifra como app</strong>
+                </div>
+                <button class="btn btn-sm btn-link text-white p-0 opacity-75"
+                    onclick="_cerrarBannerInstalariOS()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="d-flex align-items-center gap-2" style="font-size:0.83rem;opacity:0.9">
+                <span>Tocá</span>
+                <i class="bi bi-box-arrow-up" style="font-size:1.15rem"></i>
+                <span>y después elegí</span>
+                <span style="background:rgba(255,255,255,0.15);padding:0.1rem 0.5rem;border-radius:6px;font-weight:600">
+                    Agregar a inicio
+                </span>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(banner);
+}
+
+function _cerrarBannerInstalariOS() {
+    document.getElementById('bannerInstalar')?.remove();
+    localStorage.setItem('cifra-ios-dismissed', '1');
 }
 
 // ============================================================
@@ -284,7 +339,7 @@ function inyectarCabecerasCategorias(api) {
 
 // Crear filas de concepto — devuelve array de <tr>
 function crearFilasConcepto(concepto, tipo) {
-    if (concepto.permite_multiples) {
+    if (concepto.permite_multiples == 1) {
         return crearFilasMultiple(concepto, tipo);
     }
     return [crearFilaSimple(concepto, tipo)];
@@ -306,6 +361,22 @@ function crearFilaSimple(concepto, tipo) {
     tdNombre.setAttribute('data-order', concepto.nombre);
     const divNombre = document.createElement('div');
     divNombre.className = 'concepto-nombre';
+
+    // Botón pagado — solo gastos con registro existente
+    if (tipo === 'gasto' && concepto.registro_id) {
+        const isPaid = concepto.pagado === 1;
+        const btnPagado = document.createElement('button');
+        btnPagado.className = `btn-pagado${isPaid ? ' pagado' : ''}`;
+        btnPagado.title = isPaid ? 'Marcar como no pagado' : 'Marcar como pagado';
+        btnPagado.innerHTML = `<i class="bi ${isPaid ? 'bi-check-circle-fill' : 'bi-circle'}"></i>`;
+        btnPagado.addEventListener('click', (e) => {
+            e.stopPropagation();
+            togglePagado(concepto.registro_id, btnPagado, tr);
+        });
+        divNombre.appendChild(btnPagado);
+        if (isPaid) tr.classList.add('tr-pagado');
+    }
+
     const icon = document.createElement('i');
     const iconData = obtenerIconoConcepto(concepto.nombre, tipo);
     icon.className = `bi concepto-icon ${iconData.icon}`;
@@ -544,12 +615,19 @@ function crearTablaDetalle(concepto) {
 function crearFilaRegistroDetalle(reg, conceptoId) {
     const tr = document.createElement('tr');
     tr.id = `registro-${reg.id}`;
+    const isPaid = reg.pagado === 1;
+    if (isPaid) tr.classList.add('tr-pagado');
 
     tr.innerHTML = `
         <td class="ps-4 text-muted" style="width:110px">${formatearFecha(reg.fecha)}</td>
         <td class="text-end fw-medium">${formatearMoneda(reg.importe)}</td>
         <td class="text-muted fst-italic">${reg.observaciones || ''}</td>
-        <td class="text-end pe-3" style="width:50px">
+        <td class="text-end pe-3" style="width:80px">
+            <button class="btn-pagado${isPaid ? ' pagado' : ''}"
+                title="${isPaid ? 'Marcar como no pagado' : 'Marcar como pagado'}"
+                onclick="togglePagado(${reg.id}, this, this.closest('tr'))">
+                <i class="bi ${isPaid ? 'bi-check-circle-fill' : 'bi-circle'}"></i>
+            </button>
             <button class="btn btn-outline-danger btn-sm py-0 px-1"
                 title="Eliminar"
                 onclick="eliminarRegistroMultiple(${reg.id}, ${conceptoId})">
@@ -563,7 +641,7 @@ function crearFilaRegistroDetalle(reg, conceptoId) {
 // Fila con formulario para agregar nuevo registro
 function crearFilaFormNuevoRegistro(conceptoId) {
     const tr = document.createElement('tr');
-    tr.className = 'fila-nuevo-registro bg-light';
+    tr.className = 'fila-nuevo-registro';
     tr.id = `form-nuevo-${conceptoId}`;
 
     const hoy = new Date().toISOString().split('T')[0];
@@ -1001,6 +1079,30 @@ async function guardarImporte(conceptoId, importe, registroId, inputElement) {
     }
 }
 
+// Toggle estado pagado de un registro
+async function togglePagado(registroId, btnElement, trElement) {
+    const isPaid    = btnElement.classList.contains('pagado');
+    const newPagado = isPaid ? 0 : 1;
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ registro_id: registroId, pagado: newPagado })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+
+        const paid = newPagado === 1;
+        btnElement.classList.toggle('pagado', paid);
+        btnElement.querySelector('i').className = paid ? 'bi bi-check-circle-fill' : 'bi bi-circle';
+        btnElement.title = paid ? 'Marcar como no pagado' : 'Marcar como pagado';
+        if (trElement) trElement.classList.toggle('tr-pagado', paid);
+    } catch (error) {
+        mostrarError('Error al actualizar: ' + error.message);
+    }
+}
+
 // Formatear moneda
 function formatearMoneda(valor) {
     return new Intl.NumberFormat('es-AR', {
@@ -1138,126 +1240,119 @@ function renderizarListaConceptos(containerId, conceptos) {
         return;
     }
 
-    const tabla = document.createElement('table');
-    tabla.className = 'table table-sm table-hover align-middle mb-0';
-    tabla.innerHTML = `
-        <thead class="table-light">
-            <tr>
-                <th>Nombre</th>
-                <th style="width:130px">Categoría</th>
-                <th class="text-center" style="width:60px">Orden</th>
-                <th class="text-center" style="width:80px">Múltiples</th>
-                <th class="text-center" style="width:80px">Estado</th>
-                <th style="width:80px"></th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    `;
-
-    const tbody = tabla.querySelector('tbody');
-
     const opcionesCat = ['<option value="">— Sin cat. —</option>',
-        ...app.categorias.map(c =>
-            `<option value="${c.id}">${c.nombre}</option>`
+        ...app.categorias.map(cat =>
+            `<option value="${cat.id}">${cat.nombre}</option>`
         )
     ].join('');
 
-    conceptos.forEach(c => {
-        const catBadge = c.categoria_id
-            ? `<span class="badge rounded-pill" style="background:${c.categoria_color};color:#fff;font-size:0.7rem">${c.categoria_nombre}</span>`
-            : `<span class="text-muted" style="font-size:0.78rem">—</span>`;
+    const lista = document.createElement('div');
+    lista.className = 'concepto-lista';
 
-        const tr = document.createElement('tr');
-        tr.id = `fila-concepto-${c.id}`;
-        tr.innerHTML = `
-            <td>
-                <span class="concepto-nombre-texto ${!c.activo ? 'text-muted text-decoration-line-through' : ''}">${c.nombre}</span>
-                <span class="concepto-nombre-edit d-none">
-                    <input type="text" class="form-control form-control-sm d-inline-block" style="width:160px"
-                        id="edit-nombre-${c.id}" value="${c.nombre}">
-                </span>
-            </td>
-            <td>
-                <span class="concepto-cat-texto">${catBadge}</span>
-                <span class="concepto-cat-edit d-none">
-                    <select class="form-select form-select-sm" style="width:120px" id="edit-categoria-${c.id}">
-                        ${opcionesCat}
-                    </select>
-                </span>
-            </td>
-            <td class="text-center">
-                <span class="concepto-orden-texto">${c.orden}</span>
-                <span class="concepto-orden-edit d-none">
-                    <input type="number" class="form-control form-control-sm d-inline-block text-center" style="width:55px"
-                        id="edit-orden-${c.id}" value="${c.orden}" min="1">
-                </span>
-            </td>
-            <td class="text-center">
-                <span class="concepto-multiples-texto">
-                    ${c.permite_multiples
-                        ? '<span class="badge bg-info">Sí</span>'
-                        : '<span class="badge bg-light text-muted border">No</span>'}
-                </span>
-                <span class="concepto-multiples-edit d-none">
-                    <div class="form-check form-switch d-inline-block">
-                        <input class="form-check-input" type="checkbox" id="edit-multiples-${c.id}"
-                            ${c.permite_multiples ? 'checked' : ''}>
+    conceptos.forEach(c => {
+        const activo     = c.activo == 1;
+        const multiples  = c.permite_multiples == 1;
+        const catBadge   = c.categoria_id
+            ? `<span class="badge rounded-pill" style="background:${c.categoria_color};color:#fff;font-size:0.68rem">${c.categoria_nombre}</span>`
+            : '';
+
+        const item = document.createElement('div');
+        item.className = 'concepto-item';
+        item.id = `fila-concepto-${c.id}`;
+
+        item.innerHTML = `
+            <!-- Vista lectura -->
+            <div class="concepto-ver">
+                <div class="concepto-ver-main">
+                    <span class="concepto-ver-nombre ${!activo ? 'text-muted text-decoration-line-through' : ''}">${c.nombre}</span>
+                    <div class="concepto-ver-meta">
+                        ${catBadge}
+                        <span class="concepto-meta-chip">Ord: ${c.orden}</span>
+                        <span class="badge ${multiples ? 'bg-info' : 'bg-secondary bg-opacity-25 text-secondary border'}" style="font-size:0.68rem">
+                            ${multiples ? 'Multi' : 'Único'}
+                        </span>
+                        <span class="badge ${activo ? 'bg-success' : 'bg-secondary'}" style="font-size:0.68rem">
+                            ${activo ? 'Activo' : 'Inactivo'}
+                        </span>
                     </div>
-                </span>
-            </td>
-            <td class="text-center">
-                <span class="badge ${c.activo ? 'bg-success' : 'bg-secondary'}">${c.activo ? 'Activo' : 'Inactivo'}</span>
-            </td>
-            <td class="text-end">
-                <div class="acciones-ver d-flex gap-1 justify-content-end">
+                </div>
+                <div class="concepto-ver-btns">
                     <button class="btn btn-outline-primary btn-sm" title="Editar" onclick="editarConcepto(${c.id})">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn ${c.activo ? 'btn-outline-warning' : 'btn-outline-success'} btn-sm"
-                        title="${c.activo ? 'Desactivar' : 'Activar'}"
-                        onclick="toggleActivoConcepto(${c.id}, ${c.activo ? 0 : 1})">
-                        <i class="bi ${c.activo ? 'bi-eye-slash' : 'bi-eye'}"></i>
+                    <button class="btn ${activo ? 'btn-outline-warning' : 'btn-outline-success'} btn-sm"
+                        title="${activo ? 'Desactivar' : 'Activar'}"
+                        onclick="toggleActivoConcepto(${c.id}, ${activo ? 0 : 1})">
+                        <i class="bi ${activo ? 'bi-eye-slash' : 'bi-eye'}"></i>
                     </button>
                     <button class="btn btn-outline-danger btn-sm" title="Eliminar"
                         onclick="eliminarConcepto(${c.id}, '${c.nombre.replace(/'/g, "\\'")}')">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>
-                <div class="acciones-edit d-none d-flex gap-1 justify-content-end">
-                    <button class="btn btn-success btn-sm" title="Guardar" onclick="guardarEdicionConcepto(${c.id})">
-                        <i class="bi bi-check-lg"></i>
-                    </button>
-                    <button class="btn btn-outline-secondary btn-sm" title="Cancelar" onclick="cancelarEdicionConcepto(${c.id})">
-                        <i class="bi bi-x-lg"></i>
-                    </button>
+            </div>
+
+            <!-- Vista edición -->
+            <div class="concepto-edit d-none">
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-sm-4">
+                        <label class="form-label form-label-sm mb-1">Nombre</label>
+                        <input type="text" class="form-control form-control-sm"
+                            id="edit-nombre-${c.id}" value="${c.nombre}">
+                    </div>
+                    <div class="col-8 col-sm-3">
+                        <label class="form-label form-label-sm mb-1">Categoría</label>
+                        <select class="form-select form-select-sm" id="edit-categoria-${c.id}">
+                            ${opcionesCat}
+                        </select>
+                    </div>
+                    <div class="col-4 col-sm-2">
+                        <label class="form-label form-label-sm mb-1">Orden</label>
+                        <input type="number" class="form-control form-control-sm text-center"
+                            id="edit-orden-${c.id}" value="${c.orden}" min="1">
+                    </div>
+                    <div class="col-6 col-sm-1 d-flex flex-column align-items-center">
+                        <label class="form-label form-label-sm mb-1">Multi</label>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                id="edit-multiples-${c.id}" ${multiples ? 'checked' : ''}>
+                        </div>
+                    </div>
+                    <div class="col-6 col-sm-2 d-flex gap-1 justify-content-end align-items-end">
+                        <button class="btn btn-success btn-sm flex-fill" onclick="guardarEdicionConcepto(${c.id})">
+                            <i class="bi bi-check-lg"></i> Guardar
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="cancelarEdicionConcepto(${c.id})">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
                 </div>
-            </td>
+            </div>
         `;
 
-        // Pre-seleccionar categoría en el select de edición
         if (c.categoria_id) {
-            const sel = tr.querySelector(`#edit-categoria-${c.id}`);
+            const sel = item.querySelector(`#edit-categoria-${c.id}`);
             if (sel) sel.value = c.categoria_id;
         }
 
-        tbody.appendChild(tr);
+        lista.appendChild(item);
     });
 
     container.innerHTML = '';
-    container.appendChild(tabla);
+    container.appendChild(lista);
 }
 
 function editarConcepto(id) {
     const fila = document.getElementById(`fila-concepto-${id}`);
-    fila.querySelectorAll('.concepto-nombre-texto, .concepto-cat-texto, .concepto-orden-texto, .concepto-multiples-texto, .acciones-ver').forEach(el => el.classList.add('d-none'));
-    fila.querySelectorAll('.concepto-nombre-edit, .concepto-cat-edit, .concepto-orden-edit, .concepto-multiples-edit, .acciones-edit').forEach(el => el.classList.remove('d-none'));
+    fila.querySelector('.concepto-ver').classList.add('d-none');
+    fila.querySelector('.concepto-edit').classList.remove('d-none');
     document.getElementById(`edit-nombre-${id}`).focus();
 }
 
 function cancelarEdicionConcepto(id) {
     const fila = document.getElementById(`fila-concepto-${id}`);
-    fila.querySelectorAll('.concepto-nombre-texto, .concepto-cat-texto, .concepto-orden-texto, .concepto-multiples-texto, .acciones-ver').forEach(el => el.classList.remove('d-none'));
-    fila.querySelectorAll('.concepto-nombre-edit, .concepto-cat-edit, .concepto-orden-edit, .concepto-multiples-edit, .acciones-edit').forEach(el => el.classList.add('d-none'));
+    fila.querySelector('.concepto-ver').classList.remove('d-none');
+    fila.querySelector('.concepto-edit').classList.add('d-none');
 }
 
 async function guardarEdicionConcepto(id) {
@@ -1470,8 +1565,11 @@ function renderizarListaCategorias(categorias) {
         tbody.appendChild(tr);
     });
 
+    const wrapper = document.createElement('div');
+    wrapper.className = 'table-responsive';
+    wrapper.appendChild(tabla);
     container.innerHTML = '';
-    container.appendChild(tabla);
+    container.appendChild(wrapper);
 }
 
 function mostrarFormNuevaCategoria() {

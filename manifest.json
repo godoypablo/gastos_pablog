@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "Cifra — Control Financiero Personal",
   "short_name": "Cifra",
   "description": "Seguimiento mensual de ingresos y gastos personales",
@@ -27,6 +28,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "assets/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }

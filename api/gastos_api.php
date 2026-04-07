@@ -8,10 +8,14 @@
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
+header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE');
 header('Access-Control-Allow-Headers: Content-Type');
 
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
+
 require_once '../config/database.php';
+require_once '../config/auth_check.php';
+require_auth_or_401();
 
 // Función para enviar respuesta JSON
 function sendResponse($success, $data = null, $message = '', $code = 200) {
@@ -26,6 +30,12 @@ function sendResponse($success, $data = null, $message = '', $code = 200) {
 
 // Obtener método HTTP
 $method = $_SERVER['REQUEST_METHOD'];
+
+// Responder preflight CORS (necesario para PATCH)
+if ($method === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
 
 try {
     // Obtener conexión a BD
@@ -49,7 +59,8 @@ try {
                         cat.color   AS categoria_color,
                         cat.icono   AS categoria_icono,
                         COALESCE(SUM(rm.importe), 0.00) as importe,
-                        MIN(rm.id) as registro_id
+                        MIN(rm.id) as registro_id,
+                        MAX(rm.pagado) as pagado
                     FROM conceptos c
                     LEFT JOIN categorias cat ON c.categoria_id = cat.id
                     LEFT JOIN registros_mensuales rm ON c.id = rm.concepto_id
@@ -68,7 +79,7 @@ try {
             $conceptos = $stmt->fetchAll();
 
             // Detalle de registros para conceptos multi-entrada
-            $sql_detalle = "SELECT rm.id, rm.concepto_id, rm.fecha, rm.importe, rm.observaciones
+            $sql_detalle = "SELECT rm.id, rm.concepto_id, rm.fecha, rm.importe, rm.observaciones, rm.pagado
                             FROM registros_mensuales rm
                             INNER JOIN conceptos c ON rm.concepto_id = c.id
                             WHERE rm.mes = :mes AND rm.anio = :anio AND c.permite_multiples = 1
@@ -89,8 +100,14 @@ try {
 
             foreach ($conceptos as &$concepto) {
                 $concepto['permite_multiples'] = (bool)$concepto['permite_multiples'];
+                $concepto['pagado']            = (int)($concepto['pagado'] ?? 0);
                 if ($concepto['permite_multiples']) {
-                    $concepto['detalle'] = $detalles_por_concepto[$concepto['id']] ?? [];
+                    $detalle = $detalles_por_concepto[$concepto['id']] ?? [];
+                    foreach ($detalle as &$d) {
+                        $d['pagado'] = (int)($d['pagado'] ?? 0);
+                    }
+                    unset($d);
+                    $concepto['detalle'] = $detalle;
                 }
                 if ($concepto['tipo'] === 'ingreso') {
                     $total_ingresos += $concepto['importe'];
@@ -200,6 +217,24 @@ try {
             $stmt->execute(['id' => $registro_id]);
 
             sendResponse(true, null, 'Registro eliminado correctamente');
+            break;
+
+        case 'PATCH':
+            $input = json_decode(file_get_contents('php://input'), true);
+
+            if (!isset($input['registro_id'])) {
+                sendResponse(false, null, 'Falta registro_id', 400);
+            }
+
+            $registro_id = (int)$input['registro_id'];
+            $pagado      = isset($input['pagado']) ? ($input['pagado'] ? 1 : 0) : 0;
+
+            $stmt = $db->prepare(
+                "UPDATE registros_mensuales SET pagado = :pagado WHERE id = :id"
+            );
+            $stmt->execute(['pagado' => $pagado, 'id' => $registro_id]);
+
+            sendResponse(true, null, $pagado ? 'Marcado como pagado' : 'Marcado como no pagado');
             break;
 
         default:
