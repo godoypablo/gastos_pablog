@@ -316,7 +316,7 @@ require_auth_or_redirect();
         </div>
     </div>
 
-    <!-- Modal Ingresos -->
+    <!-- Modal Ingresos (unificado) -->
     <div class="modal fade" id="modalIngresos" tabindex="-1" aria-labelledby="modalIngresosLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -326,18 +326,48 @@ require_auth_or_redirect();
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0" id="dtIngresos">
-                            <thead>
-                                <tr>
-                                    <th>Concepto</th>
-                                    <th class="text-end">Importe</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tablaIngresos"></tbody>
-                        </table>
+
+                <!-- Formulario nuevo ingreso (oculto por defecto) -->
+                <div id="formNuevoIngreso" class="d-none border-bottom px-3 pt-3 pb-2">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label form-field-label">Nombre del concepto</label>
+                            <input type="text" id="nuevoIngresoNombre" class="form-control form-control-sm" placeholder="Ej: Sueldo empresa">
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label form-field-label">Cuenta por defecto</label>
+                            <select id="nuevoIngresoCuenta" class="form-select form-select-sm">
+                                <option value="">— Sin cuenta —</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-2">
+                            <label class="form-label form-field-label">Importe</label>
+                            <input type="text" inputmode="decimal" id="nuevoIngresoImporte" class="form-control form-control-sm" placeholder="$ 0,00">
+                        </div>
+                        <div class="col-12 col-sm-2 d-flex gap-1">
+                            <button class="btn btn-success btn-sm flex-fill" onclick="guardarNuevoIngreso()">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="ocultarFormNuevoIngreso()">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
                     </div>
+                </div>
+
+                <!-- Lista de ingresos -->
+                <div class="modal-body p-0" id="modalIngresosBody">
+                    <div class="text-center py-4 text-muted">Cargando...</div>
+                </div>
+
+                <!-- Totales -->
+                <div class="ingreso-totales border-top" id="totalIngresosModal"></div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-success btn-sm me-auto" onclick="mostrarFormNuevoIngreso()">
+                        <i class="bi bi-plus-lg me-1"></i>Nuevo ingreso
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -375,13 +405,7 @@ require_auth_or_redirect();
                     <!-- Tabs -->
                     <ul class="nav nav-tabs mb-3" id="tabsConceptos" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="tab-ingresos-btn" data-bs-toggle="tab"
-                                data-bs-target="#tab-ingresos" type="button" role="tab">
-                                <i class="bi bi-graph-up text-success me-1"></i>Ingresos
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="tab-gastos-btn" data-bs-toggle="tab"
+                            <button class="nav-link active" id="tab-gastos-btn" data-bs-toggle="tab"
                                 data-bs-target="#tab-gastos" type="button" role="tab">
                                 <i class="bi bi-graph-down text-danger me-1"></i>Gastos
                             </button>
@@ -441,20 +465,8 @@ require_auth_or_redirect();
                     <!-- Contenido tabs -->
                     <div class="tab-content" id="tabsConceptosContent">
 
-                        <!-- Ingresos -->
-                        <div class="tab-pane fade show active" id="tab-ingresos" role="tabpanel">
-                            <div class="d-flex justify-content-end mb-2">
-                                <button class="btn btn-success btn-sm" onclick="mostrarFormNuevo('ingreso')">
-                                    <i class="bi bi-plus-lg me-1"></i>Nuevo ingreso
-                                </button>
-                            </div>
-                            <div id="listaIngresos">
-                                <div class="text-center py-3 text-muted">Cargando...</div>
-                            </div>
-                        </div>
-
                         <!-- Gastos -->
-                        <div class="tab-pane fade" id="tab-gastos" role="tabpanel">
+                        <div class="tab-pane fade show active" id="tab-gastos" role="tabpanel">
                             <div class="d-flex justify-content-end mb-2">
                                 <button class="btn btn-danger btn-sm" onclick="mostrarFormNuevo('gasto')">
                                     <i class="bi bi-plus-lg me-1"></i>Nuevo gasto

@@ -63,7 +63,8 @@ try {
                         MIN(rm.id) as registro_id,
                         MAX(rm.pagado) as pagado,
                         MIN(rm.fecha_vencimiento) as fecha_vencimiento,
-                        MIN(rm.cuenta_id) as cuenta_id
+                        MIN(rm.cuenta_id) as cuenta_id,
+                        MIN(rm.fecha) as fecha
                     FROM conceptos c
                     LEFT JOIN categorias cat ON c.categoria_id = cat.id
                     LEFT JOIN registros_mensuales rm ON c.id = rm.concepto_id
@@ -439,6 +440,11 @@ try {
                 $sets[]                    = 'fecha_vencimiento = :fecha_vencimiento';
                 $params['fecha_vencimiento'] = ($input['fecha_vencimiento'] !== '' && $input['fecha_vencimiento'] !== null)
                     ? $input['fecha_vencimiento'] : null;
+            }
+            if (array_key_exists('fecha', $input)) {
+                $sets[]          = 'fecha = :fecha';
+                $params['fecha'] = ($input['fecha'] !== '' && $input['fecha'] !== null)
+                    ? $input['fecha'] : null;
             }
 
             if (empty($sets)) sendResponse(false, null, 'Nada que actualizar', 400);
