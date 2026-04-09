@@ -37,6 +37,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('selectMes').addEventListener('change', cargarDatos);
     document.getElementById('selectAnio').addEventListener('change', cargarDatos);
 
+    // Ajustar DataTable de ingresos al abrir el modal (estaba oculta)
+    document.getElementById('modalIngresos').addEventListener('shown.bs.modal', () => {
+        if (app.dtIngresos) app.dtIngresos.columns.adjust().draw(false);
+    });
+
     // iOS: no dispara beforeinstallprompt → banner propio
     const isIOS        = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isStandalone = window.navigator.standalone === true
@@ -313,8 +318,14 @@ function renderizarDatos() {
 }
 
 function mostrarBannerVencimientos() {
-    const contenedor = document.getElementById('bannerVencimientos');
-    contenedor.innerHTML = '';
+    const modalBody = document.getElementById('modalVencimientosBody');
+    const badgeMenu = document.getElementById('badgeMenuVenc');
+    const badgeVenc = document.getElementById('badgeVencMenu');
+
+    // Reset badges
+    badgeMenu.classList.add('d-none');
+    badgeVenc.classList.add('d-none');
+    modalBody.innerHTML = '<p class="text-center text-muted py-3">Sin vencimientos próximos</p>';
 
     if (!app.datos?.conceptos) return;
 
@@ -331,14 +342,15 @@ function mostrarBannerVencimientos() {
 
     if (vencidos.length === 0 && proximos.length === 0) return;
 
+    // Actualizar badges
+    const totalBadge = vencidos.length + proximos.length;
+    badgeMenu.textContent = totalBadge;
+    badgeMenu.classList.remove('d-none');
+    badgeVenc.textContent = totalBadge;
+    badgeVenc.classList.remove('d-none');
+
     const totalVencidos = vencidos.reduce((s, c) => s + (parseFloat(c.importe) || 0), 0);
     const totalProximos = proximos.reduce((s, c) => s + (parseFloat(c.importe) || 0), 0);
-    const totalGeneral  = totalVencidos + totalProximos;
-
-    // Línea resumen para el header colapsable
-    const partes = [];
-    if (vencidos.length) partes.push(`<span class="venc-tag venc-tag-vencido">${vencidos.length} vencido${vencidos.length > 1 ? 's' : ''}</span>`);
-    if (proximos.length) partes.push(`<span class="venc-tag venc-tag-proximo">${proximos.length} esta semana</span>`);
 
     const filaItem = (c, esVencido) => `
         <div class="venc-fila">
@@ -347,29 +359,17 @@ function mostrarBannerVencimientos() {
             <span class="venc-importe">${formatearMoneda(parseFloat(c.importe) || 0)}</span>
         </div>`;
 
-    const html = `
-        <div class="venc-strip" id="vencStrip">
-            <div class="venc-strip-header" onclick="document.getElementById('vencStripBody').classList.toggle('venc-strip-open');this.querySelector('.venc-chevron').classList.toggle('rotated')">
-                <i class="bi bi-clock-history venc-icon"></i>
-                <span class="venc-tags">${partes.join('')}</span>
-                <span class="venc-total-header">${formatearMoneda(totalGeneral)}</span>
-                <i class="bi bi-chevron-down venc-chevron"></i>
-            </div>
-            <div class="venc-strip-body" id="vencStripBody">
-                ${vencidos.length ? `
-                <div class="venc-grupo">
-                    <div class="venc-grupo-label venc-grupo-label-vencido">Vencidos · ${formatearMoneda(totalVencidos)}</div>
-                    ${vencidos.map(c => filaItem(c, true)).join('')}
-                </div>` : ''}
-                ${proximos.length ? `
-                <div class="venc-grupo">
-                    <div class="venc-grupo-label">Esta semana · ${formatearMoneda(totalProximos)}</div>
-                    ${proximos.map(c => filaItem(c, false)).join('')}
-                </div>` : ''}
-            </div>
-        </div>`;
-
-    contenedor.innerHTML = html;
+    modalBody.innerHTML = `
+        ${vencidos.length ? `
+        <div class="venc-grupo">
+            <div class="venc-grupo-label venc-grupo-label-vencido">Vencidos · ${formatearMoneda(totalVencidos)}</div>
+            ${vencidos.map(c => filaItem(c, true)).join('')}
+        </div>` : ''}
+        ${proximos.length ? `
+        <div class="venc-grupo">
+            <div class="venc-grupo-label">Esta semana · ${formatearMoneda(totalProximos)}</div>
+            ${proximos.map(c => filaItem(c, false)).join('')}
+        </div>` : ''}`;
 }
 
 function mostrarBannerPeriodo() {
@@ -1453,18 +1453,14 @@ function toggleResumen() {
     icon.classList.toggle('bi-chevron-up', oculto);
 }
 
-// Toggle sección ingresos
-function toggleTablaIngresos() {
-    const contenido = document.getElementById('contenidoIngresos');
-    const icon = document.getElementById('iconToggleIngresos');
-    const oculto = contenido.classList.contains('d-none');
-    contenido.classList.toggle('d-none', !oculto);
-    icon.classList.toggle('bi-chevron-down', !oculto);
-    icon.classList.toggle('bi-chevron-up', oculto);
-    // Recalcular columnas de DataTables al hacerse visible
-    if (oculto && app.dtIngresos) {
-        app.dtIngresos.columns.adjust().draw(false);
-    }
+function abrirModalIngresos() {
+    document.getElementById('mesAnioIngresos').textContent =
+        `${String(app.mesActual).padStart(2, '0')}/${app.anioActual}`;
+    new bootstrap.Modal(document.getElementById('modalIngresos')).show();
+}
+
+function abrirModalVencimientos() {
+    new bootstrap.Modal(document.getElementById('modalVencimientos')).show();
 }
 
 // Mostrar loading

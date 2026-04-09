@@ -56,14 +56,38 @@ require_auth_or_redirect();
                     Control financiero personal
                 </p>
             </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 align-items-center">
                 <button class="btn btn-outline-light btn-sm" onclick="toggleDarkMode()" id="btnDarkMode" title="Cambiar tema">
                     <i class="bi bi-moon-fill" id="iconDarkMode"></i>
                 </button>
-                <button class="btn btn-light btn-sm" onclick="abrirModalConceptos()">
-                    <i class="bi bi-list-ul me-1"></i>
-                    Conceptos
-                </button>
+                <div class="dropdown">
+                    <button class="btn btn-outline-light btn-sm position-relative" id="btnMenu" data-bs-toggle="dropdown" aria-expanded="false" title="Menú">
+                        <i class="bi bi-list fs-5"></i>
+                        <span class="badge bg-danger position-absolute top-0 start-100 translate-middle rounded-pill d-none" id="badgeMenuVenc" style="font-size:0.6rem;padding:2px 5px"></span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="btnMenu">
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalIngresos();return false;">
+                                <i class="bi bi-graph-up text-success"></i>
+                                Ingresos
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalVencimientos();return false;">
+                                <i class="bi bi-clock-history text-warning"></i>
+                                Vencimientos
+                                <span class="badge bg-danger ms-auto d-none" id="badgeVencMenu"></span>
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalConceptos();return false;">
+                                <i class="bi bi-list-ul text-primary"></i>
+                                Conceptos
+                            </a>
+                        </li>
+                    </ul>
+                </div>
                 <a href="logout.php" class="btn btn-outline-light btn-sm" title="Cerrar sesión">
                     <i class="bi bi-box-arrow-right"></i>
                 </a>
@@ -201,38 +225,8 @@ require_auth_or_redirect();
                 </div>
             </div>
 
-            <!-- Banner vencimientos -->
-            <div id="bannerVencimientos" class="mb-4"></div>
-
             <!-- Cuentas bancarias -->
             <div id="cardCuentas" class="mb-4"></div>
-
-            <!-- Tabla de Ingresos -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-header seccion-header d-flex justify-content-between align-items-center">
-                    <h3 class="h6 mb-0 fw-bold seccion-titulo">
-                        <i class="bi bi-graph-up text-success me-2"></i>Ingresos
-                    </h3>
-                    <button class="btn btn-sm btn-ghost-muted" id="btnToggleIngresos" onclick="toggleTablaIngresos()" title="Mostrar/ocultar ingresos">
-                        <i class="bi bi-chevron-down" id="iconToggleIngresos"></i>
-                    </button>
-                </div>
-                <div class="d-none" id="contenidoIngresos">
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0" id="dtIngresos">
-                                <thead>
-                                    <tr>
-                                        <th>Concepto</th>
-                                        <th class="text-end">Importe</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tablaIngresos"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <!-- Tabla de Gastos -->
             <div class="card shadow-sm mb-4">
@@ -257,6 +251,50 @@ require_auth_or_redirect();
             </div>
         </div>
     </main>
+
+    <!-- Modal Ingresos -->
+    <div class="modal fade" id="modalIngresos" tabindex="-1" aria-labelledby="modalIngresosLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalIngresosLabel">
+                        <i class="bi bi-graph-up text-success me-2"></i>Ingresos — <span id="mesAnioIngresos"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="dtIngresos">
+                            <thead>
+                                <tr>
+                                    <th>Concepto</th>
+                                    <th class="text-end">Importe</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaIngresos"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Vencimientos -->
+    <div class="modal fade" id="modalVencimientos" tabindex="-1" aria-labelledby="modalVencimientosLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalVencimientosLabel">
+                        <i class="bi bi-clock-history text-warning me-2"></i>Vencimientos
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modalVencimientosBody">
+                    <p class="text-center text-muted py-3">Sin vencimientos próximos</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal ABM Conceptos -->
     <div class="modal fade" id="modalConceptos" tabindex="-1" aria-labelledby="modalConceptosLabel" aria-hidden="true">
