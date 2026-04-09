@@ -179,17 +179,16 @@ try {
             }
 
             if ($concepto['permite_multiples']) {
-                // Multi-entrada: siempre INSERT con fecha
+                // Multi-entrada: siempre INSERT con fecha y pagado=1 por defecto
                 $fecha = isset($input['fecha']) ? $input['fecha'] : date('Y-m-d');
-                $sql = "INSERT INTO registros_mensuales (concepto_id, mes, anio, fecha, fecha_vencimiento, importe, observaciones)
-                        VALUES (:concepto_id, :mes, :anio, :fecha, :fecha_vencimiento, :importe, :observaciones)";
+                $sql = "INSERT INTO registros_mensuales (concepto_id, mes, anio, fecha, importe, observaciones, pagado)
+                        VALUES (:concepto_id, :mes, :anio, :fecha, :importe, :observaciones, 1)";
                 $stmt = $db->prepare($sql);
                 $stmt->execute([
                     'concepto_id'      => $concepto_id,
                     'mes'              => $mes,
                     'anio'             => $anio,
                     'fecha'            => $fecha,
-                    'fecha_vencimiento'=> $fecha_vencimiento,
                     'importe'          => $importe,
                     'observaciones'    => $observaciones
                 ]);

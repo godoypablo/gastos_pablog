@@ -243,27 +243,32 @@ function renderizarDatos() {
     if (!app.datos) return;
 
     // Actualizar resumen
-    document.getElementById('totalIngresos').textContent = formatearMoneda(app.datos.resumen.total_ingresos);
-    document.getElementById('totalGastos').textContent = formatearMoneda(app.datos.resumen.total_gastos);
-    const elDisponible = document.getElementById('saldoDisponible');
-    if (elDisponible) elDisponible.textContent = formatearMoneda(app.datos.resumen.saldo_disponible);
-    document.getElementById('saldo').textContent = formatearMoneda(app.datos.resumen.saldo);
+    const { total_ingresos, total_gastos, gastos_pagados, saldo_disponible, saldo } = app.datos.resumen;
+    const pendiente = total_gastos - gastos_pagados;
+    const pctPagado = total_gastos > 0 ? Math.min(100, (gastos_pagados / total_gastos) * 100) : 0;
 
-    // Color del saldo según disponible (ingresos - gastos pagados)
+    document.getElementById('totalIngresos').textContent  = formatearMoneda(total_ingresos);
+    document.getElementById('totalGastos').textContent    = formatearMoneda(total_gastos);
+    document.getElementById('saldoDisponible').textContent = formatearMoneda(saldo_disponible);
+    document.getElementById('saldoPendiente').textContent  = formatearMoneda(pendiente);
+    document.getElementById('barraProgreso').style.width   = pctPagado + '%';
+    document.getElementById('barraProgreso').title         = `${pctPagado.toFixed(0)}% de gastos pagados`;
+
+    const elSaldo = document.getElementById('saldo');
+    elSaldo.textContent = formatearMoneda(saldo);
+    elSaldo.className   = saldo >= 0 ? 'fw-medium text-success' : 'fw-medium text-danger';
+
+    // Color de la card según saldo disponible
     const cardSaldo = document.getElementById('cardSaldo');
     const iconSaldo = document.getElementById('iconSaldo');
-    const disponible = app.datos.resumen.saldo_disponible;
 
-    if (disponible < 0) {
+    if (saldo_disponible < 0) {
         cardSaldo.classList.add('negativo');
-        cardSaldo.classList.remove('border-primary');
-        cardSaldo.classList.add('border-warning');
         iconSaldo.classList.remove('bi-wallet2', 'text-primary');
-        iconSaldo.classList.add('bi-exclamation-triangle-fill', 'text-warning');
+        iconSaldo.classList.add('bi-exclamation-triangle-fill', 'text-danger');
     } else {
-        cardSaldo.classList.remove('negativo', 'border-warning');
-        cardSaldo.classList.add('border-primary');
-        iconSaldo.classList.remove('bi-exclamation-triangle-fill', 'text-warning');
+        cardSaldo.classList.remove('negativo');
+        iconSaldo.classList.remove('bi-exclamation-triangle-fill', 'text-danger');
         iconSaldo.classList.add('bi-wallet2', 'text-primary');
     }
 
@@ -297,6 +302,67 @@ function renderizarDatos() {
 
     inicializarDataTables();
     mostrarBannerPeriodo();
+    mostrarBannerVencimientos();
+}
+
+function mostrarBannerVencimientos() {
+    const contenedor = document.getElementById('bannerVencimientos');
+    contenedor.innerHTML = '';
+
+    if (!app.datos?.conceptos) return;
+
+    const hoy     = new Date().toISOString().split('T')[0];
+    const en7dias = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const candidatos = app.datos.conceptos.filter(c =>
+        c.tipo === 'gasto' && c.fecha_vencimiento && c.pagado !== 1
+    );
+    const fechas = candidatos.map(c => ({ ...c, fv: c.fecha_vencimiento.split('T')[0] }));
+
+    const vencidos = fechas.filter(c => c.fv < hoy);
+    const proximos = fechas.filter(c => c.fv >= hoy && c.fv <= en7dias);
+
+    if (vencidos.length === 0 && proximos.length === 0) return;
+
+    const totalVencidos = vencidos.reduce((s, c) => s + (parseFloat(c.importe) || 0), 0);
+    const totalProximos = proximos.reduce((s, c) => s + (parseFloat(c.importe) || 0), 0);
+    const totalGeneral  = totalVencidos + totalProximos;
+
+    // Línea resumen para el header colapsable
+    const partes = [];
+    if (vencidos.length) partes.push(`<span class="venc-tag venc-tag-vencido">${vencidos.length} vencido${vencidos.length > 1 ? 's' : ''}</span>`);
+    if (proximos.length) partes.push(`<span class="venc-tag venc-tag-proximo">${proximos.length} esta semana</span>`);
+
+    const filaItem = (c, esVencido) => `
+        <div class="venc-fila">
+            <span class="venc-nombre">${c.nombre}</span>
+            <span class="venc-fecha ${esVencido ? 'venc-fecha-vencido' : ''}">${esVencido ? 'vencido' : formatearFechaCorta(c.fv)}</span>
+            <span class="venc-importe">${formatearMoneda(parseFloat(c.importe) || 0)}</span>
+        </div>`;
+
+    const html = `
+        <div class="venc-strip" id="vencStrip">
+            <div class="venc-strip-header" onclick="document.getElementById('vencStripBody').classList.toggle('venc-strip-open');this.querySelector('.venc-chevron').classList.toggle('rotated')">
+                <i class="bi bi-clock-history venc-icon"></i>
+                <span class="venc-tags">${partes.join('')}</span>
+                <span class="venc-total-header">${formatearMoneda(totalGeneral)}</span>
+                <i class="bi bi-chevron-down venc-chevron"></i>
+            </div>
+            <div class="venc-strip-body" id="vencStripBody">
+                ${vencidos.length ? `
+                <div class="venc-grupo">
+                    <div class="venc-grupo-label venc-grupo-label-vencido">Vencidos · ${formatearMoneda(totalVencidos)}</div>
+                    ${vencidos.map(c => filaItem(c, true)).join('')}
+                </div>` : ''}
+                ${proximos.length ? `
+                <div class="venc-grupo">
+                    <div class="venc-grupo-label">Esta semana · ${formatearMoneda(totalProximos)}</div>
+                    ${proximos.map(c => filaItem(c, false)).join('')}
+                </div>` : ''}
+            </div>
+        </div>`;
+
+    contenedor.innerHTML = html;
 }
 
 function mostrarBannerPeriodo() {
@@ -425,7 +491,7 @@ function inyectarCabecerasCategorias(api) {
             <span class="categoria-dot" style="background:${color}"></span>
             ${icono ? `<i class="bi ${icono}" style="color:${color}; font-size:0.78rem;"></i>` : ''}
             <span class="categoria-header-label" style="color:${color}">${nombre}</span>
-            <span class="categoria-header-total ms-auto">${formatearMoneda(total)}</span>
+            <span class="categoria-header-total ms-auto" style="color:${color}">${formatearMoneda(total)}</span>
         </div>`;
         headerTr.appendChild(td);
         headerTr.addEventListener('click', () => toggleCategoria(catId));
@@ -527,25 +593,34 @@ function crearFilaSimple(concepto, tipo) {
 
     divNombre.appendChild(document.createTextNode(concepto.nombre));
 
-    // Input fecha de vencimiento — siempre visible
+    // Editor fecha de vencimiento: span con formato dd/mm/yy + input oculto
     const wrapVenc = document.createElement('div');
     wrapVenc.className = 'vencimiento-wrap';
     const icoVenc = document.createElement('i');
     icoVenc.className = 'bi bi-calendar-x';
+    const spanVenc = document.createElement('span');
+    spanVenc.className = 'vencimiento-texto';
+    spanVenc.textContent = concepto.fecha_vencimiento
+        ? formatearFechaCorta(concepto.fecha_vencimiento)
+        : 'vence';
     const inputVenc = document.createElement('input');
     inputVenc.type  = 'date';
     inputVenc.className = 'input-vencimiento';
-    inputVenc.title = 'Fecha de vencimiento del concepto';
     inputVenc.value = concepto.fecha_vencimiento ? concepto.fecha_vencimiento.split('T')[0] : '';
-    inputVenc.addEventListener('click', e => e.stopPropagation());
+    const abrirPickerVenc = e => {
+        e.stopPropagation();
+        try { inputVenc.showPicker(); } catch(_) { inputVenc.focus(); }
+    };
+    icoVenc.addEventListener('click', abrirPickerVenc);
+    spanVenc.addEventListener('click', abrirPickerVenc);
     inputVenc.addEventListener('change', () => {
+        spanVenc.textContent = inputVenc.value ? formatearFechaCorta(inputVenc.value) : 'vence';
         if (concepto.registro_id) {
-            // Ya tiene registro: PATCH directo
             guardarVencimiento(concepto.registro_id, inputVenc.value, tr);
         }
-        // Sin registro aún: se incluirá en el POST cuando se guarde el importe
     });
     wrapVenc.appendChild(icoVenc);
+    wrapVenc.appendChild(spanVenc);
     wrapVenc.appendChild(inputVenc);
     divNombre.appendChild(wrapVenc);
 
@@ -588,7 +663,7 @@ function crearFilaSimple(concepto, tipo) {
     // Botón SMVM para Cuota Alimentaria (va a la izquierda del input)
     if (concepto.nombre.toLowerCase().includes('alimentaria')) {
         const btnSmvm = document.createElement('button');
-        btnSmvm.className = 'btn btn-outline-info btn-sm btn-smvm';
+        btnSmvm.className = 'btn btn-smvm';
         btnSmvm.title = 'Sugerir valor del SMVM vigente';
         btnSmvm.innerHTML = '<i class="bi bi-robot"></i>';
         btnSmvm.addEventListener('click', () => sugerirSMVM(input, btnSmvm, app.mesActual, app.anioActual));
@@ -598,7 +673,7 @@ function crearFilaSimple(concepto, tipo) {
     // Botón Elena Limpieza (va a la izquierda del input)
     if (concepto.nombre.toLowerCase().includes('elena')) {
         const btnElena = document.createElement('button');
-        btnElena.className = 'btn btn-outline-secondary btn-sm btn-smvm';
+        btnElena.className = 'btn btn-smvm';
         btnElena.title = 'Sugerir importe empleada doméstica (4h/semana)';
         btnElena.innerHTML = '<i class="bi bi-robot"></i>';
         btnElena.addEventListener('click', () => sugerirElena(input, btnElena, app.mesActual, app.anioActual));
@@ -608,7 +683,7 @@ function crearFilaSimple(concepto, tipo) {
     // Botón Spotify Duo (va a la izquierda del input)
     if (concepto.nombre.toLowerCase().includes('spotify')) {
         const btnSpotify = document.createElement('button');
-        btnSpotify.className = 'btn btn-outline-success btn-sm btn-smvm';
+        btnSpotify.className = 'btn btn-smvm';
         btnSpotify.title = 'Sugerir precio Spotify Duo para el mes seleccionado';
         btnSpotify.innerHTML = '<i class="bi bi-robot"></i>';
         btnSpotify.addEventListener('click', () => sugerirSpotifyDuo(input, btnSpotify, app.mesActual, app.anioActual));
@@ -618,7 +693,7 @@ function crearFilaSimple(concepto, tipo) {
     // Botón cotización YouTube Premium (va a la izquierda del input)
     if (concepto.nombre.toLowerCase().includes('youtube')) {
         const btnYt = document.createElement('button');
-        btnYt.className = 'btn btn-outline-danger btn-sm btn-smvm';
+        btnYt.className = 'btn btn-smvm';
         btnYt.title = 'Sugerir precio YouTube Premium al tipo de cambio actual';
         btnYt.innerHTML = '<i class="bi bi-robot"></i>';
         btnYt.addEventListener('click', () => sugerirYoutubePremium(input, btnYt));
@@ -705,13 +780,13 @@ function crearFilasMultiple(concepto, tipo) {
     divNombre.appendChild(document.createTextNode(concepto.nombre));
 
     const badge = document.createElement('span');
-    badge.className = 'badge bg-secondary ms-2';
+    badge.className = 'badge badge-count';
     badge.id = `badge-count-${concepto.id}`;
     badge.textContent = cantRegistros;
     divNombre.appendChild(badge);
 
     const arrow = document.createElement('i');
-    arrow.className = 'bi bi-chevron-down ms-2 detalle-arrow text-muted';
+    arrow.className = 'bi bi-chevron-down ms-1 detalle-arrow text-muted';
     arrow.id = `arrow-${concepto.id}`;
     divNombre.appendChild(arrow);
 
@@ -787,22 +862,19 @@ function crearFilaRegistroDetalle(reg, conceptoId) {
     const fechaVenc = reg.fecha_vencimiento ? reg.fecha_vencimiento.split('T')[0] : '';
 
     tr.innerHTML = `
-        <td class="ps-4 text-muted" style="width:110px">
-            ${formatearFecha(reg.fecha)}
-            <div style="margin-top:2px">
-                <input type="date" class="form-control form-control-sm input-vencimiento-detalle"
-                    value="${fechaVenc}" title="Vencimiento"
-                    onchange="guardarVencimiento(${reg.id}, this.value, this.closest('tr'))">
+        <td class="ps-3" style="width:100px">
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn-pagado${isPaid ? ' pagado' : ''}"
+                    title="${isPaid ? 'Marcar como no pagado' : 'Marcar como pagado'}"
+                    onclick="togglePagado(${reg.id}, this, this.closest('tr'))">
+                    <i class="bi ${isPaid ? 'bi-check-circle-fill' : 'bi-circle'}"></i>
+                </button>
+                <span class="text-muted" style="font-size:0.78rem">${formatearFechaCorta(reg.fecha)}</span>
             </div>
         </td>
+        <td class="text-muted fst-italic" style="font-size:0.82rem">${reg.observaciones || '<span class="opacity-50">—</span>'}</td>
         <td class="text-end fw-medium">${formatearMoneda(reg.importe)}</td>
-        <td class="text-muted fst-italic">${reg.observaciones || ''}</td>
-        <td class="text-end pe-3" style="width:80px">
-            <button class="btn-pagado${isPaid ? ' pagado' : ''}"
-                title="${isPaid ? 'Marcar como no pagado' : 'Marcar como pagado'}"
-                onclick="togglePagado(${reg.id}, this, this.closest('tr'))">
-                <i class="bi ${isPaid ? 'bi-check-circle-fill' : 'bi-circle'}"></i>
-            </button>
+        <td class="text-end pe-3" style="width:50px">
             <button class="btn btn-outline-danger btn-sm py-0 px-1"
                 title="Eliminar"
                 onclick="eliminarRegistroMultiple(${reg.id}, ${conceptoId})">
@@ -822,21 +894,22 @@ function crearFilaFormNuevoRegistro(conceptoId) {
     const hoy = new Date().toISOString().split('T')[0];
 
     tr.innerHTML = `
-        <td class="ps-3" style="width:140px">
-            <input type="date" class="form-control form-control-sm"
+        <td class="ps-3" style="width:100px">
+            <span class="form-field-label">Fecha</span>
+            <input type="date" class="form-control form-control-sm input-vencimiento-detalle"
                 id="fecha-nuevo-${conceptoId}" value="${hoy}">
-            <input type="date" class="form-control form-control-sm input-vencimiento-detalle mt-1"
-                id="vence-nuevo-${conceptoId}" title="Vencimiento (opcional)">
         </td>
         <td>
+            <span class="form-field-label">Descripción</span>
+            <input type="text" class="form-control form-control-sm"
+                id="obs-nuevo-${conceptoId}" placeholder="(opcional)">
+        </td>
+        <td>
+            <span class="form-field-label">Importe</span>
             <input type="number" step="0.01" min="0" class="form-control form-control-sm text-end"
                 id="importe-nuevo-${conceptoId}" placeholder="0.00">
         </td>
-        <td>
-            <input type="text" class="form-control form-control-sm"
-                id="obs-nuevo-${conceptoId}" placeholder="Observaciones (opcional)">
-        </td>
-        <td class="text-end pe-3" style="width:50px">
+        <td class="text-end pe-3 align-middle" style="width:50px">
             <button class="btn btn-success btn-sm py-0 px-2"
                 title="Agregar"
                 onclick="agregarRegistroMultiple(${conceptoId})">
@@ -880,7 +953,6 @@ async function agregarRegistroMultiple(conceptoId) {
     const fecha = document.getElementById(`fecha-nuevo-${conceptoId}`).value;
     const importeVal = document.getElementById(`importe-nuevo-${conceptoId}`).value;
     const observaciones = document.getElementById(`obs-nuevo-${conceptoId}`).value.trim();
-    const fechaVencimiento = document.getElementById(`vence-nuevo-${conceptoId}`)?.value || null;
 
     const importe = parseFloat(importeVal) || 0;
 
@@ -902,7 +974,6 @@ async function agregarRegistroMultiple(conceptoId) {
                 mes: app.mesActual,
                 anio: app.anioActual,
                 fecha,
-                fecha_vencimiento: fechaVencimiento || null,
                 importe,
                 observaciones: observaciones || null
             })
@@ -1337,11 +1408,11 @@ function formatearMoneda(valor) {
     }).format(valor);
 }
 
-// Formatear fecha ISO a dd/mm/yyyy
-function formatearFecha(fechaISO) {
+// Formatear fecha ISO a dd/mm/yy
+function formatearFechaCorta(fechaISO) {
     if (!fechaISO) return '';
     const [y, m, d] = fechaISO.split('T')[0].split('-');
-    return `${d}/${m}/${y}`;
+    return `${d}/${m}/${y.slice(2)}`;
 }
 
 // Obtener nombre del mes

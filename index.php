@@ -146,11 +146,11 @@ require_auth_or_redirect();
                     <div class="row g-3">
                         <!-- Total Ingresos -->
                         <div class="col-md-4">
-                            <div class="card border-success h-100">
+                            <div class="card card-resumen h-100">
                                 <div class="card-body text-center">
                                     <div class="d-flex align-items-center justify-content-center mb-2">
-                                        <i class="bi bi-arrow-up-circle-fill text-success fs-3 me-2"></i>
-                                        <small class="text-uppercase fw-bold text-muted">Total Ingresos</small>
+                                        <i class="bi bi-arrow-up-circle-fill text-success me-2" style="font-size:1.4rem"></i>
+                                        <small class="text-uppercase fw-bold text-muted">Ingresos</small>
                                     </div>
                                     <h3 class="h2 mb-0 text-success" id="totalIngresos">$0,00</h3>
                                 </div>
@@ -159,11 +159,11 @@ require_auth_or_redirect();
 
                         <!-- Total Gastos -->
                         <div class="col-md-4">
-                            <div class="card border-danger h-100">
+                            <div class="card card-resumen h-100">
                                 <div class="card-body text-center">
                                     <div class="d-flex align-items-center justify-content-center mb-2">
-                                        <i class="bi bi-arrow-down-circle-fill text-danger fs-3 me-2"></i>
-                                        <small class="text-uppercase fw-bold text-muted">Total Gastos</small>
+                                        <i class="bi bi-arrow-down-circle-fill text-danger me-2" style="font-size:1.4rem"></i>
+                                        <small class="text-uppercase fw-bold text-muted">Gastos</small>
                                     </div>
                                     <h3 class="h2 mb-0 text-danger" id="totalGastos">$0,00</h3>
                                 </div>
@@ -172,19 +172,26 @@ require_auth_or_redirect();
 
                         <!-- Saldo -->
                         <div class="col-md-4">
-                            <div class="card border-primary h-100" id="cardSaldo">
+                            <div class="card card-resumen h-100" id="cardSaldo">
                                 <div class="card-body text-center d-flex flex-column justify-content-center">
                                     <div class="d-flex align-items-center justify-content-center mb-2">
-                                        <i class="bi bi-wallet2 fs-3 me-2" id="iconSaldo"></i>
+                                        <i class="bi bi-wallet2 me-2" id="iconSaldo" style="font-size:1.4rem"></i>
                                         <small class="text-uppercase fw-bold text-muted">Saldo</small>
                                     </div>
                                     <div class="d-flex justify-content-between align-items-baseline mb-1">
                                         <small class="text-muted">Disponible</small>
                                         <span class="fw-bold fs-5" id="saldoDisponible">$0,00</span>
                                     </div>
+                                    <div class="d-flex justify-content-between align-items-baseline mb-2">
+                                        <small class="text-muted">Pendiente</small>
+                                        <span class="text-muted fw-medium" id="saldoPendiente">$0,00</span>
+                                    </div>
+                                    <div class="progress mb-2" style="height:4px">
+                                        <div class="progress-bar" id="barraProgreso" role="progressbar" style="width:0%"></div>
+                                    </div>
                                     <div class="d-flex justify-content-between align-items-baseline">
-                                        <small class="text-muted">Al cerrar</small>
-                                        <span class="text-muted" id="saldo">$0,00</span>
+                                        <small class="text-muted">Proyección</small>
+                                        <span class="fw-medium" id="saldo">$0,00</span>
                                     </div>
                                 </div>
                             </div>
@@ -194,14 +201,16 @@ require_auth_or_redirect();
                 </div>
             </div>
 
+            <!-- Banner vencimientos -->
+            <div id="bannerVencimientos" class="mb-4"></div>
+
             <!-- Tabla de Ingresos -->
             <div class="card shadow-sm mb-4">
-                <div class="card-header bg-success bg-opacity-10 border-success d-flex justify-content-between align-items-center">
-                    <h3 class="h6 mb-0 text-success fw-bold">
-                        <i class="bi bi-graph-up me-2"></i>
-                        INGRESOS
+                <div class="card-header seccion-header d-flex justify-content-between align-items-center">
+                    <h3 class="h6 mb-0 fw-bold seccion-titulo">
+                        <i class="bi bi-graph-up text-success me-2"></i>Ingresos
                     </h3>
-                    <button class="btn btn-sm btn-outline-success" id="btnToggleIngresos" onclick="toggleTablaIngresos()" title="Mostrar/ocultar ingresos">
+                    <button class="btn btn-sm btn-ghost-muted" id="btnToggleIngresos" onclick="toggleTablaIngresos()" title="Mostrar/ocultar ingresos">
                         <i class="bi bi-chevron-down" id="iconToggleIngresos"></i>
                     </button>
                 </div>
@@ -224,10 +233,9 @@ require_auth_or_redirect();
 
             <!-- Tabla de Gastos -->
             <div class="card shadow-sm mb-4">
-                <div class="card-header bg-danger bg-opacity-10 border-danger">
-                    <h3 class="h6 mb-0 text-danger fw-bold">
-                        <i class="bi bi-graph-down me-2"></i>
-                        GASTOS
+                <div class="card-header seccion-header">
+                    <h3 class="h6 mb-0 fw-bold seccion-titulo">
+                        <i class="bi bi-graph-down text-danger me-2"></i>Gastos
                     </h3>
                 </div>
                 <div class="card-body p-0">
