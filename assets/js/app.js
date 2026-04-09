@@ -583,12 +583,15 @@ function crearFilaSimple(concepto, tipo) {
         tr.classList.add('tr-vencido');
     }
 
-    // Botón pagado — todos los gastos (si no hay registro se crea con importe 0 al hacer click)
-    if (tipo === 'gasto') {
+    // Botón pagado (gastos) / cobrado (ingresos)
+    {
         const isPaid = concepto.pagado === 1;
+        const esIngreso = tipo === 'ingreso';
         const btnPagado = document.createElement('button');
         btnPagado.className = `btn-pagado${isPaid ? ' pagado' : ''}`;
-        btnPagado.title = isPaid ? 'Marcar como no pagado' : 'Marcar como pagado';
+        btnPagado.title = isPaid
+            ? (esIngreso ? 'Marcar como no cobrado' : 'Marcar como no pagado')
+            : (esIngreso ? 'Marcar como cobrado'    : 'Marcar como pagado');
         btnPagado.innerHTML = `<i class="bi ${isPaid ? 'bi-check-circle-fill' : 'bi-circle'}"></i>`;
         btnPagado.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1413,6 +1416,7 @@ async function togglePagado(registroId, btnElement, trElement, conceptoId = null
         }
         // Recargar para que el botón tenga el registro_id correcto en su closure
         if (registroCreado) await cargarDatos();
+        else await cargarCuentas(); // Refrescar saldos si se creó/revirtió movimiento
     } catch (error) {
         mostrarError('Error al actualizar: ' + error.message);
     }
@@ -2143,10 +2147,15 @@ function renderizarCuentas() {
                         <span class="cuenta-tipo">${tipoLabel[c.tipo] || c.tipo}</span>
                     </div>
                 </div>
-                <button class="btn btn-ghost-muted btn-sm" title="Actualizar saldo"
-                    onclick="actualizarSaldoCuenta(${c.id})">
-                    <i class="bi bi-pencil"></i>
-                </button>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-ghost-muted btn-sm" title="Transferir" onclick="abrirModalTransferencia(${c.id})">
+                        <i class="bi bi-arrow-left-right"></i>
+                    </button>
+                    ${c.tipo !== 'billetera' ? `<button class="btn btn-ghost-muted btn-sm" title="Extracción ATM" onclick="registrarExtraccion(${c.id})"><i class="bi bi-cash-stack"></i></button>` : ''}
+                    <button class="btn btn-ghost-muted btn-sm" title="Actualizar saldo" onclick="actualizarSaldoCuenta(${c.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </div>
             </div>
             <div class="cuenta-stats">
                 <div class="cuenta-stat">
@@ -2191,6 +2200,140 @@ function renderizarCuentas() {
             </div>
         </div>
     </div>`;
+}
+
+function abrirModalTransferencia(cuentaOrigenId = null) {
+    const sel1 = document.getElementById('transfOrigen');
+    const sel2 = document.getElementById('transfDestino');
+
+    const options = app.cuentas.map(c =>
+        `<option value="${c.id}">${c.nombre}</option>`
+    ).join('');
+    sel1.innerHTML = options;
+    sel2.innerHTML = options;
+
+    if (cuentaOrigenId) sel1.value = cuentaOrigenId;
+    // Pre-seleccionar destino distinto al origen
+    const otra = app.cuentas.find(c => c.id != (cuentaOrigenId || app.cuentas[0]?.id));
+    if (otra) sel2.value = otra.id;
+
+    document.getElementById('transfImporte').value    = '';
+    document.getElementById('transfDescripcion').value = '';
+
+    new bootstrap.Modal(document.getElementById('modalTransferencia')).show();
+}
+
+async function realizarTransferencia() {
+    const origen      = parseInt(document.getElementById('transfOrigen').value);
+    const destino     = parseInt(document.getElementById('transfDestino').value);
+    const importe     = parsearImporte(document.getElementById('transfImporte').value);
+    const descripcion = document.getElementById('transfDescripcion').value.trim();
+
+    if (origen === destino) { mostrarError('Las cuentas deben ser distintas'); return; }
+    if (!importe || importe <= 0) { mostrarError('Importe inválido'); return; }
+
+    try {
+        const resp = await fetch('api/movimientos_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo: 'transferencia', cuenta_origen_id: origen, cuenta_destino_id: destino, importe, descripcion })
+        });
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.message);
+
+        bootstrap.Modal.getInstance(document.getElementById('modalTransferencia'))?.hide();
+        mostrarToast('Transferencia realizada', 'success');
+        await cargarCuentas();
+    } catch (error) {
+        mostrarError('Error: ' + error.message);
+    }
+}
+
+async function registrarExtraccion(cuentaId) {
+    const cuenta = app.cuentas.find(c => c.id == cuentaId);
+    if (!cuenta) return;
+
+    const inputStr = prompt(`Extracción ATM — ${cuenta.nombre}\nImporte:`);
+    if (inputStr === null) return;
+
+    const importe = parsearImporte(inputStr);
+    if (!importe || importe <= 0) { mostrarError('Importe inválido'); return; }
+
+    try {
+        const resp = await fetch('api/movimientos_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tipo: 'extraccion',
+                cuenta_id: cuentaId,
+                importe,
+                fecha: new Date().toISOString().split('T')[0]
+            })
+        });
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.message);
+
+        mostrarToast(`Extracción de ${formatearMoneda(importe)} registrada`, 'success');
+        await cargarDatos();
+    } catch (error) {
+        mostrarError('Error: ' + error.message);
+    }
+}
+
+async function abrirModalMovimientos() {
+    const modal = new bootstrap.Modal(document.getElementById('modalMovimientos'));
+    modal.show();
+
+    const body = document.getElementById('modalMovimientosBody');
+    body.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
+
+    try {
+        const resp = await fetch('api/movimientos_api.php?limit=50');
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.message);
+
+        if (!result.data.length) {
+            body.innerHTML = '<p class="text-center text-muted py-4">Sin movimientos registrados</p>';
+            return;
+        }
+
+        const tipoInfo = {
+            ingreso:      { label: 'Cobro',         icon: 'bi-arrow-down-circle text-success', cls: 'text-success' },
+            pago_gasto:   { label: 'Pago',          icon: 'bi-arrow-up-circle text-danger',    cls: 'text-danger'  },
+            transferencia:{ label: 'Transferencia', icon: 'bi-arrow-left-right text-primary',  cls: ''             },
+            extraccion:   { label: 'Extracción ATM',icon: 'bi-cash-stack text-warning',        cls: 'text-danger'  },
+        };
+
+        const rows = result.data.map(m => {
+            const t = tipoInfo[m.tipo] || { label: m.tipo, icon: 'bi-circle', cls: '' };
+            const cuentaStr = m.tipo === 'transferencia'
+                ? `${m.cuenta_origen || '?'} → ${m.cuenta_destino || '?'}`
+                : (m.cuenta_origen || m.cuenta_destino || '—');
+            const desc = m.observaciones || m.descripcion || '';
+            return `<tr>
+                <td class="text-muted small">${formatearFechaCorta(m.fecha)}</td>
+                <td><i class="bi ${t.icon} me-1"></i><span class="small">${t.label}</span></td>
+                <td class="small">${cuentaStr}</td>
+                <td class="small text-muted">${desc}</td>
+                <td class="text-end fw-medium ${t.cls}">${formatearMoneda(m.importe)}</td>
+            </tr>`;
+        }).join('');
+
+        body.innerHTML = `
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th><th>Tipo</th><th>Cuenta</th><th>Descripción</th>
+                        <th class="text-end">Importe</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>`;
+    } catch (error) {
+        body.innerHTML = `<div class="alert alert-danger m-3">Error: ${error.message}</div>`;
+    }
 }
 
 async function actualizarSaldoCuenta(cuentaId) {

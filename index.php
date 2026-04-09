@@ -81,6 +81,13 @@ require_auth_or_redirect();
                         </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalMovimientos();return false;">
+                                <i class="bi bi-journal-text text-secondary"></i>
+                                Movimientos
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
                             <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalConceptos();return false;">
                                 <i class="bi bi-list-ul text-primary"></i>
                                 Conceptos
@@ -251,6 +258,63 @@ require_auth_or_redirect();
             </div>
         </div>
     </main>
+
+    <!-- Modal Transferencia -->
+    <div class="modal fade" id="modalTransferencia" tabindex="-1" aria-labelledby="modalTransferenciaLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTransferenciaLabel">
+                        <i class="bi bi-arrow-left-right me-2"></i>Transferencia entre cuentas
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label form-field-label">Desde</label>
+                        <select class="form-select" id="transfOrigen"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label form-field-label">Hacia</label>
+                        <select class="form-select" id="transfDestino"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label form-field-label">Importe</label>
+                        <input type="text" inputmode="decimal" class="form-control" id="transfImporte" placeholder="$ 0,00">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label form-field-label">Descripción <span class="text-muted fw-normal">(opcional)</span></label>
+                        <input type="text" class="form-control" id="transfDescripcion" placeholder="Ej: Pago tarjeta Santander">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="realizarTransferencia()">
+                        <i class="bi bi-arrow-left-right me-1"></i>Transferir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Movimientos -->
+    <div class="modal fade" id="modalMovimientos" tabindex="-1" aria-labelledby="modalMovimientosLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalMovimientosLabel">
+                        <i class="bi bi-journal-text me-2"></i>Movimientos de cuentas
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0" id="modalMovimientosBody">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Ingresos -->
     <div class="modal fade" id="modalIngresos" tabindex="-1" aria-labelledby="modalIngresosLabel" aria-hidden="true">
