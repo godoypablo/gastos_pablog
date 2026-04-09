@@ -335,6 +335,22 @@ try {
                     $db->beginTransaction();
                     try {
                         if ($pagado_nuevo === 1) {
+                            // Validar saldo suficiente para pagos (no para ingresos)
+                            if ($tipo_mov === 'pago_gasto') {
+                                $stmt_saldo = $db->prepare("SELECT saldo_actual, nombre FROM cuentas WHERE id = :id");
+                                $stmt_saldo->execute(['id' => $cuenta_id]);
+                                $cuenta_row = $stmt_saldo->fetch();
+                                $saldo_disp = (float)($cuenta_row['saldo_actual'] ?? 0);
+                                if ($saldo_disp < $importe) {
+                                    $db->rollBack();
+                                    sendResponse(false, null,
+                                        'Saldo insuficiente en "' . $cuenta_row['nombre'] . '". ' .
+                                        'Disponible: $' . number_format($saldo_disp, 2, ',', '.') . ' — ' .
+                                        'Requerido: $' . number_format($importe, 2, ',', '.'),
+                                        422);
+                                }
+                            }
+
                             // Crear movimiento y ajustar saldo
                             if ($tipo_mov === 'ingreso') {
                                 $db->prepare(

@@ -2413,7 +2413,7 @@ function renderizarCuentas() {
                     <button class="btn btn-ghost-muted btn-sm" title="Transferir" onclick="abrirModalTransferencia(${c.id})">
                         <i class="bi bi-arrow-left-right"></i>
                     </button>
-                    ${c.tipo !== 'billetera' ? `<button class="btn btn-ghost-muted btn-sm" title="Extracción ATM" onclick="registrarExtraccion(${c.id})"><i class="bi bi-cash-stack"></i></button>` : ''}
+                    ${c.tipo !== 'billetera' ? `<button class="btn btn-ghost-muted btn-sm" title="Extracción Efectivo" onclick="registrarExtraccion(${c.id})"><i class="bi bi-cash-stack"></i></button>` : ''}
                     <button class="btn btn-ghost-muted btn-sm" title="Actualizar saldo" onclick="actualizarSaldoCuenta(${c.id})">
                         <i class="bi bi-pencil"></i>
                     </button>
@@ -2515,7 +2515,7 @@ async function registrarExtraccion(cuentaId) {
     const cuenta = app.cuentas.find(c => c.id == cuentaId);
     if (!cuenta) return;
 
-    const inputStr = prompt(`Extracción ATM — ${cuenta.nombre}\nImporte:`);
+    const inputStr = prompt(`Extracción Efectivo — ${cuenta.nombre}\nImporte:`);
     if (inputStr === null) return;
 
     const importe = parsearImporte(inputStr);
@@ -2563,7 +2563,7 @@ async function abrirModalMovimientos() {
             ingreso:      { label: 'Cobro',         icon: 'bi-arrow-down-circle text-success', cls: 'text-success' },
             pago_gasto:   { label: 'Pago',          icon: 'bi-arrow-up-circle text-danger',    cls: 'text-danger'  },
             transferencia:{ label: 'Transferencia', icon: 'bi-arrow-left-right text-primary',  cls: ''             },
-            extraccion:   { label: 'Extracción ATM',icon: 'bi-cash-stack text-warning',        cls: 'text-danger'  },
+            extraccion:   { label: 'Extracción Efectivo',icon: 'bi-cash-stack text-warning',        cls: 'text-danger'  },
         };
 
         const rows = result.data.map(m => {

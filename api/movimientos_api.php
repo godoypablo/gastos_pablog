@@ -87,6 +87,19 @@ try {
                     sendResponse(false, null, 'El importe debe ser mayor a cero', 400);
                 }
 
+                // Validar saldo suficiente en cuenta origen
+                $stmt_s = $db->prepare("SELECT saldo_actual, nombre FROM cuentas WHERE id = :id AND activo = 1");
+                $stmt_s->execute(['id' => $origen]);
+                $co = $stmt_s->fetch();
+                if (!$co) sendResponse(false, null, 'Cuenta origen no encontrada', 404);
+                if ((float)$co['saldo_actual'] < $importe) {
+                    sendResponse(false, null,
+                        'Saldo insuficiente en "' . $co['nombre'] . '". ' .
+                        'Disponible: $' . number_format((float)$co['saldo_actual'], 2, ',', '.') . ' — ' .
+                        'Requerido: $' . number_format($importe, 2, ',', '.'),
+                        422);
+                }
+
                 $db->beginTransaction();
                 try {
                     $db->prepare(
@@ -109,7 +122,7 @@ try {
                 sendResponse(true, null, 'Transferencia realizada correctamente');
             }
 
-            // ── Extracción ATM ───────────────────────────────
+            // ── Extracción Efectivo ───────────────────────────────
             elseif ($tipo === 'extraccion') {
                 if (empty($input['cuenta_id']) || !isset($input['importe'])) {
                     sendResponse(false, null, 'Faltan datos: cuenta_id, importe', 400);
@@ -125,23 +138,29 @@ try {
                     sendResponse(false, null, 'El importe debe ser mayor a cero', 400);
                 }
 
-                // Verificar que no sea billetera
-                $stmt_c = $db->prepare("SELECT tipo FROM cuentas WHERE id = :id AND activo = 1");
-                $stmt_c->execute(['id' => $cuenta_id]);
-                $cuenta = $stmt_c->fetch();
-
-                if (!$cuenta) {
-                    sendResponse(false, null, 'Cuenta no encontrada', 404);
+                // Verificar cuenta y saldo antes de proceder
+                $stmt_s2 = $db->prepare("SELECT saldo_actual, nombre, tipo FROM cuentas WHERE id = :id AND activo = 1");
+                $stmt_s2->execute(['id' => $cuenta_id]);
+                $cext = $stmt_s2->fetch();
+                if (!$cext) sendResponse(false, null, 'Cuenta no encontrada', 404);
+                if ($cext['tipo'] === 'billetera') {
+                    sendResponse(false, null, 'Las extracciones de efectivo no están disponibles para billeteras virtuales', 400);
                 }
-                if ($cuenta['tipo'] === 'billetera') {
-                    sendResponse(false, null, 'Las extracciones ATM no están disponibles para billeteras virtuales', 400);
+                if ((float)$cext['saldo_actual'] < $importe) {
+                    sendResponse(false, null,
+                        'Saldo insuficiente en "' . $cext['nombre'] . '". ' .
+                        'Disponible: $' . number_format((float)$cext['saldo_actual'], 2, ',', '.') . ' — ' .
+                        'Requerido: $' . number_format($importe, 2, ',', '.'),
+                        422);
                 }
 
-                // Obtener concepto Extracción ATM
-                $stmt_conc = $db->query("SELECT id FROM conceptos WHERE nombre = 'Extracción ATM' AND tipo = 'gasto' LIMIT 1");
+                // (validaciones de billetera y saldo ya hechas arriba)
+
+                // Obtener concepto Extracción Efectivo
+                $stmt_conc = $db->query("SELECT id FROM conceptos WHERE nombre = 'Extracción Efectivo' AND tipo = 'gasto' LIMIT 1");
                 $concepto  = $stmt_conc->fetch();
                 if (!$concepto) {
-                    sendResponse(false, null, 'Concepto "Extracción ATM" no encontrado. Verificar migración.', 500);
+                    sendResponse(false, null, 'Concepto "Extracción Efectivo" no encontrado. Verificar migración.', 500);
                 }
                 $concepto_id = (int)$concepto['id'];
 
