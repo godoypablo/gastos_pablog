@@ -1298,3 +1298,195 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     from { transform: translateY(100%); opacity: 0; }
     to   { transform: translateY(0);    opacity: 1; }
 }
+
+/* ==================== CUENTAS BANCARIAS ==================== */
+
+/* ── Selector de cuenta inline en fila ─────────────────── */
+.cuenta-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-left: 0.75rem;
+}
+
+.cuenta-wrap-detalle {
+    margin-left: 0;
+    margin-top: 0.3rem;
+}
+
+.cuenta-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background-color: #d1d5db;
+    transition: background-color 0.2s;
+}
+
+.cuenta-select {
+    font-size: 0.68rem;
+    padding: 0.1rem 0.3rem;
+    padding-right: 1.2rem;
+    border: 1px solid var(--color-gray-light);
+    border-radius: 0.3rem;
+    background: transparent;
+    color: var(--color-gray);
+    cursor: pointer;
+    max-width: 105px;
+    height: auto;
+    line-height: 1.3;
+    appearance: auto;
+    font-family: 'Inter', sans-serif;
+}
+
+.cuenta-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+/* Mobile: cuenta-wrap en nueva línea (igual que vencimiento-wrap) */
+@media (max-width: 767.98px) {
+    .concepto-nombre .cuenta-wrap {
+        flex-basis: 100%;
+        margin-left: 0;
+        margin-top: 2px;
+    }
+}
+
+[data-bs-theme="dark"] .cuenta-select {
+    border-color: #374151;
+    color: #9ca3af;
+    background: transparent;
+}
+
+/* ── Tarjeta cuentas ──────────────────────────────────── */
+.cuenta-lista {
+    display: flex;
+    flex-direction: column;
+}
+
+.cuenta-item {
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.cuenta-item:last-child {
+    border-bottom: none;
+}
+
+[data-bs-theme="dark"] .cuenta-item {
+    border-color: rgba(255, 255, 255, 0.05);
+}
+
+.cuenta-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.4rem;
+}
+
+.cuenta-dot-lg {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.cuenta-nombre {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--color-gray-dark);
+    display: block;
+    line-height: 1.2;
+}
+
+[data-bs-theme="dark"] .cuenta-nombre { color: #F1F5F9; }
+
+.cuenta-tipo {
+    font-size: 0.68rem;
+    color: var(--color-gray);
+    display: block;
+}
+
+.cuenta-stats {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.cuenta-stat {
+    display: flex;
+    flex-direction: column;
+    min-width: 90px;
+}
+
+.cuenta-stat-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-gray);
+    line-height: 1.2;
+}
+
+.cuenta-stat-valor {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--color-gray-dark);
+    line-height: 1.3;
+    font-family: 'Inter', sans-serif;
+}
+
+[data-bs-theme="dark"] .cuenta-stat-valor { color: #F1F5F9; }
+
+.cuenta-stat-fecha {
+    font-size: 0.62rem;
+    color: var(--color-gray);
+    line-height: 1.2;
+}
+
+/* ── Consolidado ──────────────────────────────────────── */
+.cuenta-consolidado {
+    border-top: 2px solid rgba(0, 0, 0, 0.07);
+    padding: 0.55rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+[data-bs-theme="dark"] .cuenta-consolidado {
+    border-top-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.cuenta-consolidado-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.82rem;
+}
+
+.cuenta-consolidado-label {
+    color: var(--color-gray);
+    font-size: 0.78rem;
+}
+
+.cuenta-consolidado-valor {
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    color: var(--color-gray-dark);
+}
+
+[data-bs-theme="dark"] .cuenta-consolidado-valor { color: #F1F5F9; }
+
+.cuenta-consolidado-diff {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    padding-top: 0.2rem;
+    margin-top: 0.1rem;
+}
+
+[data-bs-theme="dark"] .cuenta-consolidado-diff {
+    border-top-color: rgba(255, 255, 255, 0.06);
+}

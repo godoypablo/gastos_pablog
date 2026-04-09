@@ -24,7 +24,8 @@ const app = {
     dtIngresos: null,
     dtGastos: null,
     categorias: [],
-    categoriasColapsadas: new Set()
+    categoriasColapsadas: new Set(),
+    cuentas: []
 };
 
 // Inicializar aplicación
@@ -222,11 +223,16 @@ async function cargarDatos() {
     mostrarLoading();
 
     try {
-        const response = await fetch(`${API_URL}?mes=${app.mesActual}&anio=${app.anioActual}`);
-        const result = await response.json();
+        const [response, respCuentas] = await Promise.all([
+            fetch(`${API_URL}?mes=${app.mesActual}&anio=${app.anioActual}`),
+            fetch(`api/cuentas_api.php?mes=${app.mesActual}&anio=${app.anioActual}`)
+        ]);
+        const result     = await response.json();
+        const resCuentas = await respCuentas.json();
 
         if (result.success) {
             app.datos = result.data;
+            if (resCuentas.success) app.cuentas = resCuentas.data;
             renderizarDatos();
         } else {
             mostrarError('Error al cargar los datos: ' + result.message);
@@ -303,6 +309,7 @@ function renderizarDatos() {
     inicializarDataTables();
     mostrarBannerPeriodo();
     mostrarBannerVencimientos();
+    renderizarCuentas();
 }
 
 function mostrarBannerVencimientos() {
@@ -624,6 +631,11 @@ function crearFilaSimple(concepto, tipo) {
     wrapVenc.appendChild(inputVenc);
     divNombre.appendChild(wrapVenc);
 
+    // Selector de cuenta (solo si ya existe registro)
+    if (concepto.registro_id) {
+        divNombre.appendChild(crearSelectorCuenta(concepto.registro_id, concepto.cuenta_id));
+    }
+
     tdNombre.appendChild(divNombre);
     tr.appendChild(tdNombre);
 
@@ -862,7 +874,7 @@ function crearFilaRegistroDetalle(reg, conceptoId) {
     const fechaVenc = reg.fecha_vencimiento ? reg.fecha_vencimiento.split('T')[0] : '';
 
     tr.innerHTML = `
-        <td class="ps-3" style="width:100px">
+        <td class="ps-3" style="width:110px">
             <div class="d-flex align-items-center gap-2">
                 <button class="btn-pagado${isPaid ? ' pagado' : ''}"
                     title="${isPaid ? 'Marcar como no pagado' : 'Marcar como pagado'}"
@@ -882,6 +894,13 @@ function crearFilaRegistroDetalle(reg, conceptoId) {
             </button>
         </td>
     `;
+
+    // Agregar selector de cuenta en la primera celda (bajo pagado+fecha)
+    const tdFecha = tr.querySelector('td:first-child');
+    const wrapCuenta = crearSelectorCuenta(reg.id, reg.cuenta_id);
+    wrapCuenta.classList.add('cuenta-wrap-detalle');
+    tdFecha.appendChild(wrapCuenta);
+
     return tr;
 }
 
@@ -2026,6 +2045,187 @@ async function eliminarCategoria(id, nombre) {
         await cargarDatos();
     } catch (error) {
         mostrarError('Error al eliminar: ' + error.message);
+    }
+}
+
+// ============================================================
+// Cuentas bancarias
+// ============================================================
+
+function crearSelectorCuenta(registroId, cuentaId) {
+    const wrap = document.createElement('div');
+    wrap.className = 'cuenta-wrap';
+
+    const dot = document.createElement('span');
+    dot.className = 'cuenta-dot';
+    const cuentaActual = app.cuentas.find(c => c.id == cuentaId);
+    dot.style.background = cuentaActual ? cuentaActual.color : '#d1d5db';
+
+    const sel = document.createElement('select');
+    sel.className = 'cuenta-select';
+
+    const optNone = new Option('Cuenta…', '');
+    sel.appendChild(optNone);
+    app.cuentas.forEach(c => {
+        const opt = new Option(c.nombre, c.id);
+        if (c.id == cuentaId) opt.selected = true;
+        sel.appendChild(opt);
+    });
+
+    sel.addEventListener('change', async () => {
+        const nuevaId = sel.value ? parseInt(sel.value) : null;
+        const nuevaCuenta = app.cuentas.find(c => c.id == nuevaId);
+        dot.style.background = nuevaCuenta ? nuevaCuenta.color : '#d1d5db';
+        await guardarCuentaRegistro(registroId, nuevaId);
+    });
+
+    wrap.appendChild(dot);
+    wrap.appendChild(sel);
+    return wrap;
+}
+
+async function guardarCuentaRegistro(registroId, cuentaId) {
+    try {
+        const response = await fetch(API_URL, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ registro_id: registroId, cuenta_id: cuentaId })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+        await cargarCuentas();
+    } catch (error) {
+        mostrarError('Error al guardar cuenta: ' + error.message);
+    }
+}
+
+async function cargarCuentas() {
+    try {
+        const resp = await fetch(`api/cuentas_api.php?mes=${app.mesActual}&anio=${app.anioActual}`);
+        const result = await resp.json();
+        if (result.success) {
+            app.cuentas = result.data;
+            renderizarCuentas();
+        }
+    } catch (_) {}
+}
+
+function renderizarCuentas() {
+    const contenedor = document.getElementById('cardCuentas');
+    if (!contenedor) return;
+    if (!app.cuentas || app.cuentas.length === 0) {
+        contenedor.innerHTML = '';
+        return;
+    }
+
+    const totalReal   = app.cuentas.reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
+    const saldoSistema = app.datos?.resumen?.saldo_disponible ?? 0;
+    const diffTotal   = totalReal - saldoSistema;
+    const diffTotalClass = diffTotal >= 0 ? 'text-success' : 'text-danger';
+
+    const tipoLabel = {
+        cuenta_corriente: 'Cta. corriente',
+        caja_ahorro:      'Caja de ahorro',
+        billetera:        'Billetera virtual'
+    };
+
+    const filasHtml = app.cuentas.map(c => {
+        const saldo  = parseFloat(c.saldo_actual || 0);
+        const pagado = parseFloat(c.total_pagado_mes || 0);
+        const diff   = saldo - pagado;
+        const diffClass = diff >= 0 ? 'text-success' : 'text-danger';
+        const diffStr   = (diff >= 0 ? '+' : '') + formatearMoneda(diff);
+        const fechaStr  = c.fecha_saldo ? formatearFechaCorta(c.fecha_saldo) : '—';
+
+        return `
+        <div class="cuenta-item">
+            <div class="cuenta-item-header">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="cuenta-dot-lg" style="background:${c.color}"></span>
+                    <div>
+                        <span class="cuenta-nombre">${c.nombre}</span>
+                        <span class="cuenta-tipo">${tipoLabel[c.tipo] || c.tipo}</span>
+                    </div>
+                </div>
+                <button class="btn btn-ghost-muted btn-sm" title="Actualizar saldo"
+                    onclick="actualizarSaldoCuenta(${c.id})">
+                    <i class="bi bi-pencil"></i>
+                </button>
+            </div>
+            <div class="cuenta-stats">
+                <div class="cuenta-stat">
+                    <span class="cuenta-stat-label">Saldo real</span>
+                    <span class="cuenta-stat-valor">${formatearMoneda(saldo)}</span>
+                    <span class="cuenta-stat-fecha">${fechaStr}</span>
+                </div>
+                <div class="cuenta-stat">
+                    <span class="cuenta-stat-label">Asignado mes</span>
+                    <span class="cuenta-stat-valor">${formatearMoneda(pagado)}</span>
+                </div>
+                <div class="cuenta-stat">
+                    <span class="cuenta-stat-label">Diferencia</span>
+                    <span class="cuenta-stat-valor ${diffClass}">${diffStr}</span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    contenedor.innerHTML = `
+    <div class="card shadow-sm">
+        <div class="card-header seccion-header d-flex justify-content-between align-items-center">
+            <h3 class="h6 mb-0 fw-bold seccion-titulo">
+                <i class="bi bi-bank me-2 text-primary"></i>Cuentas
+            </h3>
+        </div>
+        <div class="card-body p-0">
+            <div class="cuenta-lista">${filasHtml}</div>
+            <div class="cuenta-consolidado">
+                <div class="cuenta-consolidado-row">
+                    <span class="cuenta-consolidado-label">Total real en cuentas</span>
+                    <span class="cuenta-consolidado-valor">${formatearMoneda(totalReal)}</span>
+                </div>
+                <div class="cuenta-consolidado-row">
+                    <span class="cuenta-consolidado-label">Disponible (sistema)</span>
+                    <span class="cuenta-consolidado-valor">${formatearMoneda(saldoSistema)}</span>
+                </div>
+                <div class="cuenta-consolidado-row cuenta-consolidado-diff">
+                    <span class="cuenta-consolidado-label">Diferencia</span>
+                    <span class="cuenta-consolidado-valor ${diffTotalClass}">${(diffTotal >= 0 ? '+' : '') + formatearMoneda(diffTotal)}</span>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+async function actualizarSaldoCuenta(cuentaId) {
+    const cuenta = app.cuentas.find(c => c.id == cuentaId);
+    if (!cuenta) return;
+
+    const actual = parseFloat(cuenta.saldo_actual || 0);
+    const input  = prompt(
+        `Nuevo saldo de ${cuenta.nombre}:\n(Usá coma como decimal — ej: 125.000,50)`,
+        actual > 0 ? String(actual).replace('.', ',') : ''
+    );
+    if (input === null) return;
+
+    const saldo = parsearImporte(input);
+    if (isNaN(saldo) || saldo < 0) {
+        mostrarError('Importe inválido.');
+        return;
+    }
+
+    try {
+        const response = await fetch('api/cuentas_api.php', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: cuentaId, saldo_actual: saldo })
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message);
+        mostrarToast(`Saldo de ${cuenta.nombre} actualizado`, 'success');
+        await cargarCuentas();
+    } catch (error) {
+        mostrarError('Error al actualizar saldo: ' + error.message);
     }
 }
 

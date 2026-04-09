@@ -204,6 +204,9 @@ require_auth_or_redirect();
             <!-- Banner vencimientos -->
             <div id="bannerVencimientos" class="mb-4"></div>
 
+            <!-- Cuentas bancarias -->
+            <div id="cardCuentas" class="mb-4"></div>
+
             <!-- Tabla de Ingresos -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header seccion-header d-flex justify-content-between align-items-center">

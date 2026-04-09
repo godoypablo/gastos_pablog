@@ -61,7 +61,8 @@ try {
                         COALESCE(SUM(rm.importe), 0.00) as importe,
                         MIN(rm.id) as registro_id,
                         MAX(rm.pagado) as pagado,
-                        MIN(rm.fecha_vencimiento) as fecha_vencimiento
+                        MIN(rm.fecha_vencimiento) as fecha_vencimiento,
+                        MIN(rm.cuenta_id) as cuenta_id
                     FROM conceptos c
                     LEFT JOIN categorias cat ON c.categoria_id = cat.id
                     LEFT JOIN registros_mensuales rm ON c.id = rm.concepto_id
@@ -80,7 +81,7 @@ try {
             $conceptos = $stmt->fetchAll();
 
             // Detalle de registros para conceptos multi-entrada
-            $sql_detalle = "SELECT rm.id, rm.concepto_id, rm.fecha, rm.fecha_vencimiento, rm.importe, rm.observaciones, rm.pagado
+            $sql_detalle = "SELECT rm.id, rm.concepto_id, rm.fecha, rm.fecha_vencimiento, rm.importe, rm.observaciones, rm.pagado, rm.cuenta_id
                             FROM registros_mensuales rm
                             INNER JOIN conceptos c ON rm.concepto_id = c.id
                             WHERE rm.mes = :mes AND rm.anio = :anio AND c.permite_multiples = 1
@@ -304,6 +305,10 @@ try {
                 $sets[]                    = 'fecha_vencimiento = :fecha_vencimiento';
                 $params['fecha_vencimiento'] = ($input['fecha_vencimiento'] !== '' && $input['fecha_vencimiento'] !== null)
                     ? $input['fecha_vencimiento'] : null;
+            }
+            if (array_key_exists('cuenta_id', $input)) {
+                $sets[]            = 'cuenta_id = :cuenta_id';
+                $params['cuenta_id'] = $input['cuenta_id'] !== null ? (int)$input['cuenta_id'] : null;
             }
 
             if (empty($sets)) sendResponse(false, null, 'Nada que actualizar', 400);
