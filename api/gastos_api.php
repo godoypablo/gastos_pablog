@@ -431,6 +431,21 @@ try {
                         $mov = $stmt_mov->fetch();
 
                         if ($mov) {
+                            // Validar saldo en cuenta destino al reasignar un gasto ya pagado
+                            if ($tipo_concepto !== 'ingreso') {
+                                $stmt_saldo = $db->prepare("SELECT saldo_actual, nombre FROM cuentas WHERE id = :id");
+                                $stmt_saldo->execute(['id' => $nueva_cuenta]);
+                                $cuenta_nueva_row = $stmt_saldo->fetch();
+                                $saldo_nueva = (float)($cuenta_nueva_row['saldo_actual'] ?? 0);
+                                if ($saldo_nueva < $importe) {
+                                    sendResponse(false, null,
+                                        'Saldo insuficiente en "' . $cuenta_nueva_row['nombre'] . '". ' .
+                                        'Disponible: $' . number_format($saldo_nueva, 2, ',', '.') . ' — ' .
+                                        'Requerido: $' . number_format($importe, 2, ',', '.'),
+                                        422);
+                                }
+                            }
+
                             $db->beginTransaction();
                             try {
                                 if ($tipo_concepto === 'ingreso') {
