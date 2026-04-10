@@ -205,12 +205,227 @@ h1, h2, h3, h4, h5, h6,
 .border-danger  { border-color: var(--color-danger)  !important; }
 .border-primary { border-color: var(--color-primary) !important; }
 
-/* ==================== SALDO ==================== */
-#saldoDisponible { color: var(--color-primary); }
+/* ==================== MODAL RESUMEN ==================== */
+.resumen-top-row {
+    display: flex;
+    border-bottom: 1px solid var(--color-gray-light);
+}
+.resumen-stat {
+    flex: 1;
+    padding: 1.6rem 1rem;
+    text-align: center;
+}
+.resumen-stat + .resumen-stat {
+    border-left: 1px solid var(--color-gray-light);
+}
+.resumen-stat-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+}
+.resumen-stat-ingreso .resumen-stat-label { color: #198754; }
+.resumen-stat-gasto   .resumen-stat-label { color: #dc3545; }
+.resumen-stat-valor {
+    font-size: clamp(1rem, 5vw, 1.6rem);
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    line-height: 1;
+    word-break: break-word;
+}
+.resumen-stat-ingreso .resumen-stat-valor { color: #198754; }
+.resumen-stat-gasto   .resumen-stat-valor { color: #dc3545; }
 
-#cardSaldo.negativo { border-color: var(--color-danger-dark) !important; }
+.resumen-progress-section {
+    padding: 1rem 1.5rem 0.8rem;
+    border-bottom: 1px solid var(--color-gray-light);
+}
+.resumen-progress {
+    height: 8px;
+    border-radius: 4px;
+    margin-bottom: 0.35rem;
+}
+.resumen-progress-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--color-gray);
+    text-align: right;
+}
+
+.resumen-bottom-row {
+    display: flex;
+}
+.resumen-saldo-item {
+    flex: 1;
+    padding: 1.2rem 0.75rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.resumen-saldo-item + .resumen-saldo-item {
+    border-left: 1px solid var(--color-gray-light);
+}
+.resumen-saldo-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--color-gray);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+}
+.resumen-saldo-valor {
+    font-size: clamp(0.78rem, 3.5vw, 1rem);
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    word-break: break-word;
+}
+
+.resumen-info { font-size: 0.65rem; cursor: pointer; opacity: 0.5; }
+.resumen-info:hover { opacity: 1; }
+
+/* Gastos por categoría */
+.resumen-cats-header {
+    padding: 0.6rem 1rem 0.3rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-gray);
+    border-top: 1px solid var(--color-gray-light);
+}
+.resumen-cat-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 1rem;
+}
+.resumen-cat-info {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 8rem;
+    flex-shrink: 0;
+}
+.resumen-cat-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.resumen-cat-nombre {
+    font-size: 0.78rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.resumen-cat-barra-wrap {
+    flex: 1;
+    background: rgba(0,0,0,0.06);
+    border-radius: 3px;
+    height: 8px;
+    overflow: hidden;
+}
+.resumen-cat-barra {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+.resumen-cat-cifras {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    width: 6rem;
+    flex-shrink: 0;
+}
+.resumen-cat-importe {
+    font-size: clamp(0.7rem, 2.5vw, 0.8rem);
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+}
+.resumen-cat-pct {
+    font-size: 0.65rem;
+    color: var(--color-gray);
+}
+[data-bs-theme="dark"] .resumen-cats-header,
+[data-bs-theme="dark"] .resumen-cat-row { border-color: rgba(255,255,255,0.08); }
+[data-bs-theme="dark"] .resumen-cat-barra-wrap { background: rgba(255,255,255,0.08); }
+
+/* Pendientes de pago */
+.resumen-pendientes-header {
+    padding: 0.6rem 1rem 0.3rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-gray);
+    border-top: 1px solid var(--color-gray-light);
+}
+.resumen-pendientes-vacio {
+    padding: 0.5rem 1rem 0.75rem;
+    font-size: 0.82rem;
+    color: var(--color-gray);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.resumen-pendiente-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 1rem;
+}
+.resumen-pendiente-punto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.resumen-pendiente-nombre {
+    flex: 1;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.resumen-pendiente-importe {
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    flex-shrink: 0;
+}
+.resumen-pendiente-total {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.45rem 1rem 0.75rem;
+    margin-top: 0.2rem;
+    border-top: 1px solid var(--color-gray-light);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+[data-bs-theme="dark"] .resumen-pendientes-header,
+[data-bs-theme="dark"] .resumen-pendiente-total { border-color: rgba(255,255,255,0.08); }
+
+/* Saldo disponible y estado negativo */
+#saldoDisponible { color: var(--color-primary); }
+#cardSaldo.negativo { border-top: 2px solid var(--color-danger-dark); }
 #cardSaldo.negativo #saldoDisponible { color: var(--color-danger-dark) !important; }
 #cardSaldo.negativo #iconSaldo       { color: var(--color-danger-dark) !important; }
+
+/* Dark mode */
+[data-bs-theme="dark"] .resumen-top-row,
+[data-bs-theme="dark"] .resumen-stat + .resumen-stat,
+[data-bs-theme="dark"] .resumen-progress-section,
+[data-bs-theme="dark"] .resumen-saldo-item + .resumen-saldo-item {
+    border-color: rgba(255,255,255,0.08);
+}
 
 /* ==================== TABLAS ==================== */
 .table-responsive {
@@ -410,9 +625,6 @@ table.dataTable > tbody > tr.parent + tr.child td {
 }
 
 /* ==================== CARDS RESUMEN (sin bordes de color) ==================== */
-.card-resumen {
-    border-color: var(--color-gray-light) !important;
-}
 
 /* ==================== HEADERS DE SECCIÓN ==================== */
 .seccion-header {
@@ -1411,14 +1623,30 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
 
 .cuenta-stats {
     display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
+    border-top: 1px solid rgba(0,0,0,0.05);
+    margin: 0.4rem -1rem -0.65rem;
+}
+
+[data-bs-theme="dark"] .cuenta-stats {
+    border-top-color: rgba(255,255,255,0.06);
 }
 
 .cuenta-stat {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    min-width: 90px;
+    align-items: center;
+    text-align: center;
+    padding: 0.55rem 0.5rem;
+    gap: 0.1rem;
+}
+
+.cuenta-stat + .cuenta-stat {
+    border-left: 1px solid rgba(0,0,0,0.05);
+}
+
+[data-bs-theme="dark"] .cuenta-stat + .cuenta-stat {
+    border-left-color: rgba(255,255,255,0.06);
 }
 
 .cuenta-stat-label {
@@ -1428,23 +1656,31 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     letter-spacing: 0.5px;
     color: var(--color-gray);
     line-height: 1.2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
 }
 
 .cuenta-stat-valor {
-    font-size: 0.88rem;
+    font-size: clamp(0.78rem, 3vw, 0.9rem);
     font-weight: 600;
     color: var(--color-gray-dark);
     line-height: 1.3;
     font-family: 'Inter', sans-serif;
+    word-break: break-word;
 }
 
 [data-bs-theme="dark"] .cuenta-stat-valor { color: #F1F5F9; }
 
 .cuenta-stat-fecha {
-    font-size: 0.62rem;
+    font-size: 0.6rem;
     color: var(--color-gray);
     line-height: 1.2;
 }
+
+.cuenta-info { font-size: 0.6rem; cursor: pointer; opacity: 0.5; }
+.cuenta-info:hover { opacity: 1; }
 
 /* ── Consolidado ──────────────────────────────────────── */
 .cuenta-consolidado {
@@ -1471,6 +1707,9 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
 .cuenta-consolidado-label {
     color: var(--color-gray);
     font-size: 0.78rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
 }
 
 .cuenta-consolidado-valor {
@@ -1489,6 +1728,40 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
 
 [data-bs-theme="dark"] .cuenta-consolidado-diff {
     border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+/* ── Form nueva cuenta ─────────────────────────────────────── */
+.nueva-cuenta-form {
+    border-top: 1px solid rgba(0,0,0,0.08);
+    padding: 1rem;
+}
+[data-bs-theme="dark"] .nueva-cuenta-form { border-top-color: rgba(255,255,255,0.08); }
+
+.nueva-cuenta-titulo {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--bs-secondary-color);
+    margin-bottom: 0.65rem;
+}
+.nueva-cuenta-campos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+    margin-bottom: 0.65rem;
+}
+.nueva-cuenta-color {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.nueva-cuenta-color-label { font-size: 0.78rem; white-space: nowrap; }
+.nueva-cuenta-color .form-control-color { width: 2.5rem; padding: 0.15rem; height: 2rem; }
+.nueva-cuenta-acciones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.4rem;
 }
 
 /* ── Modal Ingresos unificado ──────────────────────────────── */
@@ -1535,6 +1808,9 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
 }
 .ingreso-row:hover .btn-edit-ingreso { opacity: 1; }
 
+.ingreso-secondary {
+    display: contents;
+}
 .ingreso-fecha {
     width: 8rem;
     flex-shrink: 0;
@@ -1572,15 +1848,24 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     font-size: 0.82rem;
 }
 .ingreso-total-item { display: flex; flex-direction: column; align-items: flex-end; }
-.ingreso-total-label { font-size: 0.7rem; text-transform: uppercase; color: var(--color-gray); letter-spacing: 0.3px; }
+.ingreso-total-label { font-size: 0.7rem; text-transform: uppercase; color: var(--color-gray); letter-spacing: 0.3px; display: flex; align-items: center; gap: 0.25rem; }
+.ingreso-total-info { font-size: 0.65rem; cursor: pointer; opacity: 0.6; }
+.ingreso-total-info:hover { opacity: 1; }
 .ingreso-total-valor { font-weight: 600; font-family: 'Inter', sans-serif; }
 
 /* Mobile */
 @media (max-width: 575px) {
-    .ingreso-row { flex-wrap: wrap; }
-    .ingreso-nombre-wrap { flex-basis: 100%; }
-    .ingreso-fecha, .ingreso-cuenta { width: auto; flex: 1; }
-    .ingreso-importe { width: 7rem; }
+    .ingreso-row { flex-wrap: wrap; row-gap: 0.3rem; }
+    .ingreso-nombre-wrap { flex: 1 1 auto; }
+    .ingreso-importe { width: 6.5rem; flex-shrink: 0; }
+    .ingreso-secondary {
+        display: flex;
+        flex: 0 0 100%;
+        gap: 0.5rem;
+        padding-left: 2rem;
+    }
+    .ingreso-secondary .ingreso-fecha { flex: 1; width: auto; }
+    .ingreso-secondary .ingreso-cuenta { flex: 1; width: auto; }
     .ingreso-totales { gap: 0.8rem; }
 }
 

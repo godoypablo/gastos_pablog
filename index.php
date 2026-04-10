@@ -45,7 +45,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
     <style>
-        .fab{position:fixed;bottom:1.5rem;right:1.5rem;width:3.25rem;height:3.25rem;border-radius:50%;background:#DC2626;color:#fff;border:none;font-size:1.4rem;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:1039;transition:transform .15s,box-shadow .15s}
+        .fab{position:fixed;bottom:1.5rem;right:1.5rem;width:3.5rem;height:3.5rem;border-radius:50%;background:#DC2626;color:#fff;border:none;font-size:1.5rem;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:1039;cursor:pointer;transition:transform .15s,box-shadow .15s}
         .fab:hover,.fab:focus{transform:scale(1.08);color:#fff;outline:none}
         .fab:active{transform:scale(.96)}
     </style>
@@ -219,7 +219,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 
     <!-- Modal Resumen -->
     <div class="modal fade" id="modalResumen" tabindex="-1" aria-labelledby="modalResumenLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalResumenLabel">
@@ -227,59 +227,69 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <!-- Total Ingresos -->
-                        <div class="col-md-4">
-                            <div class="card card-resumen h-100">
-                                <div class="card-body text-center">
-                                    <div class="d-flex align-items-center justify-content-center mb-2">
-                                        <i class="bi bi-arrow-up-circle-fill text-success me-2" style="font-size:1.4rem"></i>
-                                        <small class="text-uppercase fw-bold text-muted">Ingresos</small>
-                                    </div>
-                                    <h3 class="h2 mb-0 text-success" id="totalIngresos">$0,00</h3>
-                                </div>
+                <div class="modal-body p-0">
+                    <!-- Ingresos vs Gastos -->
+                    <div class="resumen-top-row">
+                        <div class="resumen-stat resumen-stat-ingreso">
+                            <div class="resumen-stat-label">
+                                <i class="bi bi-arrow-up-circle-fill"></i> Ingresos
+                                <i class="bi bi-info-circle resumen-info"
+                                   data-bs-toggle="tooltip" data-bs-placement="bottom"
+                                   data-bs-title="Total de ingresos registrados en el mes"></i>
                             </div>
+                            <div class="resumen-stat-valor" id="totalIngresos">$0,00</div>
                         </div>
-                        <!-- Total Gastos -->
-                        <div class="col-md-4">
-                            <div class="card card-resumen h-100">
-                                <div class="card-body text-center">
-                                    <div class="d-flex align-items-center justify-content-center mb-2">
-                                        <i class="bi bi-arrow-down-circle-fill text-danger me-2" style="font-size:1.4rem"></i>
-                                        <small class="text-uppercase fw-bold text-muted">Gastos</small>
-                                    </div>
-                                    <h3 class="h2 mb-0 text-danger" id="totalGastos">$0,00</h3>
-                                </div>
+                        <div class="resumen-stat resumen-stat-gasto">
+                            <div class="resumen-stat-label">
+                                <i class="bi bi-arrow-down-circle-fill"></i> Gastos
+                                <i class="bi bi-info-circle resumen-info"
+                                   data-bs-toggle="tooltip" data-bs-placement="bottom"
+                                   data-bs-title="Total de gastos registrados en el mes"></i>
                             </div>
-                        </div>
-                        <!-- Saldo -->
-                        <div class="col-md-4">
-                            <div class="card card-resumen h-100" id="cardSaldo">
-                                <div class="card-body text-center d-flex flex-column justify-content-center">
-                                    <div class="d-flex align-items-center justify-content-center mb-2">
-                                        <i class="bi bi-wallet2 me-2" id="iconSaldo" style="font-size:1.4rem"></i>
-                                        <small class="text-uppercase fw-bold text-muted">Saldo</small>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-baseline mb-1">
-                                        <small class="text-muted">Disponible</small>
-                                        <span class="fw-bold fs-5" id="saldoDisponible">$0,00</span>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-baseline mb-2">
-                                        <small class="text-muted">Pendiente</small>
-                                        <span class="text-muted fw-medium" id="saldoPendiente">$0,00</span>
-                                    </div>
-                                    <div class="progress mb-2" style="height:4px">
-                                        <div class="progress-bar" id="barraProgreso" role="progressbar" style="width:0%"></div>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-baseline">
-                                        <small class="text-muted">Proyección</small>
-                                        <span class="fw-medium" id="saldo">$0,00</span>
-                                    </div>
-                                </div>
-                            </div>
+                            <div class="resumen-stat-valor" id="totalGastos">$0,00</div>
                         </div>
                     </div>
+                    <!-- Barra de progreso -->
+                    <div class="resumen-progress-section">
+                        <div class="progress resumen-progress">
+                            <div class="progress-bar" id="barraProgreso" role="progressbar" style="width:0%"></div>
+                        </div>
+                        <div class="resumen-progress-label">gastos pagados</div>
+                    </div>
+                    <!-- Saldo -->
+                    <div class="resumen-bottom-row" id="cardSaldo">
+                        <div class="resumen-saldo-item">
+                            <span class="resumen-saldo-label">
+                                <i class="bi bi-wallet2" id="iconSaldo"></i> Disponible
+                                <i class="bi bi-info-circle resumen-info"
+                                   data-bs-toggle="tooltip" data-bs-placement="top"
+                                   data-bs-title="Ingresos menos los gastos ya pagados"></i>
+                            </span>
+                            <span class="resumen-saldo-valor" id="saldoDisponible">$0,00</span>
+                        </div>
+                        <div class="resumen-saldo-item">
+                            <span class="resumen-saldo-label">
+                                Pendiente
+                                <i class="bi bi-info-circle resumen-info"
+                                   data-bs-toggle="tooltip" data-bs-placement="top"
+                                   data-bs-title="Gastos del mes que todavía no pagaste"></i>
+                            </span>
+                            <span class="resumen-saldo-valor text-muted" id="saldoPendiente">$0,00</span>
+                        </div>
+                        <div class="resumen-saldo-item">
+                            <span class="resumen-saldo-label">
+                                Proyección
+                                <i class="bi bi-info-circle resumen-info"
+                                   data-bs-toggle="tooltip" data-bs-placement="top"
+                                   data-bs-title="Cómo quedarás a fin de mes si pagás todo"></i>
+                            </span>
+                            <span class="resumen-saldo-valor" id="saldo">$0,00</span>
+                        </div>
+                    </div>
+                    <!-- Gastos por categoría -->
+                    <div id="resumenCategorias"></div>
+                    <!-- Pendientes de pago -->
+                    <div id="resumenPendientes"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -290,7 +300,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 
     <!-- Modal Cuentas -->
     <div class="modal fade" id="modalCuentas" tabindex="-1" aria-labelledby="modalCuentasLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalCuentasLabel">
@@ -302,6 +312,9 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                     <!-- renderizado por renderizarCuentas() -->
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="mostrarFormNuevaCuenta()">
+                        <i class="bi bi-plus-lg me-1"></i>Nueva cuenta
+                    </button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
@@ -310,7 +323,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 
     <!-- Modal Transferencia -->
     <div class="modal fade" id="modalTransferencia" tabindex="-1" aria-labelledby="modalTransferenciaLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalTransferenciaLabel">
@@ -348,7 +361,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 
     <!-- Modal Movimientos -->
     <div class="modal fade" id="modalMovimientos" tabindex="-1" aria-labelledby="modalMovimientosLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalMovimientosLabel">
@@ -367,7 +380,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 
     <!-- Modal Ingresos (unificado) -->
     <div class="modal fade" id="modalIngresos" tabindex="-1" aria-labelledby="modalIngresosLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalIngresosLabel">
@@ -424,7 +437,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 
     <!-- Modal Vencimientos -->
     <div class="modal fade" id="modalVencimientos" tabindex="-1" aria-labelledby="modalVencimientosLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalVencimientosLabel">
@@ -441,7 +454,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 
     <!-- Modal ABM Conceptos -->
     <div class="modal fade" id="modalConceptos" tabindex="-1" aria-labelledby="modalConceptosLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalConceptosLabel">
@@ -580,14 +593,13 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
     </div>
 
     <!-- FAB gasto rápido -->
-    <button onclick="abrirModalGastoRapido()" title="Gasto rápido"
-        style="position:fixed;bottom:1.5rem;right:1.5rem;width:3.5rem;height:3.5rem;border-radius:50%;background:#DC2626;color:#fff;border:none;font-size:1.5rem;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:1039;cursor:pointer">
+    <button class="fab" onclick="abrirModalGastoRapido()" title="Gasto rápido">
         <i class="bi bi-plus-lg"></i>
     </button>
 
     <!-- Modal Gasto Rápido -->
     <div class="modal fade" id="modalGastoRapido" tabindex="-1" aria-labelledby="modalGastoRapidoLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalGastoRapidoLabel">

@@ -320,6 +320,8 @@ function renderizarDatos() {
     inicializarDataTables();
     mostrarBannerPeriodo();
     mostrarBannerVencimientos();
+    renderizarResumenCategorias();
+    renderizarResumenPendientes();
     renderizarCuentas();
 
     // Si el modal de ingresos está abierto, re-renderizarlo con datos frescos
@@ -1462,8 +1464,93 @@ function actualizarLabelFiltro() {
     if (el) el.textContent = `${obtenerNombreMes(app.mesActual)} ${app.anioActual}`;
 }
 
+function renderizarResumenPendientes() {
+    const el = document.getElementById('resumenPendientes');
+    if (!el || !app.datos) return;
+
+    const pendientes = app.datos.conceptos.filter(c =>
+        c.tipo === 'gasto' && c.pagado !== 1 && parseFloat(c.importe) > 0
+    ).sort((a, b) => parseFloat(b.importe) - parseFloat(a.importe));
+
+    if (!pendientes.length) {
+        el.innerHTML = `
+            <div class="resumen-pendientes-header">Pendientes de pago</div>
+            <div class="resumen-pendientes-vacio">
+                <i class="bi bi-check-circle text-success"></i> Todo pagado
+            </div>`;
+        return;
+    }
+
+    const total = pendientes.reduce((s, c) => s + parseFloat(c.importe), 0);
+
+    el.innerHTML = `
+        <div class="resumen-pendientes-header">Pendientes de pago</div>
+        ${pendientes.map(c => `
+        <div class="resumen-pendiente-row">
+            <span class="resumen-pendiente-punto" style="background:${c.categoria_color || '#94a3b8'}"></span>
+            <span class="resumen-pendiente-nombre">${c.nombre}</span>
+            <span class="resumen-pendiente-importe">${formatearMoneda(parseFloat(c.importe))}</span>
+        </div>`).join('')}
+        <div class="resumen-pendiente-total">
+            <span>Total pendiente</span>
+            <span>${formatearMoneda(total)}</span>
+        </div>`;
+}
+
+function renderizarResumenCategorias() {
+    const el = document.getElementById('resumenCategorias');
+    if (!el || !app.datos) return;
+
+    const gastosPorCat = {};
+    app.datos.conceptos
+        .filter(c => c.tipo === 'gasto' && parseFloat(c.importe) > 0)
+        .forEach(c => {
+            const key = c.categoria_id || 0;
+            if (!gastosPorCat[key]) {
+                gastosPorCat[key] = {
+                    nombre: c.categoria_nombre || 'Sin categoría',
+                    color:  c.categoria_color  || '#94a3b8',
+                    icono:  c.categoria_icono   || 'bi-tag',
+                    total:  0
+                };
+            }
+            gastosPorCat[key].total += parseFloat(c.importe);
+        });
+
+    const cats = Object.values(gastosPorCat).sort((a, b) => b.total - a.total);
+    if (!cats.length) { el.innerHTML = ''; return; }
+
+    const totalGastos = cats.reduce((s, c) => s + c.total, 0);
+
+    el.innerHTML = `
+        <div class="resumen-cats-header">
+            <span>Gastos por categoría</span>
+        </div>
+        ${cats.map(cat => {
+            const pct = totalGastos > 0 ? (cat.total / totalGastos * 100) : 0;
+            return `
+            <div class="resumen-cat-row">
+                <div class="resumen-cat-info">
+                    <span class="resumen-cat-dot" style="background:${cat.color}"></span>
+                    <span class="resumen-cat-nombre">${cat.nombre}</span>
+                </div>
+                <div class="resumen-cat-barra-wrap">
+                    <div class="resumen-cat-barra" style="width:${pct.toFixed(1)}%;background:${cat.color}"></div>
+                </div>
+                <div class="resumen-cat-cifras">
+                    <span class="resumen-cat-importe">${formatearMoneda(cat.total)}</span>
+                    <span class="resumen-cat-pct">${pct.toFixed(0)}%</span>
+                </div>
+            </div>`;
+        }).join('')}`;
+}
+
 function abrirModalResumen() {
-    new bootstrap.Modal(document.getElementById('modalResumen')).show();
+    const modal = document.getElementById('modalResumen');
+    modal.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el =>
+        bootstrap.Tooltip.getOrCreateInstance(el, { trigger: 'hover focus' })
+    );
+    new bootstrap.Modal(modal).show();
 }
 
 function abrirModalCuentas() {
@@ -1519,16 +1606,18 @@ function renderizarModalIngresos() {
                 </button>
             </div>
 
-            <input type="date" class="ingreso-fecha form-control form-control-sm"
-                   value="${fechaVal}"
-                   ${!hasReg ? 'disabled title="Ingresá el importe primero"' : `onchange="guardarFechaIngreso(${c.registro_id}, this.value, this)"`}>
+            <div class="ingreso-secondary">
+                <input type="date" class="ingreso-fecha form-control form-control-sm"
+                       value="${fechaVal}"
+                       ${!hasReg ? 'disabled title="Ingresá el importe primero"' : `onchange="guardarFechaIngreso(${c.registro_id}, this.value, this)"`}>
 
-            <select class="ingreso-cuenta form-select form-select-sm"
-                    data-cuenta-actual="${c.cuenta_id || ''}"
-                    ${!hasReg ? 'disabled' : `onchange="guardarCuentaRegistro(${c.registro_id}, this.value || null)"`}>
-                <option value="">— Cuenta —</option>
-                ${cuentasOpts}
-            </select>
+                <select class="ingreso-cuenta form-select form-select-sm"
+                        data-cuenta-actual="${c.cuenta_id || ''}"
+                        ${!hasReg ? 'disabled' : `onchange="guardarCuentaRegistro(${c.registro_id}, this.value || null)"`}>
+                    <option value="">— Cuenta —</option>
+                    ${cuentasOpts}
+                </select>
+            </div>
 
             <input type="text" inputmode="decimal"
                    class="ingreso-importe input-importe form-control form-control-sm"
@@ -1560,19 +1649,28 @@ function renderizarModalIngresos() {
     const cobrado  = ingresos.filter(c => c.pagado === 1).reduce((s, c) => s + parseFloat(c.importe || 0), 0);
     const pendiente = total - cobrado;
 
-    document.getElementById('totalIngresosModal').innerHTML = `
+    const tooltips = [
+        { label: 'Total',     valor: total,     cls: '',             title: 'Suma de todos los ingresos del mes, cobrados o no' },
+        { label: 'Cobrado',   valor: cobrado,   cls: 'text-success', title: 'Ingresos ya recibidos (marcados con ✓)' },
+        { label: 'Pendiente', valor: pendiente, cls: 'text-muted',   title: 'Ingresos que todavía no cobraste' },
+    ];
+
+    const container = document.getElementById('totalIngresosModal');
+    container.innerHTML = tooltips.map(t => `
         <div class="ingreso-total-item">
-            <span class="ingreso-total-label">Total</span>
-            <span class="ingreso-total-valor">${formatearMoneda(total)}</span>
-        </div>
-        <div class="ingreso-total-item">
-            <span class="ingreso-total-label">Cobrado</span>
-            <span class="ingreso-total-valor text-success">${formatearMoneda(cobrado)}</span>
-        </div>
-        <div class="ingreso-total-item">
-            <span class="ingreso-total-label">Pendiente</span>
-            <span class="ingreso-total-valor text-muted">${formatearMoneda(pendiente)}</span>
-        </div>`;
+            <span class="ingreso-total-label">
+                ${t.label}
+                <i class="bi bi-info-circle ingreso-total-info"
+                   data-bs-toggle="tooltip"
+                   data-bs-placement="top"
+                   data-bs-title="${t.title}"></i>
+            </span>
+            <span class="ingreso-total-valor ${t.cls}">${formatearMoneda(t.valor)}</span>
+        </div>`).join('');
+
+    container.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el =>
+        new bootstrap.Tooltip(el, { trigger: 'hover focus' })
+    );
 }
 
 async function toggleCobradoIngreso(registroId, conceptoId, btn) {
@@ -2378,6 +2476,13 @@ async function guardarCuentaRegistro(registroId, cuentaId) {
         });
         const result = await response.json();
         if (!result.success) throw new Error(result.message);
+
+        // Actualizar app.datos en memoria para que el modal no revierta la selección
+        if (app.datos?.conceptos) {
+            const c = app.datos.conceptos.find(c => c.registro_id == registroId);
+            if (c) c.cuenta_id = cuentaId ? parseInt(cuentaId) : null;
+        }
+        mostrarToast('Cuenta guardada', 'success');
         await cargarCuentas();
     } catch (error) {
         mostrarError('Error al guardar cuenta: ' + error.message);
@@ -2444,16 +2549,25 @@ function renderizarCuentas() {
             </div>
             <div class="cuenta-stats">
                 <div class="cuenta-stat">
-                    <span class="cuenta-stat-label">Saldo real</span>
+                    <span class="cuenta-stat-label">
+                        Saldo real
+                        <i class="bi bi-info-circle cuenta-info" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Lo que tenés en esta cuenta según tu último registro"></i>
+                    </span>
                     <span class="cuenta-stat-valor">${formatearMoneda(saldo)}</span>
                     <span class="cuenta-stat-fecha">${fechaStr}</span>
                 </div>
                 <div class="cuenta-stat">
-                    <span class="cuenta-stat-label">Asignado mes</span>
+                    <span class="cuenta-stat-label">
+                        Asignado mes
+                        <i class="bi bi-info-circle cuenta-info" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Gastos pagados con esta cuenta en el mes"></i>
+                    </span>
                     <span class="cuenta-stat-valor">${formatearMoneda(pagado)}</span>
                 </div>
                 <div class="cuenta-stat">
-                    <span class="cuenta-stat-label">Diferencia</span>
+                    <span class="cuenta-stat-label">
+                        Diferencia
+                        <i class="bi bi-info-circle cuenta-info" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Saldo real menos lo asignado al mes"></i>
+                    </span>
                     <span class="cuenta-stat-valor ${diffClass}">${diffStr}</span>
                 </div>
             </div>
@@ -2464,18 +2578,90 @@ function renderizarCuentas() {
     <div class="cuenta-lista">${filasHtml}</div>
     <div class="cuenta-consolidado">
         <div class="cuenta-consolidado-row">
-            <span class="cuenta-consolidado-label">Total real en cuentas</span>
+            <span class="cuenta-consolidado-label">
+                Total real en cuentas
+                <i class="bi bi-info-circle cuenta-info" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Suma de los saldos reales de todas tus cuentas"></i>
+            </span>
             <span class="cuenta-consolidado-valor">${formatearMoneda(totalReal)}</span>
         </div>
         <div class="cuenta-consolidado-row">
-            <span class="cuenta-consolidado-label">Disponible (sistema)</span>
+            <span class="cuenta-consolidado-label">
+                Disponible (sistema)
+                <i class="bi bi-info-circle cuenta-info" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Ingresos menos gastos pagados según el sistema"></i>
+            </span>
             <span class="cuenta-consolidado-valor">${formatearMoneda(saldoSistema)}</span>
         </div>
         <div class="cuenta-consolidado-row cuenta-consolidado-diff">
-            <span class="cuenta-consolidado-label">Diferencia</span>
+            <span class="cuenta-consolidado-label">
+                Diferencia
+                <i class="bi bi-info-circle cuenta-info" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Diferencia entre el total real y el disponible del sistema. Cero ideal significa que todo cuadra."></i>
+            </span>
             <span class="cuenta-consolidado-valor ${diffTotalClass}">${(diffTotal >= 0 ? '+' : '') + formatearMoneda(diffTotal)}</span>
         </div>
     </div>`;
+
+    contenedor.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el =>
+        new bootstrap.Tooltip(el, { trigger: 'hover focus' })
+    );
+}
+
+function mostrarFormNuevaCuenta() {
+    const contenedor = document.getElementById('cardCuentas');
+    if (contenedor.querySelector('#formNuevaCuenta')) return; // ya abierto
+
+    const form = document.createElement('div');
+    form.id = 'formNuevaCuenta';
+    form.className = 'nueva-cuenta-form';
+    form.innerHTML = `
+        <div class="nueva-cuenta-titulo">Nueva cuenta</div>
+        <div class="nueva-cuenta-campos">
+            <input type="text" id="nc-nombre" class="form-control form-control-sm" placeholder="Nombre *">
+            <input type="text" id="nc-banco"  class="form-control form-control-sm" placeholder="Banco / entidad">
+            <select id="nc-tipo" class="form-select form-select-sm">
+                <option value="caja_ahorro">Caja de ahorro</option>
+                <option value="cuenta_corriente">Cuenta corriente</option>
+                <option value="billetera">Billetera virtual</option>
+            </select>
+            <div class="nueva-cuenta-color">
+                <label class="nueva-cuenta-color-label">Color</label>
+                <input type="color" id="nc-color" class="form-control form-control-color form-control-sm" value="#6c757d">
+            </div>
+            <input type="text" inputmode="decimal" id="nc-saldo" class="form-control form-control-sm" placeholder="Saldo inicial (0)">
+        </div>
+        <div class="nueva-cuenta-acciones">
+            <button class="btn btn-sm btn-secondary" onclick="document.getElementById('formNuevaCuenta').remove()">Cancelar</button>
+            <button class="btn btn-sm btn-primary" onclick="guardarNuevaCuenta()">Guardar</button>
+        </div>`;
+    contenedor.appendChild(form);
+    document.getElementById('nc-nombre').focus();
+}
+
+async function guardarNuevaCuenta() {
+    const nombre = document.getElementById('nc-nombre').value.trim();
+    if (!nombre) { mostrarError('El nombre es obligatorio'); return; }
+
+    const payload = {
+        nombre,
+        banco:        document.getElementById('nc-banco').value.trim(),
+        tipo:         document.getElementById('nc-tipo').value,
+        color:        document.getElementById('nc-color').value,
+        saldo_actual: parseFloat(document.getElementById('nc-saldo').value.replace(',', '.')) || 0,
+    };
+
+    try {
+        const resp = await fetch('api/cuentas_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.message);
+        mostrarToast('Cuenta creada', 'success');
+        await cargarCuentas();
+        document.getElementById('formNuevaCuenta')?.remove();
+    } catch (e) {
+        mostrarError('Error al crear cuenta: ' + e.message);
+    }
 }
 
 function abrirModalTransferencia(cuentaOrigenId = null) {

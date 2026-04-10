@@ -18,7 +18,7 @@ movimientos_cuenta: tipo(ingreso|pago_gasto|transferencia|extraccion), cuenta_id
 gastos_api.php      GET ?mes&anio | POST | PATCH {registro_id, pagado|fecha|fecha_vencimiento|cuenta_id} | DELETE
 conceptos_api.php   GET | POST | PUT {cuenta_id_default} | DELETE
 categorias_api.php  GET | POST | PUT | DELETE
-cuentas_api.php     GET ?mes&anio → cuentas+total_pagado_mes | PUT {id,saldo_actual}
+cuentas_api.php     GET ?mes&anio → cuentas+total_pagado_mes | POST {nombre,banco,tipo,color,saldo_actual} | PUT {id,saldo_actual}
 movimientos_api.php GET | POST transferencia | POST extraccion
 ```
 
@@ -58,18 +58,35 @@ Header: chevron + dot + ícono + label + total (todo con color inline)
 
 ## Cuentas
 `renderizarCuentas()` → #cardCuentas (modal-body de #modalCuentas), sin wrapper .card
-Por cuenta: dot-lg + nombre + tipo | saldo real | asignado mes | diferencia
+Por cuenta: dot-lg + nombre + tipo | saldo real | asignado mes | diferencia | tooltips ⓘ
 `crearSelectorCuenta()` → .cuenta-wrap (fila simple) / .cuenta-wrap-detalle (múltiple)
 Toggle pagado/cobrado → crea/elimina movimiento + ajusta saldo_actual
 Validación saldo: al marcar pagado Y al reasignar cuenta en gasto ya pagado (HTTP 422)
 Transferencia: #modalTransferencia | Extracción: solo no-billetera
+`total_pagado_mes`: JOIN conceptos + filtrar `con.tipo='gasto'` — si no, suma ingresos también (bug corregido)
+Gastos sin cuenta_id: NO generan movimiento ni tocan saldo; Resumen sigue correcto igual
+Alta de cuenta: botón "Nueva cuenta" en footer de #modalCuentas → form inline `.nueva-cuenta-form` → POST cuentas_api.php
+`guardarCuentaRegistro()`: tras PATCH actualiza `app.datos` en memoria para evitar que re-render revierta la selección
+
+## Cuentas del usuario
+1=Entre Ríos (cuenta_corriente) | 2=Santander (caja_ahorro) | 3=Personal Pay (billetera) | 4=Efectivo (billetera, #22c55e)
+Flujo: IPEM+Cochera+Gastos Diarios → Efectivo | Gimnasio+Nafta → Personal Pay
+Estrategia: Personal Pay hasta $300k/mes (nivel 4, descuentos Flow) → luego bancos
+Transferencias bancos→Personal Pay para fondear el límite mensual
+
+## Resumen modal
+Secciones: ingresos/gastos → barra progreso → disponible/pendiente/proyección → barras por categoría → lista pendientes de pago
+`renderizarResumenCategorias()` + `renderizarResumenPendientes()` — llamadas desde `renderizarDatos()`
+Tooltips ⓘ en todos los conceptos numéricos (Bootstrap, trigger hover+focus)
 
 ## Diseño
-.card-resumen: borde neutro | .seccion-header: fondo transparente, ícono con color
+Todos los modales: `modal-dialog-scrollable` — header/footer fijos, body scrolleable
+FAB: clase `.fab` en index.php <style> — NO estilos inline en el botón
 NO usar border-success/danger/primary en cards ni bg-success/danger en headers
+Fuentes responsivas: `clamp()` en valores monetarios grandes
 
 ## PWA / Deploy
-SW: HTML nunca cacheado (network-first) | assets estáticos cache-first (cifra-v6)
+SW: HTML nunca cacheado (network-first) | assets estáticos cache-first (cifra-v11)
 Bump CACHE_NAME en sw.js al cambiar CSS o JS — fuerza re-descarga en dispositivos
 Deploy FTP: index.php siempre | app.js si hay JS nuevo | styles.css si hay CSS nuevo | sw.js si hay bump
 Play Store: TWA via PWABuilder (USD 25, HTTPS) | App Store: Capacitor.js (USD 99/año)
