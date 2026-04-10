@@ -574,6 +574,51 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
         </div>
     </div>
 
+    <!-- FAB gasto rápido -->
+    <button class="fab" onclick="abrirModalGastoRapido()" title="Gasto rápido">
+        <i class="bi bi-plus-lg"></i>
+    </button>
+
+    <!-- Modal Gasto Rápido -->
+    <div class="modal fade" id="modalGastoRapido" tabindex="-1" aria-labelledby="modalGastoRapidoLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalGastoRapidoLabel">
+                        <i class="bi bi-lightning-fill text-danger me-2"></i>Gasto rápido
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label form-field-label">Concepto</label>
+                        <select id="grConcepto" class="form-select"></select>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col">
+                            <label class="form-label form-field-label">Fecha</label>
+                            <input type="date" id="grFecha" class="form-control">
+                        </div>
+                        <div class="col">
+                            <label class="form-label form-field-label">Importe</label>
+                            <input type="text" inputmode="decimal" id="grImporte" class="form-control text-end" placeholder="0,00">
+                        </div>
+                    </div>
+                    <div class="mb-1">
+                        <label class="form-label form-field-label">Descripción <span class="fw-normal text-muted">(opcional)</span></label>
+                        <input type="text" id="grDescripcion" class="form-control" placeholder="Ej: Verdulería">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" onclick="guardarGastoRapido()">
+                        <i class="bi bi-plus-lg me-1"></i>Agregar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- jQuery (requerido por DataTables) -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 

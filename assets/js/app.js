@@ -2556,6 +2556,60 @@ async function registrarExtraccion(cuentaId) {
     }
 }
 
+function abrirModalGastoRapido() {
+    // Poblar selector con conceptos múltiples de gasto activos
+    const sel = document.getElementById('grConcepto');
+    const conceptos = (app.datos?.conceptos || [])
+        .filter(c => c.tipo === 'gasto' && c.permite_multiples == 1 && c.activo != 0);
+    sel.innerHTML = conceptos.length
+        ? conceptos.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('')
+        : '<option value="">— Sin conceptos disponibles —</option>';
+
+    // Fecha por defecto: hoy
+    document.getElementById('grFecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('grImporte').value = '';
+    document.getElementById('grDescripcion').value = '';
+
+    new bootstrap.Modal(document.getElementById('modalGastoRapido')).show();
+    setTimeout(() => document.getElementById('grImporte').focus(), 400);
+}
+
+async function guardarGastoRapido() {
+    const conceptoId = parseInt(document.getElementById('grConcepto').value);
+    const fecha      = document.getElementById('grFecha').value;
+    const importe    = parsearImporte(document.getElementById('grImporte').value);
+    const desc       = document.getElementById('grDescripcion').value.trim();
+
+    if (!conceptoId) { mostrarError('Seleccioná un concepto.'); return; }
+    if (!fecha)      { mostrarError('Ingresá una fecha.'); return; }
+    if (importe <= 0){ mostrarError('El importe debe ser mayor a 0.'); return; }
+
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                concepto_id: conceptoId,
+                mes: app.mesActual,
+                anio: app.anioActual,
+                fecha,
+                importe,
+                observaciones: desc || null
+            })
+        });
+        const result = await res.json();
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalGastoRapido')).hide();
+            mostrarToast('Gasto agregado', 'success');
+            await cargarDatos();
+        } else {
+            mostrarError('Error: ' + result.message);
+        }
+    } catch (e) {
+        mostrarError('Error de conexión.');
+    }
+}
+
 async function abrirModalMovimientos() {
     const modal = new bootstrap.Modal(document.getElementById('modalMovimientos'));
     modal.show();
