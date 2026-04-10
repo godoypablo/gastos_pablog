@@ -1,6 +1,8 @@
 <?php
 require_once 'config/auth_check.php';
 require_auth_or_redirect();
+$meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+$labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -42,6 +44,11 @@ require_auth_or_redirect();
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
+    <style>
+        .fab{position:fixed;bottom:1.5rem;right:1.5rem;width:3.25rem;height:3.25rem;border-radius:50%;background:#DC2626;color:#fff;border:none;font-size:1.4rem;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:1039;transition:transform .15s,box-shadow .15s}
+        .fab:hover,.fab:focus{transform:scale(1.08);color:#fff;outline:none}
+        .fab:active{transform:scale(.96)}
+    </style>
 </head>
 <body>
     <!-- Header -->
@@ -56,14 +63,58 @@ require_auth_or_redirect();
                     Control financiero personal
                 </p>
             </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 align-items-center">
                 <button class="btn btn-outline-light btn-sm" onclick="toggleDarkMode()" id="btnDarkMode" title="Cambiar tema">
                     <i class="bi bi-moon-fill" id="iconDarkMode"></i>
                 </button>
-                <button class="btn btn-light btn-sm" onclick="abrirModalConceptos()">
-                    <i class="bi bi-list-ul me-1"></i>
-                    Conceptos
-                </button>
+                <div class="dropdown">
+                    <button class="btn btn-outline-light btn-sm position-relative" id="btnMenu" data-bs-toggle="dropdown" aria-expanded="false" title="Menú">
+                        <i class="bi bi-list fs-5"></i>
+                        <span class="badge bg-danger position-absolute top-0 start-100 translate-middle rounded-pill d-none" id="badgeMenuVenc" style="font-size:0.6rem;padding:2px 5px"></span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="btnMenu">
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalResumen();return false;">
+                                <i class="bi bi-graph-up-arrow text-info"></i>
+                                Resumen
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalCuentas();return false;">
+                                <i class="bi bi-bank text-primary"></i>
+                                Cuentas
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalIngresos();return false;">
+                                <i class="bi bi-graph-up text-success"></i>
+                                Ingresos
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalVencimientos();return false;">
+                                <i class="bi bi-clock-history text-warning"></i>
+                                Vencimientos
+                                <span class="badge bg-danger ms-auto d-none" id="badgeVencMenu"></span>
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalMovimientos();return false;">
+                                <i class="bi bi-journal-text text-secondary"></i>
+                                Movimientos
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalConceptos();return false;">
+                                <i class="bi bi-list-ul text-primary"></i>
+                                Conceptos
+                            </a>
+                        </li>
+                    </ul>
+                </div>
                 <a href="logout.php" class="btn btn-outline-light btn-sm" title="Cerrar sesión">
                     <i class="bi bi-box-arrow-right"></i>
                 </a>
@@ -76,45 +127,56 @@ require_auth_or_redirect();
         <!-- Alertas -->
         <div id="alertContainer"></div>
 
-        <!-- Selector de Mes/Año -->
+        <!-- Selector de Mes/Año (colapsable) -->
         <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <div class="row g-3 align-items-end">
-                    <div class="col">
-                        <label for="selectMes" class="form-label">
-                            <i class="bi bi-calendar-month me-1"></i>
-                            Mes
-                        </label>
-                        <select id="selectMes" class="form-select">
-                            <option value="1">Enero</option>
-                            <option value="2">Febrero</option>
-                            <option value="3">Marzo</option>
-                            <option value="4">Abril</option>
-                            <option value="5">Mayo</option>
-                            <option value="6">Junio</option>
-                            <option value="7">Julio</option>
-                            <option value="8">Agosto</option>
-                            <option value="9">Septiembre</option>
-                            <option value="10">Octubre</option>
-                            <option value="11">Noviembre</option>
-                            <option value="12">Diciembre</option>
-                        </select>
-                    </div>
+            <div class="card-header d-flex justify-content-between align-items-center py-2"
+                 data-bs-toggle="collapse" data-bs-target="#contenidoFiltroMes"
+                 style="cursor:pointer;user-select:none">
+                <span class="small fw-medium">
+                    <i class="bi bi-calendar3 me-2 text-primary"></i>
+                    <span id="filtroMesLabel"><?php echo $labelFiltro; ?></span>
+                </span>
+                <i class="bi bi-chevron-down" id="iconFiltroMes" style="font-size:0.85rem"></i>
+            </div>
+            <div id="contenidoFiltroMes" class="collapse">
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col">
+                            <label for="selectMes" class="form-label">
+                                <i class="bi bi-calendar-month me-1"></i>
+                                Mes
+                            </label>
+                            <select id="selectMes" class="form-select">
+                                <option value="1">Enero</option>
+                                <option value="2">Febrero</option>
+                                <option value="3">Marzo</option>
+                                <option value="4">Abril</option>
+                                <option value="5">Mayo</option>
+                                <option value="6">Junio</option>
+                                <option value="7">Julio</option>
+                                <option value="8">Agosto</option>
+                                <option value="9">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
 
-                    <div class="col">
-                        <label for="selectAnio" class="form-label">
-                            <i class="bi bi-calendar-event me-1"></i>
-                            Año
-                        </label>
-                        <select id="selectAnio" class="form-select">
-                            <!-- Se llena dinámicamente con JavaScript -->
-                        </select>
-                    </div>
+                        <div class="col">
+                            <label for="selectAnio" class="form-label">
+                                <i class="bi bi-calendar-event me-1"></i>
+                                Año
+                            </label>
+                            <select id="selectAnio" class="form-select">
+                                <!-- Se llena dinámicamente con JavaScript -->
+                            </select>
+                        </div>
 
-                    <div class="col-auto">
-                        <button id="btnCargar" class="btn btn-outline-secondary" title="Recargar">
-                            <i class="bi bi-arrow-clockwise"></i>
-                        </button>
+                        <div class="col-auto">
+                            <button id="btnCargar" class="btn btn-outline-secondary" title="Recargar">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -130,19 +192,42 @@ require_auth_or_redirect();
 
         <!-- Contenido Principal -->
         <div id="contenidoPrincipal">
-            <!-- Resumen -->
+
+            <!-- Tabla de Gastos -->
             <div class="card shadow-sm mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h2 class="h5 mb-0">
-                        <i class="bi bi-graph-up-arrow me-2"></i>
-                        Resumen - <span id="mesAnioActual"></span>
-                    </h2>
-                    <button class="btn btn-sm btn-outline-secondary" id="btnToggleResumen" onclick="toggleResumen()" title="Mostrar/ocultar resumen">
-                        <i class="bi bi-chevron-down" id="iconToggleResumen"></i>
-                    </button>
+                <div class="card-header seccion-header">
+                    <h3 class="h6 mb-0 fw-bold seccion-titulo">
+                        <i class="bi bi-graph-down text-danger me-2"></i>Gastos
+                    </h3>
                 </div>
-                <div class="d-none" id="contenidoResumen">
-                <div class="card-body">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="dtGastos">
+                            <thead>
+                                <tr>
+                                    <th>Concepto</th>
+                                    <th class="text-end">Importe</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaGastos"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Resumen -->
+    <div class="modal fade" id="modalResumen" tabindex="-1" aria-labelledby="modalResumenLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalResumenLabel">
+                        <i class="bi bi-graph-up-arrow me-2 text-info"></i>Resumen — <span id="mesAnioActual"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
                     <div class="row g-3">
                         <!-- Total Ingresos -->
                         <div class="col-md-4">
@@ -156,7 +241,6 @@ require_auth_or_redirect();
                                 </div>
                             </div>
                         </div>
-
                         <!-- Total Gastos -->
                         <div class="col-md-4">
                             <div class="card card-resumen h-100">
@@ -169,7 +253,6 @@ require_auth_or_redirect();
                                 </div>
                             </div>
                         </div>
-
                         <!-- Saldo -->
                         <div class="col-md-4">
                             <div class="card card-resumen h-100" id="cardSaldo">
@@ -198,65 +281,163 @@ require_auth_or_redirect();
                         </div>
                     </div>
                 </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- Banner vencimientos -->
-            <div id="bannerVencimientos" class="mb-4"></div>
-
-            <!-- Cuentas bancarias -->
-            <div id="cardCuentas" class="mb-4"></div>
-
-            <!-- Tabla de Ingresos -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-header seccion-header d-flex justify-content-between align-items-center">
-                    <h3 class="h6 mb-0 fw-bold seccion-titulo">
-                        <i class="bi bi-graph-up text-success me-2"></i>Ingresos
-                    </h3>
-                    <button class="btn btn-sm btn-ghost-muted" id="btnToggleIngresos" onclick="toggleTablaIngresos()" title="Mostrar/ocultar ingresos">
-                        <i class="bi bi-chevron-down" id="iconToggleIngresos"></i>
-                    </button>
+    <!-- Modal Cuentas -->
+    <div class="modal fade" id="modalCuentas" tabindex="-1" aria-labelledby="modalCuentasLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalCuentasLabel">
+                        <i class="bi bi-bank me-2 text-primary"></i>Cuentas
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="d-none" id="contenidoIngresos">
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0" id="dtIngresos">
-                                <thead>
-                                    <tr>
-                                        <th>Concepto</th>
-                                        <th class="text-end">Importe</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tablaIngresos"></tbody>
-                            </table>
-                        </div>
+                <div class="modal-body p-0" id="cardCuentas">
+                    <!-- renderizado por renderizarCuentas() -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Transferencia -->
+    <div class="modal fade" id="modalTransferencia" tabindex="-1" aria-labelledby="modalTransferenciaLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTransferenciaLabel">
+                        <i class="bi bi-arrow-left-right me-2"></i>Transferencia entre cuentas
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label form-field-label">Desde</label>
+                        <select class="form-select" id="transfOrigen"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label form-field-label">Hacia</label>
+                        <select class="form-select" id="transfDestino"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label form-field-label">Importe</label>
+                        <input type="text" inputmode="decimal" class="form-control" id="transfImporte" placeholder="$ 0,00">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label form-field-label">Descripción <span class="text-muted fw-normal">(opcional)</span></label>
+                        <input type="text" class="form-control" id="transfDescripcion" placeholder="Ej: Pago tarjeta Santander">
                     </div>
                 </div>
-            </div>
-
-            <!-- Tabla de Gastos -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-header seccion-header">
-                    <h3 class="h6 mb-0 fw-bold seccion-titulo">
-                        <i class="bi bi-graph-down text-danger me-2"></i>Gastos
-                    </h3>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="realizarTransferencia()">
+                        <i class="bi bi-arrow-left-right me-1"></i>Transferir
+                    </button>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0" id="dtGastos">
-                            <thead>
-                                <tr>
-                                    <th>Concepto</th>
-                                    <th class="text-end">Importe</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tablaGastos"></tbody>
-                        </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Movimientos -->
+    <div class="modal fade" id="modalMovimientos" tabindex="-1" aria-labelledby="modalMovimientosLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalMovimientosLabel">
+                        <i class="bi bi-journal-text me-2"></i>Movimientos de cuentas
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0" id="modalMovimientosBody">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary"></div>
                     </div>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
+
+    <!-- Modal Ingresos (unificado) -->
+    <div class="modal fade" id="modalIngresos" tabindex="-1" aria-labelledby="modalIngresosLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalIngresosLabel">
+                        <i class="bi bi-graph-up text-success me-2"></i>Ingresos — <span id="mesAnioIngresos"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <!-- Formulario nuevo ingreso (oculto por defecto) -->
+                <div id="formNuevoIngreso" class="d-none border-bottom px-3 pt-3 pb-2">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label form-field-label">Nombre del concepto</label>
+                            <input type="text" id="nuevoIngresoNombre" class="form-control form-control-sm" placeholder="Ej: Sueldo empresa">
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label form-field-label">Cuenta por defecto</label>
+                            <select id="nuevoIngresoCuenta" class="form-select form-select-sm">
+                                <option value="">— Sin cuenta —</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-2">
+                            <label class="form-label form-field-label">Importe</label>
+                            <input type="text" inputmode="decimal" id="nuevoIngresoImporte" class="form-control form-control-sm" placeholder="$ 0,00">
+                        </div>
+                        <div class="col-12 col-sm-2 d-flex gap-1">
+                            <button class="btn btn-success btn-sm flex-fill" onclick="guardarNuevoIngreso()">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="ocultarFormNuevoIngreso()">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de ingresos -->
+                <div class="modal-body p-0" id="modalIngresosBody">
+                    <div class="text-center py-4 text-muted">Cargando...</div>
+                </div>
+
+                <!-- Totales -->
+                <div class="ingreso-totales border-top" id="totalIngresosModal"></div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-success btn-sm me-auto" onclick="mostrarFormNuevoIngreso()">
+                        <i class="bi bi-plus-lg me-1"></i>Nuevo ingreso
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Vencimientos -->
+    <div class="modal fade" id="modalVencimientos" tabindex="-1" aria-labelledby="modalVencimientosLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalVencimientosLabel">
+                        <i class="bi bi-clock-history text-warning me-2"></i>Vencimientos
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modalVencimientosBody">
+                    <p class="text-center text-muted py-3">Sin vencimientos próximos</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal ABM Conceptos -->
     <div class="modal fade" id="modalConceptos" tabindex="-1" aria-labelledby="modalConceptosLabel" aria-hidden="true">
@@ -273,13 +454,7 @@ require_auth_or_redirect();
                     <!-- Tabs -->
                     <ul class="nav nav-tabs mb-3" id="tabsConceptos" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="tab-ingresos-btn" data-bs-toggle="tab"
-                                data-bs-target="#tab-ingresos" type="button" role="tab">
-                                <i class="bi bi-graph-up text-success me-1"></i>Ingresos
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="tab-gastos-btn" data-bs-toggle="tab"
+                            <button class="nav-link active" id="tab-gastos-btn" data-bs-toggle="tab"
                                 data-bs-target="#tab-gastos" type="button" role="tab">
                                 <i class="bi bi-graph-down text-danger me-1"></i>Gastos
                             </button>
@@ -339,20 +514,8 @@ require_auth_or_redirect();
                     <!-- Contenido tabs -->
                     <div class="tab-content" id="tabsConceptosContent">
 
-                        <!-- Ingresos -->
-                        <div class="tab-pane fade show active" id="tab-ingresos" role="tabpanel">
-                            <div class="d-flex justify-content-end mb-2">
-                                <button class="btn btn-success btn-sm" onclick="mostrarFormNuevo('ingreso')">
-                                    <i class="bi bi-plus-lg me-1"></i>Nuevo ingreso
-                                </button>
-                            </div>
-                            <div id="listaIngresos">
-                                <div class="text-center py-3 text-muted">Cargando...</div>
-                            </div>
-                        </div>
-
                         <!-- Gastos -->
-                        <div class="tab-pane fade" id="tab-gastos" role="tabpanel">
+                        <div class="tab-pane fade show active" id="tab-gastos" role="tabpanel">
                             <div class="d-flex justify-content-end mb-2">
                                 <button class="btn btn-danger btn-sm" onclick="mostrarFormNuevo('gasto')">
                                     <i class="bi bi-plus-lg me-1"></i>Nuevo gasto
@@ -411,6 +574,52 @@ require_auth_or_redirect();
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAB gasto rápido -->
+    <button onclick="abrirModalGastoRapido()" title="Gasto rápido"
+        style="position:fixed;bottom:1.5rem;right:1.5rem;width:3.5rem;height:3.5rem;border-radius:50%;background:#DC2626;color:#fff;border:none;font-size:1.5rem;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:1039;cursor:pointer">
+        <i class="bi bi-plus-lg"></i>
+    </button>
+
+    <!-- Modal Gasto Rápido -->
+    <div class="modal fade" id="modalGastoRapido" tabindex="-1" aria-labelledby="modalGastoRapidoLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalGastoRapidoLabel">
+                        <i class="bi bi-lightning-fill text-danger me-2"></i>Gasto rápido
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label form-field-label">Concepto</label>
+                        <select id="grConcepto" class="form-select"></select>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col">
+                            <label class="form-label form-field-label">Fecha</label>
+                            <input type="date" id="grFecha" class="form-control">
+                        </div>
+                        <div class="col">
+                            <label class="form-label form-field-label">Importe</label>
+                            <input type="text" inputmode="decimal" id="grImporte" class="form-control text-end" placeholder="0,00">
+                        </div>
+                    </div>
+                    <div class="mb-1">
+                        <label class="form-label form-field-label">Descripción <span class="fw-normal text-muted">(opcional)</span></label>
+                        <input type="text" id="grDescripcion" class="form-control" placeholder="Ej: Verdulería">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" onclick="guardarGastoRapido()">
+                        <i class="bi bi-plus-lg me-1"></i>Agregar
+                    </button>
                 </div>
             </div>
         </div>

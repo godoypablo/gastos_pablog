@@ -61,14 +61,23 @@ try {
             $stmt->execute(['tipo' => $tipo]);
             $next_orden = (int)$stmt->fetchColumn();
 
-            $orden = isset($input['orden']) && $input['orden'] !== '' ? (int)$input['orden'] : $next_orden;
+            $orden             = isset($input['orden']) && $input['orden'] !== '' ? (int)$input['orden'] : $next_orden;
             $permite_multiples = !empty($input['permite_multiples']) ? 1 : 0;
-            $categoria_id = !empty($input['categoria_id']) ? (int)$input['categoria_id'] : null;
+            $categoria_id      = !empty($input['categoria_id'])      ? (int)$input['categoria_id']      : null;
+            $cuenta_id_default = !empty($input['cuenta_id_default']) ? (int)$input['cuenta_id_default'] : null;
 
             $stmt = $db->prepare(
-                "INSERT INTO conceptos (nombre, tipo, orden, permite_multiples, categoria_id) VALUES (:nombre, :tipo, :orden, :permite_multiples, :categoria_id)"
+                "INSERT INTO conceptos (nombre, tipo, orden, permite_multiples, categoria_id, cuenta_id_default)
+                 VALUES (:nombre, :tipo, :orden, :permite_multiples, :categoria_id, :cuenta_id_default)"
             );
-            $stmt->execute(['nombre' => $nombre, 'tipo' => $tipo, 'orden' => $orden, 'permite_multiples' => $permite_multiples, 'categoria_id' => $categoria_id]);
+            $stmt->execute([
+                'nombre'            => $nombre,
+                'tipo'              => $tipo,
+                'orden'             => $orden,
+                'permite_multiples' => $permite_multiples,
+                'categoria_id'      => $categoria_id,
+                'cuenta_id_default' => $cuenta_id_default,
+            ]);
 
             sendResponse(true, ['id' => $db->lastInsertId()], 'Concepto creado correctamente');
             break;
@@ -107,6 +116,10 @@ try {
             if (array_key_exists('categoria_id', $input)) {
                 $fields[] = 'categoria_id = :categoria_id';
                 $params['categoria_id'] = !empty($input['categoria_id']) ? (int)$input['categoria_id'] : null;
+            }
+            if (array_key_exists('cuenta_id_default', $input)) {
+                $fields[] = 'cuenta_id_default = :cuenta_id_default';
+                $params['cuenta_id_default'] = !empty($input['cuenta_id_default']) ? (int)$input['cuenta_id_default'] : null;
             }
 
             if (empty($fields)) {

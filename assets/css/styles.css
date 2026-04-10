@@ -1490,3 +1490,123 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
 [data-bs-theme="dark"] .cuenta-consolidado-diff {
     border-top-color: rgba(255, 255, 255, 0.06);
 }
+
+/* ── Modal Ingresos unificado ──────────────────────────────── */
+.ingreso-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    transition: background 0.15s;
+}
+.ingreso-row:last-child { border-bottom: none; }
+.ingreso-row:hover { background: rgba(0,0,0,0.02); }
+.ingreso-row.ingreso-row-cobrado { background: rgba(25, 135, 84, 0.04); }
+
+[data-bs-theme="dark"] .ingreso-row { border-bottom-color: rgba(255,255,255,0.06); }
+[data-bs-theme="dark"] .ingreso-row:hover { background: rgba(255,255,255,0.03); }
+[data-bs-theme="dark"] .ingreso-row.ingreso-row-cobrado { background: rgba(25,135,84,0.08); }
+
+.ingreso-nombre-wrap {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 0;
+}
+.ingreso-nombre {
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.btn-edit-ingreso {
+    background: none;
+    border: none;
+    padding: 0 0.2rem;
+    color: var(--color-gray);
+    font-size: 0.7rem;
+    opacity: 0;
+    transition: opacity 0.15s;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.ingreso-row:hover .btn-edit-ingreso { opacity: 1; }
+
+.ingreso-fecha {
+    width: 8rem;
+    flex-shrink: 0;
+    font-size: 0.78rem !important;
+}
+.ingreso-cuenta {
+    width: 9rem;
+    flex-shrink: 0;
+    font-size: 0.78rem !important;
+}
+.ingreso-importe {
+    width: 8rem;
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 0.85rem !important;
+}
+
+/* Edit inline form dentro del row */
+.ingreso-edit-form {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+.ingreso-edit-form input,
+.ingreso-edit-form select { font-size: 0.8rem !important; }
+
+/* Totales footer del modal */
+.ingreso-totales {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1.5rem;
+    padding: 0.6rem 1rem;
+    font-size: 0.82rem;
+}
+.ingreso-total-item { display: flex; flex-direction: column; align-items: flex-end; }
+.ingreso-total-label { font-size: 0.7rem; text-transform: uppercase; color: var(--color-gray); letter-spacing: 0.3px; }
+.ingreso-total-valor { font-weight: 600; font-family: 'Inter', sans-serif; }
+
+/* Mobile */
+@media (max-width: 575px) {
+    .ingreso-row { flex-wrap: wrap; }
+    .ingreso-nombre-wrap { flex-basis: 100%; }
+    .ingreso-fecha, .ingreso-cuenta { width: auto; flex: 1; }
+    .ingreso-importe { width: 7rem; }
+    .ingreso-totales { gap: 0.8rem; }
+}
+
+/* ==================== FAB — GASTO RÁPIDO ==================== */
+.fab {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 50%;
+    background: var(--color-danger, #dc3545);
+    color: #fff;
+    border: none;
+    font-size: 1.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    z-index: 1040;
+    transition: transform .15s, box-shadow .15s;
+}
+.fab:hover, .fab:focus {
+    transform: scale(1.08);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.32);
+    color: #fff;
+    outline: none;
+}
+.fab:active { transform: scale(0.96); }

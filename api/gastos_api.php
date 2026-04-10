@@ -55,6 +55,7 @@ try {
                         c.orden,
                         c.permite_multiples,
                         c.categoria_id,
+                        c.cuenta_id_default,
                         cat.nombre  AS categoria_nombre,
                         cat.color   AS categoria_color,
                         cat.icono   AS categoria_icono,
@@ -62,7 +63,8 @@ try {
                         MIN(rm.id) as registro_id,
                         MAX(rm.pagado) as pagado,
                         MIN(rm.fecha_vencimiento) as fecha_vencimiento,
-                        MIN(rm.cuenta_id) as cuenta_id
+                        MIN(rm.cuenta_id) as cuenta_id,
+                        MIN(rm.fecha) as fecha
                     FROM conceptos c
                     LEFT JOIN categorias cat ON c.categoria_id = cat.id
                     LEFT JOIN registros_mensuales rm ON c.id = rm.concepto_id
@@ -70,7 +72,7 @@ try {
                         AND rm.anio = :anio
                     WHERE c.activo = 1
                     GROUP BY c.id, c.nombre, c.tipo, c.orden, c.permite_multiples,
-                             c.categoria_id, cat.nombre, cat.color, cat.icono
+                             c.categoria_id, c.cuenta_id_default, cat.nombre, cat.color, cat.icono
                     ORDER BY c.tipo DESC,
                              COALESCE(cat.orden, 9999) ASC,
                              COALESCE(cat.id, 9999) ASC,
@@ -213,8 +215,17 @@ try {
                     $stmt->execute($params);
                     sendResponse(true, ['id' => $registro_existente['id']], 'Registro actualizado correctamente');
                 } else {
-                    $sql = "INSERT INTO registros_mensuales (concepto_id, mes, anio, importe, observaciones, fecha_vencimiento)
-                            VALUES (:concepto_id, :mes, :anio, :importe, :observaciones, :fecha_vencimiento)";
+                    // Aplicar cuenta por defecto del concepto si no se envió cuenta_id
+                    $cuenta_id_nuevo = null;
+                    $stmt_def = $db->prepare("SELECT cuenta_id_default FROM conceptos WHERE id = :id");
+                    $stmt_def->execute(['id' => $concepto_id]);
+                    $def = $stmt_def->fetch();
+                    if ($def && $def['cuenta_id_default']) {
+                        $cuenta_id_nuevo = (int)$def['cuenta_id_default'];
+                    }
+
+                    $sql = "INSERT INTO registros_mensuales (concepto_id, mes, anio, importe, observaciones, fecha_vencimiento, cuenta_id)
+                            VALUES (:concepto_id, :mes, :anio, :importe, :observaciones, :fecha_vencimiento, :cuenta_id)";
                     $stmt = $db->prepare($sql);
                     $stmt->execute([
                         'concepto_id'       => $concepto_id,
@@ -222,7 +233,8 @@ try {
                         'anio'              => $anio,
                         'importe'           => $importe,
                         'observaciones'     => $observaciones,
-                        'fecha_vencimiento' => $fecha_vencimiento
+                        'fecha_vencimiento' => $fecha_vencimiento,
+                        'cuenta_id'         => $cuenta_id_nuevo,
                     ]);
                     sendResponse(true, ['id' => $db->lastInsertId()], 'Registro creado correctamente');
                 }
@@ -259,8 +271,10 @@ try {
 
             // Copia registros de entrada única del período origen al destino
             // Omite conceptos que ya tengan registro en el período destino
-            $sql_copy = "INSERT INTO registros_mensuales (concepto_id, mes, anio, importe)
-                         SELECT rm.concepto_id, :to_mes, :to_anio, rm.importe
+            // Preserva cuenta_id; si no tiene, aplica la cuenta por defecto del concepto
+            $sql_copy = "INSERT INTO registros_mensuales (concepto_id, mes, anio, importe, cuenta_id)
+                         SELECT rm.concepto_id, :to_mes, :to_anio, rm.importe,
+                                COALESCE(rm.cuenta_id, c.cuenta_id_default)
                          FROM registros_mensuales rm
                          INNER JOIN conceptos c ON rm.concepto_id = c.id AND c.activo = 1
                          WHERE rm.mes = :from_mes AND rm.anio = :from_anio
@@ -293,22 +307,175 @@ try {
             }
 
             $registro_id = (int)$input['registro_id'];
+            $sets        = [];
+            $params      = ['id' => $registro_id];
 
-            $sets   = [];
-            $params = ['id' => $registro_id];
-
+            // ── Toggle pagado: crear o eliminar movimiento + actualizar saldo ──
             if (array_key_exists('pagado', $input)) {
-                $sets[]          = 'pagado = :pagado';
-                $params['pagado'] = $input['pagado'] ? 1 : 0;
+                $pagado_nuevo = $input['pagado'] ? 1 : 0;
+                $sets[]           = 'pagado = :pagado';
+                $params['pagado'] = $pagado_nuevo;
+
+                // Leer registro actual para saber cuenta y tipo de concepto
+                $stmt_reg = $db->prepare(
+                    "SELECT rm.cuenta_id, rm.importe, c.tipo AS concepto_tipo
+                     FROM registros_mensuales rm
+                     INNER JOIN conceptos c ON rm.concepto_id = c.id
+                     WHERE rm.id = :id"
+                );
+                $stmt_reg->execute(['id' => $registro_id]);
+                $reg = $stmt_reg->fetch();
+
+                if ($reg && $reg['cuenta_id'] && (float)$reg['importe'] > 0) {
+                    $cuenta_id     = (int)$reg['cuenta_id'];
+                    $importe       = (float)$reg['importe'];
+                    $tipo_concepto = $reg['concepto_tipo'];
+                    $tipo_mov      = ($tipo_concepto === 'ingreso') ? 'ingreso' : 'pago_gasto';
+
+                    $db->beginTransaction();
+                    try {
+                        if ($pagado_nuevo === 1) {
+                            // Validar saldo suficiente para pagos (no para ingresos)
+                            if ($tipo_mov === 'pago_gasto') {
+                                $stmt_saldo = $db->prepare("SELECT saldo_actual, nombre FROM cuentas WHERE id = :id");
+                                $stmt_saldo->execute(['id' => $cuenta_id]);
+                                $cuenta_row = $stmt_saldo->fetch();
+                                $saldo_disp = (float)($cuenta_row['saldo_actual'] ?? 0);
+                                if ($saldo_disp < $importe) {
+                                    $db->rollBack();
+                                    sendResponse(false, null,
+                                        'Saldo insuficiente en "' . $cuenta_row['nombre'] . '". ' .
+                                        'Disponible: $' . number_format($saldo_disp, 2, ',', '.') . ' — ' .
+                                        'Requerido: $' . number_format($importe, 2, ',', '.'),
+                                        422);
+                                }
+                            }
+
+                            // Crear movimiento y ajustar saldo
+                            if ($tipo_mov === 'ingreso') {
+                                $db->prepare(
+                                    "INSERT INTO movimientos_cuenta (tipo, cuenta_destino_id, importe, registro_id)
+                                     VALUES ('ingreso', :cid, :imp, :rid)"
+                                )->execute(['cid' => $cuenta_id, 'imp' => $importe, 'rid' => $registro_id]);
+                                $db->prepare("UPDATE cuentas SET saldo_actual = saldo_actual + :imp, fecha_saldo = CURDATE() WHERE id = :id")
+                                   ->execute(['imp' => $importe, 'id' => $cuenta_id]);
+                            } else {
+                                $db->prepare(
+                                    "INSERT INTO movimientos_cuenta (tipo, cuenta_origen_id, importe, registro_id)
+                                     VALUES ('pago_gasto', :cid, :imp, :rid)"
+                                )->execute(['cid' => $cuenta_id, 'imp' => $importe, 'rid' => $registro_id]);
+                                $db->prepare("UPDATE cuentas SET saldo_actual = saldo_actual - :imp, fecha_saldo = CURDATE() WHERE id = :id")
+                                   ->execute(['imp' => $importe, 'id' => $cuenta_id]);
+                            }
+                        } else {
+                            // Eliminar movimiento y revertir saldo
+                            $stmt_mov = $db->prepare(
+                                "SELECT id, cuenta_origen_id, cuenta_destino_id, importe
+                                 FROM movimientos_cuenta
+                                 WHERE registro_id = :rid AND tipo IN ('ingreso','pago_gasto')
+                                 LIMIT 1"
+                            );
+                            $stmt_mov->execute(['rid' => $registro_id]);
+                            $mov = $stmt_mov->fetch();
+
+                            if ($mov) {
+                                if ($mov['cuenta_destino_id']) {
+                                    // Era ingreso → restar
+                                    $db->prepare("UPDATE cuentas SET saldo_actual = saldo_actual - :imp, fecha_saldo = CURDATE() WHERE id = :id")
+                                       ->execute(['imp' => $mov['importe'], 'id' => $mov['cuenta_destino_id']]);
+                                } elseif ($mov['cuenta_origen_id']) {
+                                    // Era pago_gasto → restaurar
+                                    $db->prepare("UPDATE cuentas SET saldo_actual = saldo_actual + :imp, fecha_saldo = CURDATE() WHERE id = :id")
+                                       ->execute(['imp' => $mov['importe'], 'id' => $mov['cuenta_origen_id']]);
+                                }
+                                $db->prepare("DELETE FROM movimientos_cuenta WHERE id = :id")
+                                   ->execute(['id' => $mov['id']]);
+                            }
+                        }
+                        $db->commit();
+                    } catch (Exception $e) {
+                        $db->rollBack();
+                        throw $e;
+                    }
+                }
             }
+
+            // ── Cambio de cuenta_id: migrar movimiento si ya está pagado ──
+            if (array_key_exists('cuenta_id', $input)) {
+                $nueva_cuenta = $input['cuenta_id'] !== null ? (int)$input['cuenta_id'] : null;
+                $sets[]             = 'cuenta_id = :cuenta_id';
+                $params['cuenta_id'] = $nueva_cuenta;
+
+                if ($nueva_cuenta) {
+                    $stmt_check = $db->prepare(
+                        "SELECT rm.pagado, rm.importe, rm.cuenta_id AS old_cuenta, c.tipo AS concepto_tipo
+                         FROM registros_mensuales rm
+                         INNER JOIN conceptos c ON rm.concepto_id = c.id
+                         WHERE rm.id = :id"
+                    );
+                    $stmt_check->execute(['id' => $registro_id]);
+                    $rc = $stmt_check->fetch();
+
+                    if ($rc && $rc['pagado'] == 1 && $rc['old_cuenta'] && $rc['old_cuenta'] != $nueva_cuenta) {
+                        $old_cuenta    = (int)$rc['old_cuenta'];
+                        $importe       = (float)$rc['importe'];
+                        $tipo_concepto = $rc['concepto_tipo'];
+
+                        $stmt_mov = $db->prepare(
+                            "SELECT id, cuenta_origen_id, cuenta_destino_id
+                             FROM movimientos_cuenta
+                             WHERE registro_id = :rid AND tipo IN ('ingreso','pago_gasto')
+                             LIMIT 1"
+                        );
+                        $stmt_mov->execute(['rid' => $registro_id]);
+                        $mov = $stmt_mov->fetch();
+
+                        if ($mov) {
+                            // Validar saldo en cuenta destino al reasignar un gasto ya pagado
+                            if ($tipo_concepto !== 'ingreso') {
+                                $stmt_saldo = $db->prepare("SELECT saldo_actual, nombre FROM cuentas WHERE id = :id");
+                                $stmt_saldo->execute(['id' => $nueva_cuenta]);
+                                $cuenta_nueva_row = $stmt_saldo->fetch();
+                                $saldo_nueva = (float)($cuenta_nueva_row['saldo_actual'] ?? 0);
+                                if ($saldo_nueva < $importe) {
+                                    sendResponse(false, null,
+                                        'Saldo insuficiente en "' . $cuenta_nueva_row['nombre'] . '". ' .
+                                        'Disponible: $' . number_format($saldo_nueva, 2, ',', '.') . ' — ' .
+                                        'Requerido: $' . number_format($importe, 2, ',', '.'),
+                                        422);
+                                }
+                            }
+
+                            $db->beginTransaction();
+                            try {
+                                if ($tipo_concepto === 'ingreso') {
+                                    $db->prepare("UPDATE cuentas SET saldo_actual = saldo_actual - :imp WHERE id = :id")->execute(['imp' => $importe, 'id' => $old_cuenta]);
+                                    $db->prepare("UPDATE cuentas SET saldo_actual = saldo_actual + :imp WHERE id = :id")->execute(['imp' => $importe, 'id' => $nueva_cuenta]);
+                                    $db->prepare("UPDATE movimientos_cuenta SET cuenta_destino_id = :new WHERE id = :id")->execute(['new' => $nueva_cuenta, 'id' => $mov['id']]);
+                                } else {
+                                    $db->prepare("UPDATE cuentas SET saldo_actual = saldo_actual + :imp WHERE id = :id")->execute(['imp' => $importe, 'id' => $old_cuenta]);
+                                    $db->prepare("UPDATE cuentas SET saldo_actual = saldo_actual - :imp WHERE id = :id")->execute(['imp' => $importe, 'id' => $nueva_cuenta]);
+                                    $db->prepare("UPDATE movimientos_cuenta SET cuenta_origen_id = :new WHERE id = :id")->execute(['new' => $nueva_cuenta, 'id' => $mov['id']]);
+                                }
+                                $db->commit();
+                            } catch (Exception $e) {
+                                $db->rollBack();
+                                throw $e;
+                            }
+                        }
+                    }
+                }
+            }
+
             if (array_key_exists('fecha_vencimiento', $input)) {
                 $sets[]                    = 'fecha_vencimiento = :fecha_vencimiento';
                 $params['fecha_vencimiento'] = ($input['fecha_vencimiento'] !== '' && $input['fecha_vencimiento'] !== null)
                     ? $input['fecha_vencimiento'] : null;
             }
-            if (array_key_exists('cuenta_id', $input)) {
-                $sets[]            = 'cuenta_id = :cuenta_id';
-                $params['cuenta_id'] = $input['cuenta_id'] !== null ? (int)$input['cuenta_id'] : null;
+            if (array_key_exists('fecha', $input)) {
+                $sets[]          = 'fecha = :fecha';
+                $params['fecha'] = ($input['fecha'] !== '' && $input['fecha'] !== null)
+                    ? $input['fecha'] : null;
             }
 
             if (empty($sets)) sendResponse(false, null, 'Nada que actualizar', 400);
@@ -317,8 +484,8 @@ try {
             $stmt->execute($params);
 
             $msg = isset($params['pagado'])
-                ? ($params['pagado'] ? 'Marcado como pagado' : 'Marcado como no pagado')
-                : 'Vencimiento actualizado';
+                ? ($params['pagado'] ? 'Marcado como pagado/cobrado' : 'Revertido a no pagado')
+                : 'Actualizado';
             sendResponse(true, null, $msg);
             break;
 

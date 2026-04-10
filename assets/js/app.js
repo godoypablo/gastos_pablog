@@ -21,7 +21,7 @@ const app = {
     anioActual: new Date().getFullYear(),
     datos: null,
     guardandoCambios: false,
-    dtIngresos: null,
+    dtIngresos: null, // ya no se usa (ingresos en modal unificado)
     dtGastos: null,
     categorias: [],
     categoriasColapsadas: new Set(),
@@ -31,11 +31,33 @@ const app = {
 // Inicializar aplicación
 document.addEventListener('DOMContentLoaded', () => {
     inicializarSelectores();
+    actualizarLabelFiltro();
+
+    // Filtro mes/año: collapse nativo Bootstrap + persistencia localStorage
+    const elFiltro = document.getElementById('contenidoFiltroMes');
+    const elIconFiltro = document.getElementById('iconFiltroMes');
+    elFiltro.addEventListener('show.bs.collapse', () => {
+        elIconFiltro.className = 'bi bi-chevron-up';
+        localStorage.setItem('cifra-filtro-abierto', '1');
+    });
+    elFiltro.addEventListener('hide.bs.collapse', () => {
+        elIconFiltro.className = 'bi bi-chevron-down';
+        localStorage.setItem('cifra-filtro-abierto', '0');
+    });
+    if (localStorage.getItem('cifra-filtro-abierto') === '1') {
+        new bootstrap.Collapse(elFiltro, { toggle: false }).show();
+    }
+
     cargarDatos();
     sincronizarIconDarkMode();
     document.getElementById('btnCargar').addEventListener('click', cargarDatos);
     document.getElementById('selectMes').addEventListener('change', cargarDatos);
     document.getElementById('selectAnio').addEventListener('change', cargarDatos);
+
+    // Al abrir modal ingresos, renderizar si los datos ya están cargados
+    document.getElementById('modalIngresos').addEventListener('show.bs.modal', () => {
+        if (app.datos) renderizarModalIngresos();
+    });
 
     // iOS: no dispara beforeinstallprompt → banner propio
     const isIOS        = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -278,23 +300,11 @@ function renderizarDatos() {
         iconSaldo.classList.add('bi-wallet2', 'text-primary');
     }
 
-    // Destruir DataTables ANTES de limpiar tbody (evita reinicio sucio)
-    if (app.dtIngresos) { app.dtIngresos.destroy(); app.dtIngresos = null; }
-    if (app.dtGastos)   { app.dtGastos.destroy();   app.dtGastos = null; }
-
-    // Separar ingresos y gastos
-    const ingresos = app.datos.conceptos.filter(c => c.tipo === 'ingreso');
-    const gastos = app.datos.conceptos.filter(c => c.tipo === 'gasto');
-
-    // Renderizar ingresos
-    const tbodyIngresos = document.getElementById('tablaIngresos');
-    tbodyIngresos.innerHTML = '';
-    ingresos.forEach(concepto => {
-        const filas = crearFilasConcepto(concepto, 'ingreso');
-        filas.forEach(fila => tbodyIngresos.appendChild(fila));
-    });
+    // Destruir DataTable gastos antes de limpiar tbody
+    if (app.dtGastos) { app.dtGastos.destroy(); app.dtGastos = null; }
 
     // Renderizar gastos
+    const gastos = app.datos.conceptos.filter(c => c.tipo === 'gasto');
     const tbodyGastos = document.getElementById('tablaGastos');
     tbodyGastos.innerHTML = '';
     gastos.forEach(concepto => {
@@ -305,16 +315,28 @@ function renderizarDatos() {
     // Actualizar título del mes
     document.getElementById('mesAnioActual').textContent =
         `${String(app.mesActual).padStart(2, '0')}/${app.anioActual}`;
+    actualizarLabelFiltro();
 
     inicializarDataTables();
     mostrarBannerPeriodo();
     mostrarBannerVencimientos();
     renderizarCuentas();
+
+    // Si el modal de ingresos está abierto, re-renderizarlo con datos frescos
+    if (document.getElementById('modalIngresos')?.classList.contains('show')) {
+        renderizarModalIngresos();
+    }
 }
 
 function mostrarBannerVencimientos() {
-    const contenedor = document.getElementById('bannerVencimientos');
-    contenedor.innerHTML = '';
+    const modalBody = document.getElementById('modalVencimientosBody');
+    const badgeMenu = document.getElementById('badgeMenuVenc');
+    const badgeVenc = document.getElementById('badgeVencMenu');
+
+    // Reset badges
+    badgeMenu.classList.add('d-none');
+    badgeVenc.classList.add('d-none');
+    modalBody.innerHTML = '<p class="text-center text-muted py-3">Sin vencimientos próximos</p>';
 
     if (!app.datos?.conceptos) return;
 
@@ -331,14 +353,15 @@ function mostrarBannerVencimientos() {
 
     if (vencidos.length === 0 && proximos.length === 0) return;
 
+    // Actualizar badges
+    const totalBadge = vencidos.length + proximos.length;
+    badgeMenu.textContent = totalBadge;
+    badgeMenu.classList.remove('d-none');
+    badgeVenc.textContent = totalBadge;
+    badgeVenc.classList.remove('d-none');
+
     const totalVencidos = vencidos.reduce((s, c) => s + (parseFloat(c.importe) || 0), 0);
     const totalProximos = proximos.reduce((s, c) => s + (parseFloat(c.importe) || 0), 0);
-    const totalGeneral  = totalVencidos + totalProximos;
-
-    // Línea resumen para el header colapsable
-    const partes = [];
-    if (vencidos.length) partes.push(`<span class="venc-tag venc-tag-vencido">${vencidos.length} vencido${vencidos.length > 1 ? 's' : ''}</span>`);
-    if (proximos.length) partes.push(`<span class="venc-tag venc-tag-proximo">${proximos.length} esta semana</span>`);
 
     const filaItem = (c, esVencido) => `
         <div class="venc-fila">
@@ -347,29 +370,17 @@ function mostrarBannerVencimientos() {
             <span class="venc-importe">${formatearMoneda(parseFloat(c.importe) || 0)}</span>
         </div>`;
 
-    const html = `
-        <div class="venc-strip" id="vencStrip">
-            <div class="venc-strip-header" onclick="document.getElementById('vencStripBody').classList.toggle('venc-strip-open');this.querySelector('.venc-chevron').classList.toggle('rotated')">
-                <i class="bi bi-clock-history venc-icon"></i>
-                <span class="venc-tags">${partes.join('')}</span>
-                <span class="venc-total-header">${formatearMoneda(totalGeneral)}</span>
-                <i class="bi bi-chevron-down venc-chevron"></i>
-            </div>
-            <div class="venc-strip-body" id="vencStripBody">
-                ${vencidos.length ? `
-                <div class="venc-grupo">
-                    <div class="venc-grupo-label venc-grupo-label-vencido">Vencidos · ${formatearMoneda(totalVencidos)}</div>
-                    ${vencidos.map(c => filaItem(c, true)).join('')}
-                </div>` : ''}
-                ${proximos.length ? `
-                <div class="venc-grupo">
-                    <div class="venc-grupo-label">Esta semana · ${formatearMoneda(totalProximos)}</div>
-                    ${proximos.map(c => filaItem(c, false)).join('')}
-                </div>` : ''}
-            </div>
-        </div>`;
-
-    contenedor.innerHTML = html;
+    modalBody.innerHTML = `
+        ${vencidos.length ? `
+        <div class="venc-grupo">
+            <div class="venc-grupo-label venc-grupo-label-vencido">Vencidos · ${formatearMoneda(totalVencidos)}</div>
+            ${vencidos.map(c => filaItem(c, true)).join('')}
+        </div>` : ''}
+        ${proximos.length ? `
+        <div class="venc-grupo">
+            <div class="venc-grupo-label">Esta semana · ${formatearMoneda(totalProximos)}</div>
+            ${proximos.map(c => filaItem(c, false)).join('')}
+        </div>` : ''}`;
 }
 
 function mostrarBannerPeriodo() {
@@ -444,20 +455,17 @@ async function copiarPeriodoAnterior(fromMes, fromAnio) {
 }
 
 function inicializarDataTables() {
-    const opciones = {
+    app.dtGastos = $('#dtGastos').DataTable({
         paging:   false,
         info:     false,
-        ordering: false,      // orden fijo desde la API — respeta agrupación por categoría
+        ordering: false,
         dom:      't',
         autoWidth: false,
         language: { emptyTable: 'Sin datos para este período' },
         drawCallback: function() {
             inyectarCabecerasCategorias(this.api());
         }
-    };
-
-    app.dtIngresos = $('#dtIngresos').DataTable(opciones);
-    app.dtGastos   = $('#dtGastos').DataTable(opciones);
+    });
 }
 
 // Inyectar filas de cabecera de categoría en el tbody después de cada draw de DataTables
@@ -539,7 +547,7 @@ function toggleCategoria(catId) {
         tr.classList.toggle('cat-fila-colapsada', ahoraColapsada);
         // Si es una fila de concepto múltiple con detalle abierto, cerrarlo
         if (ahoraColapsada && tr.classList.contains('concepto-multiple-header')) {
-            const dtInstance = tr.closest('#dtIngresos') ? app.dtIngresos : app.dtGastos;
+            const dtInstance = app.dtGastos;
             if (dtInstance) {
                 const row = dtInstance.row(tr);
                 if (row.child.isShown()) {
@@ -583,12 +591,15 @@ function crearFilaSimple(concepto, tipo) {
         tr.classList.add('tr-vencido');
     }
 
-    // Botón pagado — todos los gastos (si no hay registro se crea con importe 0 al hacer click)
-    if (tipo === 'gasto') {
+    // Botón pagado (gastos) / cobrado (ingresos)
+    {
         const isPaid = concepto.pagado === 1;
+        const esIngreso = tipo === 'ingreso';
         const btnPagado = document.createElement('button');
         btnPagado.className = `btn-pagado${isPaid ? ' pagado' : ''}`;
-        btnPagado.title = isPaid ? 'Marcar como no pagado' : 'Marcar como pagado';
+        btnPagado.title = isPaid
+            ? (esIngreso ? 'Marcar como no cobrado' : 'Marcar como no pagado')
+            : (esIngreso ? 'Marcar como cobrado'    : 'Marcar como pagado');
         btnPagado.innerHTML = `<i class="bi ${isPaid ? 'bi-check-circle-fill' : 'bi-circle'}"></i>`;
         btnPagado.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -953,7 +964,7 @@ function toggleDetalle(conceptoId) {
     if (!trHeader) return;
 
     const arrow = document.getElementById(`arrow-${conceptoId}`);
-    const dtInstance = trHeader.closest('#dtIngresos') ? app.dtIngresos : app.dtGastos;
+    const dtInstance = app.dtGastos;
     if (!dtInstance) return;
 
     const row = dtInstance.row(trHeader);
@@ -1413,6 +1424,7 @@ async function togglePagado(registroId, btnElement, trElement, conceptoId = null
         }
         // Recargar para que el botón tenga el registro_id correcto en su closure
         if (registroCreado) await cargarDatos();
+        else await cargarCuentas(); // Refrescar saldos si se creó/revirtió movimiento
     } catch (error) {
         mostrarError('Error al actualizar: ' + error.message);
     }
@@ -1444,27 +1456,303 @@ function obtenerNombreMes(numeroMes) {
 }
 
 // Toggle sección resumen
-function toggleResumen() {
-    const contenido = document.getElementById('contenidoResumen');
-    const icon = document.getElementById('iconToggleResumen');
-    const oculto = contenido.classList.contains('d-none');
-    contenido.classList.toggle('d-none', !oculto);
-    icon.classList.toggle('bi-chevron-down', !oculto);
-    icon.classList.toggle('bi-chevron-up', oculto);
+
+function actualizarLabelFiltro() {
+    const el = document.getElementById('filtroMesLabel');
+    if (el) el.textContent = `${obtenerNombreMes(app.mesActual)} ${app.anioActual}`;
 }
 
-// Toggle sección ingresos
-function toggleTablaIngresos() {
-    const contenido = document.getElementById('contenidoIngresos');
-    const icon = document.getElementById('iconToggleIngresos');
-    const oculto = contenido.classList.contains('d-none');
-    contenido.classList.toggle('d-none', !oculto);
-    icon.classList.toggle('bi-chevron-down', !oculto);
-    icon.classList.toggle('bi-chevron-up', oculto);
-    // Recalcular columnas de DataTables al hacerse visible
-    if (oculto && app.dtIngresos) {
-        app.dtIngresos.columns.adjust().draw(false);
+function abrirModalResumen() {
+    new bootstrap.Modal(document.getElementById('modalResumen')).show();
+}
+
+function abrirModalCuentas() {
+    new bootstrap.Modal(document.getElementById('modalCuentas')).show();
+}
+
+function abrirModalIngresos() {
+    document.getElementById('mesAnioIngresos').textContent =
+        `${String(app.mesActual).padStart(2, '0')}/${app.anioActual}`;
+    ocultarFormNuevoIngreso();
+    renderizarModalIngresos();
+    new bootstrap.Modal(document.getElementById('modalIngresos')).show();
+}
+
+function renderizarModalIngresos() {
+    const body = document.getElementById('modalIngresosBody');
+    if (!body) return;
+
+    const ingresos = (app.datos?.conceptos || []).filter(c => c.tipo === 'ingreso');
+
+    if (!ingresos.length) {
+        body.innerHTML = '<p class="text-center text-muted py-4">Sin conceptos de ingreso. Usá "Nuevo ingreso" para agregar.</p>';
+        document.getElementById('totalIngresosModal').innerHTML = '';
+        return;
     }
+
+    const cuentasOpts = app.cuentas.map(c =>
+        `<option value="${c.id}">${c.nombre}</option>`
+    ).join('');
+
+    const rows = ingresos.map(c => {
+        const isPaid   = c.pagado === 1;
+        const fechaVal = c.fecha ? c.fecha.split('T')[0] : '';
+        const imp      = c.importe > 0 ? formatearMoneda(c.importe) : '';
+        const hasReg   = !!c.registro_id;
+
+        return `
+        <div class="ingreso-row ${isPaid ? 'ingreso-row-cobrado' : ''}"
+             data-concepto-id="${c.id}"
+             data-registro-id="${c.registro_id || ''}">
+
+            <button class="btn-pagado ${isPaid ? 'pagado' : ''}"
+                    title="${isPaid ? 'Marcar como no cobrado' : 'Marcar como cobrado'}"
+                    onclick="toggleCobradoIngreso(${c.registro_id || 'null'}, ${c.id}, this)">
+                <i class="bi ${isPaid ? 'bi-check-circle-fill' : 'bi-circle'}"></i>
+            </button>
+
+            <div class="ingreso-nombre-wrap" id="ingreso-nombre-wrap-${c.id}">
+                <span class="ingreso-nombre">${c.nombre}</span>
+                <button class="btn-edit-ingreso" title="Editar concepto"
+                        onclick="mostrarEditConceptoIngreso(${c.id})">
+                    <i class="bi bi-pencil-fill"></i>
+                </button>
+            </div>
+
+            <input type="date" class="ingreso-fecha form-control form-control-sm"
+                   value="${fechaVal}"
+                   ${!hasReg ? 'disabled title="Ingresá el importe primero"' : `onchange="guardarFechaIngreso(${c.registro_id}, this.value, this)"`}>
+
+            <select class="ingreso-cuenta form-select form-select-sm"
+                    data-cuenta-actual="${c.cuenta_id || ''}"
+                    ${!hasReg ? 'disabled' : `onchange="guardarCuentaRegistro(${c.registro_id}, this.value || null)"`}>
+                <option value="">— Cuenta —</option>
+                ${cuentasOpts}
+            </select>
+
+            <input type="text" inputmode="decimal"
+                   class="ingreso-importe input-importe form-control form-control-sm"
+                   value="${imp}"
+                   data-concepto-id="${c.id}"
+                   data-registro-id="${c.registro_id || ''}"
+                   placeholder="$ 0,00"
+                   onfocus="const v=parsearImporte(this.value);this.value=v>0?String(v).replace('.',','):'';this.select()"
+                   onblur="guardarImporteIngreso(this)"
+                   onkeypress="if(event.key==='Enter')this.blur()"
+                   oninput="this.classList.add('unsaved');this.classList.remove('saved')">
+        </div>`;
+    }).join('');
+
+    body.innerHTML = `<div class="ingreso-lista">${rows}</div>`;
+
+    // Setear valor del select de cuenta (no se puede en template string directamente)
+    ingresos.forEach(c => {
+        if (!c.cuenta_id) return;
+        const row = body.querySelector(`[data-concepto-id="${c.id}"]`);
+        if (row) {
+            const sel = row.querySelector('.ingreso-cuenta');
+            if (sel) sel.value = c.cuenta_id;
+        }
+    });
+
+    // Totales
+    const total    = ingresos.reduce((s, c) => s + parseFloat(c.importe || 0), 0);
+    const cobrado  = ingresos.filter(c => c.pagado === 1).reduce((s, c) => s + parseFloat(c.importe || 0), 0);
+    const pendiente = total - cobrado;
+
+    document.getElementById('totalIngresosModal').innerHTML = `
+        <div class="ingreso-total-item">
+            <span class="ingreso-total-label">Total</span>
+            <span class="ingreso-total-valor">${formatearMoneda(total)}</span>
+        </div>
+        <div class="ingreso-total-item">
+            <span class="ingreso-total-label">Cobrado</span>
+            <span class="ingreso-total-valor text-success">${formatearMoneda(cobrado)}</span>
+        </div>
+        <div class="ingreso-total-item">
+            <span class="ingreso-total-label">Pendiente</span>
+            <span class="ingreso-total-valor text-muted">${formatearMoneda(pendiente)}</span>
+        </div>`;
+}
+
+async function toggleCobradoIngreso(registroId, conceptoId, btn) {
+    const isPaid   = btn.classList.contains('pagado');
+    const newPagado = isPaid ? 0 : 1;
+
+    // Si no hay registro, crear uno vacío primero
+    if (!registroId && newPagado === 1) {
+        const r = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ concepto_id: conceptoId, mes: app.mesActual, anio: app.anioActual, importe: 0 })
+        });
+        const res = await r.json();
+        if (!res.success) { mostrarError(res.message); return; }
+        registroId = res.data.id;
+    }
+    if (!registroId) return;
+
+    try {
+        const resp = await fetch(API_URL, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ registro_id: registroId, pagado: newPagado })
+        });
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.message);
+        await cargarDatos(); // re-renderiza el modal vía renderizarDatos()
+    } catch (e) {
+        mostrarError('Error: ' + e.message);
+    }
+}
+
+async function guardarFechaIngreso(registroId, valor, input) {
+    if (!registroId) return;
+    try {
+        const resp = await fetch(API_URL, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ registro_id: registroId, fecha: valor || null })
+        });
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.message);
+        // Actualizar en memoria
+        const c = app.datos?.conceptos?.find(c => c.registro_id == registroId);
+        if (c) c.fecha = valor;
+    } catch (e) {
+        mostrarError('Error al guardar fecha: ' + e.message);
+        if (input) input.classList.add('is-invalid');
+    }
+}
+
+async function guardarImporteIngreso(input) {
+    const importe    = parsearImporte(input.value);
+    input.value      = importe > 0 ? formatearMoneda(importe) : '';
+    const conceptoId = parseInt(input.dataset.conceptoId);
+    const registroId = input.dataset.registroId ? parseInt(input.dataset.registroId) : null;
+    // guardarImporte ya llama cargarDatos(), que re-renderiza el modal si está abierto
+    await guardarImporte(conceptoId, importe, registroId, input);
+}
+
+function mostrarEditConceptoIngreso(conceptoId) {
+    const wrap = document.getElementById(`ingreso-nombre-wrap-${conceptoId}`);
+    if (!wrap) return;
+
+    const concepto = app.datos?.conceptos?.find(c => c.id == conceptoId);
+    if (!concepto) return;
+
+    const cuentasOpts = [
+        '<option value="">— Sin cuenta —</option>',
+        ...app.cuentas.map(cu =>
+            `<option value="${cu.id}">${cu.nombre}</option>`)
+    ].join('');
+
+    wrap.innerHTML = `
+        <div class="ingreso-edit-form">
+            <input type="text" class="form-control form-control-sm" style="max-width:160px"
+                   id="edit-ing-nombre-${conceptoId}" value="${concepto.nombre}">
+            <select class="form-select form-select-sm" style="max-width:130px"
+                    id="edit-ing-cuenta-${conceptoId}">
+                ${cuentasOpts}
+            </select>
+            <button class="btn btn-success btn-sm" onclick="guardarEditConceptoIngreso(${conceptoId})">
+                <i class="bi bi-check-lg"></i>
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="renderizarModalIngresos()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            <button class="btn btn-outline-danger btn-sm" title="Desactivar concepto"
+                    onclick="toggleActivoConcepto(${conceptoId}, 0).then(()=>cargarDatos())">
+                <i class="bi bi-eye-slash"></i>
+            </button>
+        </div>`;
+
+    // Preseleccionar cuenta por defecto actual
+    const selCuenta = document.getElementById(`edit-ing-cuenta-${conceptoId}`);
+    if (selCuenta && concepto.cuenta_id_default) selCuenta.value = concepto.cuenta_id_default;
+}
+
+async function guardarEditConceptoIngreso(conceptoId) {
+    const nombre    = document.getElementById(`edit-ing-nombre-${conceptoId}`)?.value?.trim();
+    const cuentaDef = document.getElementById(`edit-ing-cuenta-${conceptoId}`)?.value || null;
+    if (!nombre) { mostrarError('El nombre no puede estar vacío'); return; }
+
+    try {
+        const resp = await fetch(CONCEPTOS_API_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: conceptoId, nombre, cuenta_id_default: cuentaDef || null })
+        });
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.message);
+        mostrarToast('Concepto actualizado', 'success');
+        await cargarDatos(); // re-renderiza todo
+    } catch (e) {
+        mostrarError('Error: ' + e.message);
+    }
+}
+
+function mostrarFormNuevoIngreso() {
+    const form = document.getElementById('formNuevoIngreso');
+    form.classList.remove('d-none');
+
+    // Poblar select de cuentas
+    const sel = document.getElementById('nuevoIngresoCuenta');
+    sel.innerHTML = '<option value="">— Sin cuenta —</option>' +
+        app.cuentas.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+
+    document.getElementById('nuevoIngresoNombre').value  = '';
+    document.getElementById('nuevoIngresoImporte').value = '';
+    document.getElementById('nuevoIngresoNombre').focus();
+}
+
+function ocultarFormNuevoIngreso() {
+    document.getElementById('formNuevoIngreso')?.classList.add('d-none');
+}
+
+async function guardarNuevoIngreso() {
+    const nombre   = document.getElementById('nuevoIngresoNombre').value.trim();
+    const cuentaDef = document.getElementById('nuevoIngresoCuenta').value || null;
+    const importeStr = document.getElementById('nuevoIngresoImporte').value;
+    const importe  = parsearImporte(importeStr);
+
+    if (!nombre) { mostrarError('El nombre es obligatorio'); return; }
+
+    try {
+        // 1. Crear concepto
+        const respC = await fetch(CONCEPTOS_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, tipo: 'ingreso', cuenta_id_default: cuentaDef || null })
+        });
+        const resC = await respC.json();
+        if (!resC.success) throw new Error(resC.message);
+        const nuevoConceptoId = resC.data?.id;
+
+        // 2. Crear registro del mes si hay importe
+        if (nuevoConceptoId && importe > 0) {
+            await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    concepto_id: nuevoConceptoId,
+                    mes: app.mesActual,
+                    anio: app.anioActual,
+                    importe
+                })
+            });
+        }
+
+        ocultarFormNuevoIngreso();
+        mostrarToast(`"${nombre}" agregado`, 'success');
+        await cargarDatos();
+    } catch (e) {
+        mostrarError('Error: ' + e.message);
+    }
+}
+
+function abrirModalVencimientos() {
+    new bootstrap.Modal(document.getElementById('modalVencimientos')).show();
 }
 
 // Mostrar loading
@@ -1510,16 +1798,13 @@ async function cargarConceptosModal() {
             fetch(CONCEPTOS_API_URL),
             fetch(CATEGORIAS_API_URL)
         ]);
-        const resC = await respConceptos.json();
+        const resC   = await respConceptos.json();
         const resCat = await respCategorias.json();
         if (!resC.success) throw new Error(resC.message);
 
         app.categorias = resCat.success ? resCat.data : [];
 
-        const ingresos = resC.data.filter(c => c.tipo === 'ingreso');
-        const gastos   = resC.data.filter(c => c.tipo === 'gasto');
-
-        renderizarListaConceptos('listaIngresos', ingresos);
+        const gastos = resC.data.filter(c => c.tipo === 'gasto');
         renderizarListaConceptos('listaGastos', gastos);
         poblarSelectCategorias();
     } catch (error) {
@@ -1785,8 +2070,8 @@ async function guardarNuevoConcepto() {
         await cargarConceptosModal();
         await cargarDatos();
 
-        const tabBtn = document.getElementById(tipo === 'ingreso' ? 'tab-ingresos-btn' : 'tab-gastos-btn');
-        bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+        const tabBtn = document.getElementById('tab-gastos-btn');
+        if (tabBtn) bootstrap.Tab.getOrCreateInstance(tabBtn).show();
     } catch (error) {
         mostrarError('Error al crear: ' + error.message);
     }
@@ -2147,10 +2432,15 @@ function renderizarCuentas() {
                         <span class="cuenta-tipo">${tipoLabel[c.tipo] || c.tipo}</span>
                     </div>
                 </div>
-                <button class="btn btn-ghost-muted btn-sm" title="Actualizar saldo"
-                    onclick="actualizarSaldoCuenta(${c.id})">
-                    <i class="bi bi-pencil"></i>
-                </button>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-ghost-muted btn-sm" title="Transferir" onclick="abrirModalTransferencia(${c.id})">
+                        <i class="bi bi-arrow-left-right"></i>
+                    </button>
+                    ${c.tipo !== 'billetera' ? `<button class="btn btn-ghost-muted btn-sm" title="Extracción Efectivo" onclick="registrarExtraccion(${c.id})"><i class="bi bi-cash-stack"></i></button>` : ''}
+                    <button class="btn btn-ghost-muted btn-sm" title="Actualizar saldo" onclick="actualizarSaldoCuenta(${c.id})">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </div>
             </div>
             <div class="cuenta-stats">
                 <div class="cuenta-stat">
@@ -2171,30 +2461,209 @@ function renderizarCuentas() {
     }).join('');
 
     contenedor.innerHTML = `
-    <div class="card shadow-sm">
-        <div class="card-header seccion-header d-flex justify-content-between align-items-center">
-            <h3 class="h6 mb-0 fw-bold seccion-titulo">
-                <i class="bi bi-bank me-2 text-primary"></i>Cuentas
-            </h3>
+    <div class="cuenta-lista">${filasHtml}</div>
+    <div class="cuenta-consolidado">
+        <div class="cuenta-consolidado-row">
+            <span class="cuenta-consolidado-label">Total real en cuentas</span>
+            <span class="cuenta-consolidado-valor">${formatearMoneda(totalReal)}</span>
         </div>
-        <div class="card-body p-0">
-            <div class="cuenta-lista">${filasHtml}</div>
-            <div class="cuenta-consolidado">
-                <div class="cuenta-consolidado-row">
-                    <span class="cuenta-consolidado-label">Total real en cuentas</span>
-                    <span class="cuenta-consolidado-valor">${formatearMoneda(totalReal)}</span>
-                </div>
-                <div class="cuenta-consolidado-row">
-                    <span class="cuenta-consolidado-label">Disponible (sistema)</span>
-                    <span class="cuenta-consolidado-valor">${formatearMoneda(saldoSistema)}</span>
-                </div>
-                <div class="cuenta-consolidado-row cuenta-consolidado-diff">
-                    <span class="cuenta-consolidado-label">Diferencia</span>
-                    <span class="cuenta-consolidado-valor ${diffTotalClass}">${(diffTotal >= 0 ? '+' : '') + formatearMoneda(diffTotal)}</span>
-                </div>
-            </div>
+        <div class="cuenta-consolidado-row">
+            <span class="cuenta-consolidado-label">Disponible (sistema)</span>
+            <span class="cuenta-consolidado-valor">${formatearMoneda(saldoSistema)}</span>
+        </div>
+        <div class="cuenta-consolidado-row cuenta-consolidado-diff">
+            <span class="cuenta-consolidado-label">Diferencia</span>
+            <span class="cuenta-consolidado-valor ${diffTotalClass}">${(diffTotal >= 0 ? '+' : '') + formatearMoneda(diffTotal)}</span>
         </div>
     </div>`;
+}
+
+function abrirModalTransferencia(cuentaOrigenId = null) {
+    const sel1 = document.getElementById('transfOrigen');
+    const sel2 = document.getElementById('transfDestino');
+
+    const options = app.cuentas.map(c =>
+        `<option value="${c.id}">${c.nombre}</option>`
+    ).join('');
+    sel1.innerHTML = options;
+    sel2.innerHTML = options;
+
+    if (cuentaOrigenId) sel1.value = cuentaOrigenId;
+    // Pre-seleccionar destino distinto al origen
+    const otra = app.cuentas.find(c => c.id != (cuentaOrigenId || app.cuentas[0]?.id));
+    if (otra) sel2.value = otra.id;
+
+    document.getElementById('transfImporte').value    = '';
+    document.getElementById('transfDescripcion').value = '';
+
+    new bootstrap.Modal(document.getElementById('modalTransferencia')).show();
+}
+
+async function realizarTransferencia() {
+    const origen      = parseInt(document.getElementById('transfOrigen').value);
+    const destino     = parseInt(document.getElementById('transfDestino').value);
+    const importe     = parsearImporte(document.getElementById('transfImporte').value);
+    const descripcion = document.getElementById('transfDescripcion').value.trim();
+
+    if (origen === destino) { mostrarError('Las cuentas deben ser distintas'); return; }
+    if (!importe || importe <= 0) { mostrarError('Importe inválido'); return; }
+
+    try {
+        const resp = await fetch('api/movimientos_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipo: 'transferencia', cuenta_origen_id: origen, cuenta_destino_id: destino, importe, descripcion })
+        });
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.message);
+
+        bootstrap.Modal.getInstance(document.getElementById('modalTransferencia'))?.hide();
+        mostrarToast('Transferencia realizada', 'success');
+        await cargarCuentas();
+    } catch (error) {
+        mostrarError('Error: ' + error.message);
+    }
+}
+
+async function registrarExtraccion(cuentaId) {
+    const cuenta = app.cuentas.find(c => c.id == cuentaId);
+    if (!cuenta) return;
+
+    const inputStr = prompt(`Extracción Efectivo — ${cuenta.nombre}\nImporte:`);
+    if (inputStr === null) return;
+
+    const importe = parsearImporte(inputStr);
+    if (!importe || importe <= 0) { mostrarError('Importe inválido'); return; }
+
+    try {
+        const resp = await fetch('api/movimientos_api.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tipo: 'extraccion',
+                cuenta_id: cuentaId,
+                importe,
+                fecha: new Date().toISOString().split('T')[0]
+            })
+        });
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.message);
+
+        mostrarToast(`Extracción de ${formatearMoneda(importe)} registrada`, 'success');
+        await cargarDatos();
+    } catch (error) {
+        mostrarError('Error: ' + error.message);
+    }
+}
+
+function abrirModalGastoRapido() {
+    // Poblar selector con conceptos múltiples de gasto activos
+    const sel = document.getElementById('grConcepto');
+    const conceptos = (app.datos?.conceptos || [])
+        .filter(c => c.tipo === 'gasto' && c.permite_multiples == 1 && c.activo != 0);
+    sel.innerHTML = conceptos.length
+        ? conceptos.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('')
+        : '<option value="">— Sin conceptos disponibles —</option>';
+
+    // Fecha por defecto: hoy
+    document.getElementById('grFecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('grImporte').value = '';
+    document.getElementById('grDescripcion').value = '';
+
+    new bootstrap.Modal(document.getElementById('modalGastoRapido')).show();
+    setTimeout(() => document.getElementById('grImporte').focus(), 400);
+}
+
+async function guardarGastoRapido() {
+    const conceptoId = parseInt(document.getElementById('grConcepto').value);
+    const fecha      = document.getElementById('grFecha').value;
+    const importe    = parsearImporte(document.getElementById('grImporte').value);
+    const desc       = document.getElementById('grDescripcion').value.trim();
+
+    if (!conceptoId) { mostrarError('Seleccioná un concepto.'); return; }
+    if (!fecha)      { mostrarError('Ingresá una fecha.'); return; }
+    if (importe <= 0){ mostrarError('El importe debe ser mayor a 0.'); return; }
+
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                concepto_id: conceptoId,
+                mes: app.mesActual,
+                anio: app.anioActual,
+                fecha,
+                importe,
+                observaciones: desc || null
+            })
+        });
+        const result = await res.json();
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalGastoRapido')).hide();
+            mostrarToast('Gasto agregado', 'success');
+            await cargarDatos();
+        } else {
+            mostrarError('Error: ' + result.message);
+        }
+    } catch (e) {
+        mostrarError('Error de conexión.');
+    }
+}
+
+async function abrirModalMovimientos() {
+    const modal = new bootstrap.Modal(document.getElementById('modalMovimientos'));
+    modal.show();
+
+    const body = document.getElementById('modalMovimientosBody');
+    body.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
+
+    try {
+        const resp = await fetch('api/movimientos_api.php?limit=50');
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.message);
+
+        if (!result.data.length) {
+            body.innerHTML = '<p class="text-center text-muted py-4">Sin movimientos registrados</p>';
+            return;
+        }
+
+        const tipoInfo = {
+            ingreso:      { label: 'Cobro',         icon: 'bi-arrow-down-circle text-success', cls: 'text-success' },
+            pago_gasto:   { label: 'Pago',          icon: 'bi-arrow-up-circle text-danger',    cls: 'text-danger'  },
+            transferencia:{ label: 'Transferencia', icon: 'bi-arrow-left-right text-primary',  cls: ''             },
+            extraccion:   { label: 'Extracción Efectivo',icon: 'bi-cash-stack text-warning',        cls: 'text-danger'  },
+        };
+
+        const rows = result.data.map(m => {
+            const t = tipoInfo[m.tipo] || { label: m.tipo, icon: 'bi-circle', cls: '' };
+            const cuentaStr = m.tipo === 'transferencia'
+                ? `${m.cuenta_origen || '?'} → ${m.cuenta_destino || '?'}`
+                : (m.cuenta_origen || m.cuenta_destino || '—');
+            const desc = m.observaciones || m.descripcion || '';
+            return `<tr>
+                <td class="text-muted small">${formatearFechaCorta(m.fecha)}</td>
+                <td><i class="bi ${t.icon} me-1"></i><span class="small">${t.label}</span></td>
+                <td class="small">${cuentaStr}</td>
+                <td class="small text-muted">${desc}</td>
+                <td class="text-end fw-medium ${t.cls}">${formatearMoneda(m.importe)}</td>
+            </tr>`;
+        }).join('');
+
+        body.innerHTML = `
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th><th>Tipo</th><th>Cuenta</th><th>Descripción</th>
+                        <th class="text-end">Importe</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>`;
+    } catch (error) {
+        body.innerHTML = `<div class="alert alert-danger m-3">Error: ${error.message}</div>`;
+    }
 }
 
 async function actualizarSaldoCuenta(cuentaId) {
