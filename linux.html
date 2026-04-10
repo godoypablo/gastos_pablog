@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manual Maestro Linux 2026</title>
+    <title>Manual Linux Interactivo 2026</title>
     <style>
         :root {
             --primary: #1a1c2c;
@@ -19,258 +19,203 @@
             --routine-color: #f1c40f;
         }
 
-        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; }
         .container { max-width: 1200px; margin: 0 auto; }
         
         header { 
-            text-align: center; padding: 50px 20px; background: linear-gradient(135deg, var(--primary), #4a4e69); 
-            color: white; border-radius: 15px; margin-bottom: 30px; box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            text-align: center; padding: 40px; background: linear-gradient(135deg, var(--primary), #4a4e69); 
+            color: white; border-radius: 15px; margin-bottom: 30px;
         }
 
-        .category-nav { 
-            display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; 
-            margin-bottom: 30px; position: sticky; top: 15px; z-index: 1000;
-        }
+        .category-nav { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 30px; position: sticky; top: 15px; z-index: 1000; }
         
         .btn-tab {
-            padding: 12px 18px; border: none; background: var(--white); color: var(--primary); 
-            border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
-            transition: all 0.2s ease; font-size: 0.9em;
+            padding: 10px 18px; border: none; background: var(--white); color: var(--primary); 
+            border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.2s;
         }
 
-        .btn-tab:hover { background: #eee; transform: translateY(-2px); }
-        .btn-tab.active { background: var(--accent); color: white; box-shadow: 0 4px 12px rgba(74, 144, 226, 0.4); }
+        .btn-tab.active { background: var(--accent); color: white; }
 
-        .command-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
+        .command-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 15px; }
         
         .command-card {
             background: var(--white); padding: 20px; border-radius: 12px; border-left: 6px solid #ccc;
-            display: flex; flex-direction: column; transition: all 0.3s ease; opacity: 1;
+            display: flex; flex-direction: column; transition: 0.3s;
         }
 
-        /* Colores por Categoría */
         .command-card.nav { border-left-color: var(--nav-color); }
         .command-card.file { border-left-color: var(--file-color); }
         .command-card.user { border-left-color: var(--user-color); }
         .command-card.sys { border-left-color: var(--sys-color); }
         .command-card.net { border-left-color: var(--net-color); }
-        .command-card.routine { border-left-color: var(--routine-color); background: #fffef0; }
+        .command-card.routine { border-left-color: var(--routine-color); background: #fffef2; }
 
-        .badge { align-self: flex-start; padding: 3px 8px; border-radius: 4px; font-size: 0.7em; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; background: #eee; color: #666; }
+        .command-card h3 { margin: 0 0 10px 0; font-family: monospace; }
+        .desc { font-size: 0.9em; margin-bottom: 12px; color: #555; flex-grow: 1; }
         
-        .command-card h3 { margin: 0 0 8px 0; font-family: 'Consolas', monospace; color: #222; font-size: 1.25em; }
-        .desc { font-size: 0.9em; line-height: 1.4; margin-bottom: 12px; color: #555; flex-grow: 1; }
-        
-        .syntax { background: var(--code-bg); color: #71e06d; padding: 12px; border-radius: 6px; font-size: 0.85em; font-family: 'Courier New', monospace; position: relative; overflow-x: auto; }
-        .syntax::before { content: "$"; margin-right: 8px; color: #4a90e2; font-weight: bold; }
+        /* Contenedor de código con botón */
+        .code-box {
+            background: var(--code-bg);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            position: relative;
+        }
 
-        footer { text-align: center; margin-top: 60px; padding: 30px; color: #999; border-top: 1px solid #ddd; }
+        .syntax { 
+            color: #71e06d; 
+            font-size: 0.85em; 
+            font-family: 'Courier New', monospace; 
+            overflow-x: auto;
+            white-space: nowrap;
+            margin-right: 10px;
+        }
+
+        .copy-btn {
+            background: #444;
+            color: #fff;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75em;
+            transition: 0.2s;
+            flex-shrink: 0;
+        }
+
+        .copy-btn:hover { background: #666; }
+        .copy-btn.copied { background: #27ae60; }
+
+        footer { text-align: center; margin-top: 50px; padding: 20px; color: #999; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <header>
-        <h1>🐧 Guía Total de Linux para Alumnos</h1>
-        <p>Desde navegación básica hasta rutinas de mantenimiento profesional.</p>
+        <h1>🐧 Linux Interactivo 2026</h1>
+        <p>Copia comandos con un clic y pégalos en tu terminal (Shift + Insert).</p>
     </header>
 
     <nav class="category-nav">
-        <button class="btn-tab active" onclick="filterSelection('all')">Todos los Comandos</button>
-        <button class="btn-tab" onclick="filterSelection('routine')">⭐ Rutinas Diarias</button>
+        <button class="btn-tab active" onclick="filterSelection('all')">Todos</button>
+        <button class="btn-tab" onclick="filterSelection('routine')">⭐ Rutinas</button>
         <button class="btn-tab" onclick="filterSelection('nav')">📍 Navegación</button>
-        <button class="btn-tab" onclick="filterSelection('file')">📂 Archivos/Editores</button>
-        <button class="btn-tab" onclick="filterSelection('user')">🔑 Usuarios/Permisos</button>
-        <button class="btn-tab" onclick="filterSelection('sys')">⚙️ Sistema/Procesos</button>
+        <button class="btn-tab" onclick="filterSelection('file')">📂 Archivos</button>
+        <button class="btn-tab" onclick="filterSelection('user')">🔑 Usuarios</button>
+        <button class="btn-tab" onclick="filterSelection('sys')">⚙️ Sistema</button>
         <button class="btn-tab" onclick="filterSelection('net')">🌐 Redes</button>
     </nav>
 
-    <div class="command-grid" id="mainGrid">
+    <div class="command-grid">
         
         <div class="command-card routine">
-            <span class="badge">Mantenimiento</span>
-            <h3>Actualización Total</h3>
-            <p class="desc">Actualiza la lista de repositorios y luego instala todas las mejoras disponibles sin preguntar.</p>
-            <div class="syntax">sudo apt update && sudo apt upgrade -y</div>
+            <h3>Actualizar Sistema</h3>
+            <p class="desc">Actualiza repositorios y software instalado.</p>
+            <div class="code-box">
+                <div class="syntax">sudo apt update && sudo apt upgrade -y</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
         </div>
 
         <div class="command-card routine">
-            <span class="badge">Limpieza</span>
-            <h3>Limpieza de Espacio</h3>
-            <p class="desc">Borra instaladores antiguos y dependencias que ya no se usan para liberar disco.</p>
-            <div class="syntax">sudo apt autoremove && sudo apt autoclean</div>
-        </div>
-
-        <div class="command-card routine">
-            <span class="badge">Salud</span>
-            <h3>Estado del Sistema</h3>
-            <p class="desc">Rutina para ver memoria libre, espacio en disco y temperatura (si está disponible).</p>
-            <div class="syntax">free -m && df -h && uptime</div>
+            <h3>Limpiar Basura</h3>
+            <p class="desc">Elimina archivos temporales y paquetes huérfanos.</p>
+            <div class="code-box">
+                <div class="syntax">sudo apt autoremove && sudo apt autoclean</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
         </div>
 
         <div class="command-card nav">
-            <h3>ls</h3>
-            <p class="desc">Lista archivos y carpetas. Usa '-la' para ver archivos ocultos y detalles.</p>
-            <div class="syntax">ls -la</div>
-        </div>
-        <div class="command-card nav">
-            <h3>pwd</h3>
-            <p class="desc">Muestra la ruta absoluta de la carpeta donde estás trabajando ahora.</p>
-            <div class="syntax">pwd</div>
-        </div>
-        <div class="command-card nav">
-            <h3>cd</h3>
-            <p class="desc">Cambia de directorio. 'cd ..' para retroceder, 'cd ~' para ir al inicio.</p>
-            <div class="syntax">cd /ruta/del/directorio</div>
-        </div>
-        <div class="command-card nav">
-            <h3>locate</h3>
-            <p class="desc">Busca la ubicación de un archivo rápidamente usando la base de datos.</p>
-            <div class="syntax">locate mi_archivo.txt</div>
-        </div>
-        <div class="command-card nav">
-            <h3>find</h3>
-            <p class="desc">Busca archivos en tiempo real filtrando por nombre, fecha o tamaño.</p>
-            <div class="syntax">find . -name "*.log"</div>
+            <h3>Listar Detallado</h3>
+            <p class="desc">Muestra archivos con permisos, dueño y tamaño legible.</p>
+            <div class="code-box">
+                <div class="syntax">ls -lah</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
         </div>
 
-        <div class="command-card file">
-            <h3>mkdir</h3>
-            <p class="desc">Crea una nueva carpeta o directorio.</p>
-            <div class="syntax">mkdir nombre_carpeta</div>
-        </div>
-        <div class="command-card file">
-            <h3>rm</h3>
-            <p class="desc">Borra archivos o carpetas. '-r' borra carpetas con todo su contenido.</p>
-            <div class="syntax">rm -rf carpeta_basura</div>
-        </div>
-        <div class="command-card file">
-            <h3>cp</h3>
-            <p class="desc">Copia archivos o directorios de un lugar a otro.</p>
-            <div class="syntax">cp origen.txt destino.txt</div>
-        </div>
-        <div class="command-card file">
-            <h3>mv</h3>
-            <p class="desc">Mueve un archivo o le cambia el nombre.</p>
-            <div class="syntax">mv archivo.txt nueva_ruta/</div>
-        </div>
-        <div class="command-card file">
-            <h3>nano / vi</h3>
-            <p class="desc">Abre editores de texto directamente en la terminal para modificar archivos.</p>
-            <div class="syntax">nano configuracion.conf</div>
-        </div>
-        <div class="command-card file">
-            <h3>cat</h3>
-            <p class="desc">Muestra todo el contenido de un archivo en la pantalla.</p>
-            <div class="syntax">cat lista.txt</div>
-        </div>
-        <div class="command-card file">
-            <h3>grep</h3>
-            <p class="desc">Busca una palabra específica dentro de un archivo o salida de comando.</p>
-            <div class="syntax">grep "ERROR" sistema.log</div>
-        </div>
-
-        <div class="command-card user">
-            <h3>sudo</h3>
-            <p class="desc">Ejecuta cualquier comando con permisos de administrador (Root).</p>
-            <div class="syntax">sudo command_here</div>
-        </div>
-        <div class="command-card user">
-            <h3>chmod</h3>
-            <p class="desc">Cambia los permisos de un archivo (lectura, escritura, ejecución).</p>
-            <div class="syntax">chmod 755 script.sh</div>
-        </div>
-        <div class="command-card user">
-            <h3>chown</h3>
-            <p class="desc">Cambia el propietario y el grupo de un archivo o carpeta.</p>
-            <div class="syntax">sudo chown usuario:grupo archivo</div>
-        </div>
-        <div class="command-card user">
-            <h3>passwd</h3>
-            <p class="desc">Permite cambiar la contraseña del usuario actual o de otro.</p>
-            <div class="syntax">sudo passwd nombre_usuario</div>
+        <div class="command-card nav">
+            <h3>Buscar Archivo</h3>
+            <p class="desc">Busca un archivo por nombre en el directorio actual.</p>
+            <div class="code-box">
+                <div class="syntax">find . -name "archivo.txt"</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
         </div>
 
         <div class="command-card sys">
-            <h3>top / htop</h3>
-            <p class="desc">Muestra el uso de CPU, RAM y los procesos que están corriendo.</p>
-            <div class="syntax">htop</div>
+            <h3>Espacio en Disco</h3>
+            <p class="desc">Muestra el uso de particiones en formato humano (GB/MB).</p>
+            <div class="code-box">
+                <div class="syntax">df -h</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
         </div>
+
         <div class="command-card sys">
-            <h3>df -h</h3>
-            <p class="desc">Muestra el espacio total, usado y disponible en tus discos.</p>
-            <div class="syntax">df -h</div>
-        </div>
-        <div class="command-card sys">
-            <h3>ps aux</h3>
-            <p class="desc">Muestra una "foto" de todos los procesos activos en el sistema.</p>
-            <div class="syntax">ps aux | grep mysql</div>
-        </div>
-        <div class="command-card sys">
-            <h3>systemctl</h3>
-            <p class="desc">Controla servicios del sistema (iniciar, parar o ver estado).</p>
-            <div class="syntax">sudo systemctl status ssh</div>
-        </div>
-        <div class="command-card sys">
-            <h3>shutdown</h3>
-            <p class="desc">Apaga o reinicia el sistema de forma segura.</p>
-            <div class="syntax">sudo shutdown -r now</div>
+            <h3>Memoria RAM</h3>
+            <p class="desc">Muestra memoria libre y usada en Megabytes.</p>
+            <div class="code-box">
+                <div class="syntax">free -m</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
         </div>
 
         <div class="command-card net">
-            <h3>ping</h3>
-            <p class="desc">Envía paquetes a una IP para ver si responde y cuánta latencia hay.</p>
-            <div class="syntax">ping 8.8.8.8</div>
-        </div>
-        <div class="command-card net">
-            <h3>ip addr</h3>
-            <p class="desc">Muestra tus tarjetas de red y las direcciones IP asignadas.</p>
-            <div class="syntax">ip addr show</div>
-        </div>
-        <div class="command-card net">
-            <h3>wget</h3>
-            <p class="desc">Descarga archivos directamente desde internet a la carpeta actual.</p>
-            <div class="syntax">wget https://wordpress.org/latest.zip</div>
-        </div>
-        <div class="command-card net">
-            <h3>netstat -tuln</h3>
-            <p class="desc">Muestra todos los puertos que están abiertos en tu máquina.</p>
-            <div class="syntax">sudo netstat -tuln</div>
+            <h3>Mi IP Pública</h3>
+            <p class="desc">Consulta rápidamente qué IP ve internet.</p>
+            <div class="code-box">
+                <div class="syntax">curl ifconfig.me</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            </div>
         </div>
 
     </div>
 
     <footer>
-        <p>🐧 Manual para Estudiantes de Linux. Creado con fines educativos - 2026.</p>
+        <p>&copy; 2026 - Guía de Comandos para Alumnos de Programación</p>
     </footer>
 </div>
 
 <script>
+    // Función para copiar al portapapeles
+    function copyCode(button) {
+        // Obtenemos el texto del div "syntax" que está al lado del botón
+        const code = button.previousElementSibling.innerText;
+        
+        navigator.clipboard.writeText(code).then(() => {
+            // Cambio visual de éxito
+            const originalText = button.innerText;
+            button.innerText = "¡Copiado!";
+            button.classList.add("copied");
+            
+            // Revertir después de 2 segundos
+            setTimeout(() => {
+                button.innerText = originalText;
+                button.classList.remove("copied");
+            }, 2000);
+        });
+    }
+
+    // Función para filtrar categorías
     function filterSelection(category) {
         const cards = document.getElementsByClassName("command-card");
         const buttons = document.getElementsByClassName("btn-tab");
         
-        // Actualizar UI de botones
         for (let btn of buttons) {
             btn.classList.remove("active");
-            if (btn.getAttribute('onclick').includes(category)) {
-                btn.classList.add("active");
-            }
+            if (btn.getAttribute('onclick').includes(category)) btn.classList.add("active");
         }
 
-        // Aplicar filtro
         for (let card of cards) {
-            if (category === "all") {
+            if (category === "all" || card.classList.contains(category)) {
                 card.style.display = "flex";
-                setTimeout(() => card.style.opacity = "1", 10);
             } else {
-                if (card.classList.contains(category)) {
-                    card.style.display = "flex";
-                    setTimeout(() => card.style.opacity = "1", 10);
-                } else {
-                    card.style.opacity = "0";
-                    card.style.display = "none";
-                }
+                card.style.display = "none";
             }
         }
     }
