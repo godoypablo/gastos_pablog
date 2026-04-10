@@ -1,6 +1,8 @@
 <?php
 require_once 'config/auth_check.php';
 require_auth_or_redirect();
+$meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+$labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -127,7 +129,7 @@ require_auth_or_redirect();
                  style="cursor:pointer;user-select:none">
                 <span class="small fw-medium">
                     <i class="bi bi-calendar3 me-2 text-primary"></i>
-                    <span id="filtroMesLabel">—</span>
+                    <span id="filtroMesLabel"><?php echo $labelFiltro; ?></span>
                 </span>
                 <i class="bi bi-chevron-down" id="iconFiltroMes" style="font-size:0.85rem"></i>
             </div>
