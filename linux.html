@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guía Completa: 60 Comandos Linux</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --bg: #f4f7f6;
+            --white: #ffffff;
+            --code-bg: #282c34;
+            --nav-color: #e67e22;
+            --file-color: #27ae60;
+            --user-color: #9b59b6;
+            --sys-color: #e74c3c;
+            --net-color: #2980b9;
+        }
+
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        
+        header { 
+            text-align: center; 
+            padding: 40px 20px; 
+            background: var(--primary); 
+            color: white; 
+            border-radius: 12px; 
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        /* Navegación de Filtros */
+        .category-nav { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 10px; 
+            justify-content: center; 
+            margin-bottom: 30px; 
+            position: sticky;
+            top: 10px;
+            z-index: 100;
+        }
+        
+        .btn-tab {
+            padding: 12px 24px;
+            border: none;
+            background: white;
+            color: var(--primary);
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .btn-tab:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
+        .btn-tab.active { background: var(--accent); color: white; }
+
+        /* Grid de Comandos */
+        .command-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); 
+            gap: 20px; 
+        }
+        
+        .command-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            border-top: 5px solid #ccc;
+        }
+
+        /* Colores por categoría */
+        .command-card.nav { border-top-color: var(--nav-color); }
+        .command-card.file { border-top-color: var(--file-color); }
+        .command-card.user { border-top-color: var(--user-color); }
+        .command-card.sys { border-top-color: var(--sys-color); }
+        .command-card.net { border-top-color: var(--net-color); }
+
+        .command-card h3 { margin: 0 0 10px 0; font-family: 'Courier New', monospace; font-size: 1.4em; }
+        .desc { font-size: 0.95em; margin-bottom: 15px; color: #555; }
+        .syntax { background: var(--code-bg); color: #abb2bf; padding: 12px; border-radius: 6px; font-size: 0.85em; font-family: monospace; position: relative; }
+        .syntax::before { content: "Terminal"; position: absolute; top: -10px; right: 10px; background: #444; color: #eee; font-size: 0.7em; padding: 2px 6px; border-radius: 4px; }
+        
+        footer { text-align: center; margin-top: 50px; padding: 20px; color: #7f8c8d; border-top: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🐧 Master Linux: Guía de Comandos 2026</h1>
+        <p>Tutorial dinámico para alumnos. Selecciona una categoría para filtrar.</p>
+    </header>
+
+    <div class="category-nav" id="filter-buttons">
+        <button class="btn-tab active" onclick="filterSelection('all')">Todos</button>
+        <button class="btn-tab" onclick="filterSelection('nav')">Navegación</button>
+        <button class="btn-tab" onclick="filterSelection('file')">Archivos y Editores</button>
+        <button class="btn-tab" onclick="filterSelection('user')">Usuarios y Permisos</button>
+        <button class="btn-tab" onclick="filterSelection('sys')">Sistema y Procesos</button>
+        <button class="btn-tab" onclick="filterSelection('net')">Redes</button>
+    </div>
+
+    <div class="command-grid" id="commands">
+        <div class="command-card nav">
+            <h3>ls</h3>
+            <p class="desc">Lista el contenido de un directorio.</p>
+            <div class="syntax">ls -la /var/www</div>
+        </div>
+        <div class="command-card nav">
+            <h3>pwd</h3>
+            <p class="desc">Muestra la ruta del directorio actual.</p>
+            <div class="syntax">pwd</div>
+        </div>
+        <div class="command-card nav">
+            <h3>cd</h3>
+            <p class="desc">Cambia de directorio. 'cd ..' sube un nivel.</p>
+            <div class="syntax">cd /home/usuario/descargas</div>
+        </div>
+        <div class="command-card nav">
+            <h3>locate</h3>
+            <p class="desc">Busca archivos en la base de datos del sistema.</p>
+            <div class="syntax">locate -i archivo.txt</div>
+        </div>
+        <div class="command-card nav">
+            <h3>find</h3>
+            <p class="desc">Busca archivos en tiempo real en un directorio.</p>
+            <div class="syntax">find . -name "config.php"</div>
+        </div>
+
+        <div class="command-card file">
+            <h3>mkdir / rmdir</h3>
+            <p class="desc">Crea o elimina directorios (si están vacíos).</p>
+            <div class="syntax">mkdir nueva_carpeta</div>
+        </div>
+        <div class="command-card file">
+            <h3>rm</h3>
+            <p class="desc">Elimina archivos o directorios completos.</p>
+            <div class="syntax">rm -rf carpeta_con_archivos</div>
+        </div>
+        <div class="command-card file">
+            <h3>cp / mv</h3>
+            <p class="desc">Copia o mueve (y renombra) archivos.</p>
+            <div class="syntax">mv viejo.txt nuevo.txt</div>
+        </div>
+        <div class="command-card file">
+            <h3>touch</h3>
+            <p class="desc">Crea un archivo vacío rápidamente.</p>
+            <div class="syntax">touch index.html</div>
+        </div>
+        <div class="command-card file">
+            <h3>cat / grep</h3>
+            <p class="desc">Muestra contenido o busca texto dentro de él.</p>
+            <div class="syntax">cat log.txt | grep "error"</div>
+        </div>
+        <div class="command-card file">
+            <h3>nano / vi</h3>
+            <p class="desc">Editores de texto por consola.</p>
+            <div class="syntax">nano config.txt</div>
+        </div>
+        <div class="command-card file">
+            <h3>tar / zip</h3>
+            <p class="desc">Comprime o empaqueta archivos.</p>
+            <div class="syntax">tar -czvf backup.tar.gz /data</div>
+        </div>
+
+        <div class="command-card user">
+            <h3>sudo</h3>
+            <p class="desc">Ejecuta comandos como superusuario (root).</p>
+            <div class="syntax">sudo apt update</div>
+        </div>
+        <div class="command-card user">
+            <h3>chmod</h3>
+            <p class="desc">Cambia permisos (Lectura, Escritura, Ejecución).</p>
+            <div class="syntax">chmod 755 script.sh</div>
+        </div>
+        <div class="command-card user">
+            <h3>chown</h3>
+            <p class="desc">Cambia el dueño de un archivo o grupo.</p>
+            <div class="syntax">chown usuario:grupo archivo</div>
+        </div>
+        <div class="command-card user">
+            <h3>useradd / userdel</h3>
+            <p class="desc">Crea o borra usuarios del sistema.</p>
+            <div class="syntax">sudo useradd -m nuevo_profe</div>
+        </div>
+        <div class="command-card user">
+            <h3>whoami</h3>
+            <p class="desc">Muestra el usuario con el que estás logueado.</p>
+            <div class="syntax">whoami</div>
+        </div>
+
+        <div class="command-card sys">
+            <h3>top / htop</h3>
+            <p class="desc">Monitor de procesos y recursos (CPU/RAM).</p>
+            <div class="syntax">htop</div>
+        </div>
+        <div class="command-card sys">
+            <h3>df / du</h3>
+            <p class="desc">Muestra espacio en disco y tamaño de carpetas.</p>
+            <div class="syntax">df -h</div>
+        </div>
+        <div class="command-card sys">
+            <h3>systemctl</h3>
+            <p class="desc">Gestiona servicios (iniciar, detener, reiniciar).</p>
+            <div class="syntax">sudo systemctl restart apache2</div>
+        </div>
+        <div class="command-card sys">
+            <h3>uname -a</h3>
+            <p class="desc">Información del kernel y del sistema.</p>
+            <div class="syntax">uname -a</div>
+        </div>
+        <div class="command-card sys">
+            <h3>kill</h3>
+            <p class="desc">Termina un proceso mediante su ID (PID).</p>
+            <div class="syntax">kill -9 1234</div>
+        </div>
+        <div class="command-card sys">
+            <h3>history</h3>
+            <p class="desc">Lista los comandos ejecutados recientemente.</p>
+            <div class="syntax">history | tail -n 20</div>
+        </div>
+
+        <div class="command-card net">
+            <h3>ping</h3>
+            <p class="desc">Verifica latencia y conexión con un host.</p>
+            <div class="syntax">ping google.com</div>
+        </div>
+        <div class="command-card net">
+            <h3>wget / curl</h3>
+            <p class="desc">Descarga archivos o transfiere datos vía URL.</p>
+            <div class="syntax">wget https://site.com/file.zip</div>
+        </div>
+        <div class="command-card net">
+            <h3>ip address</h3>
+            <p class="desc">Muestra interfaces de red y direcciones IP.</p>
+            <div class="syntax">ip addr show</div>
+        </div>
+        <div class="command-card net">
+            <h3>scp / rsync</h3>
+            <p class="desc">Copia archivos entre servidores de forma segura.</p>
+            <div class="syntax">rsync -avz local/ remoto:/backup</div>
+        </div>
+        <div class="command-card net">
+            <h3>nslookup / dig</h3>
+            <p class="desc">Consulta registros DNS de un dominio.</p>
+            <div class="syntax">dig A midominio.com</div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 - Material Educativo para Alumnos de Linux. Basado en Top 60 Linux Commands.</p>
+    </footer>
+</div>
+
+<script>
+    function filterSelection(category) {
+        const cards = document.getElementsByClassName("command-card");
+        const buttons = document.getElementsByClassName("btn-tab");
+        
+        // Actualizar botón activo
+        for (let btn of buttons) {
+            btn.classList.remove("active");
+            // Comprobación simple para asignar 'active'
+            if (category === 'all' && btn.innerText === 'Todos') btn.classList.add("active");
+            if (btn.getAttribute('onclick').includes(category)) btn.classList.add("active");
+        }
+
+        // Filtrar tarjetas con animación suave
+        for (let card of cards) {
+            if (category === "all" || card.classList.contains(category)) {
+                card.style.display = "flex";
+                setTimeout(() => { card.style.opacity = "1"; }, 10);
+            } else {
+                card.style.opacity = "0";
+                card.style.display = "none";
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
