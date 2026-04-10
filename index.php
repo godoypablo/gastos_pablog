@@ -136,7 +136,10 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                     <i class="bi bi-calendar3 me-2 text-primary"></i>
                     <span id="filtroMesLabel"><?php echo $labelFiltro; ?></span>
                 </span>
-                <i class="bi bi-chevron-down" id="iconFiltroMes" style="font-size:0.85rem"></i>
+                <div class="d-flex align-items-center gap-2">
+                    <span id="saldoFiltroHeader" class="small fw-semibold" style="font-family:'Inter',sans-serif"></span>
+                    <i class="bi bi-chevron-down" id="iconFiltroMes" style="font-size:0.85rem"></i>
+                </div>
             </div>
             <div id="contenidoFiltroMes" class="collapse">
                 <div class="card-body">

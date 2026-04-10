@@ -45,6 +45,7 @@ movimientos_api.php GET | POST transferencia | POST extraccion
 
 ## Layout — pantalla principal
 - Filtro mes/año: Bootstrap collapse, default contraído, localStorage('cifra-filtro-abierto')
+- Header filtro mes/año: muestra `#saldoFiltroHeader` (saldo = ingresos−total_gastos) en verde/rojo — visible con el filtro cerrado
 - Card "Total en cuentas": `#cardCuentasHome` — colapsable, lista por cuenta sin botones — `renderizarCardCuentasHome()`
 - Card Gastos: header colapsable → muestra Pagados (`#gastosPagadosHeader`) + Por pagar (`#gastosPorPagarHeader`); total en `#totalGastosHeader`
 - FAB `.fab` bottom-right z-index:1039 → #modalGastoRapido (permite_multiples=1) — estilos en `<style>` de index.php, NO inline
@@ -106,7 +107,7 @@ Resumen/Cuentas → modales | Vencimientos → modal+badges | Ingresos → modal
 - Foco inputs en índigo | btn-ingresar con gradiente + microanimación hover
 
 ## PWA / Deploy
-- SW: HTML network-first, assets cache-first | CACHE_NAME actual: `cifra-v12`
+- SW: HTML network-first, assets cache-first | CACHE_NAME actual: `cifra-v13`
 - **Bump CACHE_NAME en sw.js cada vez que cambie CSS o JS** — fuerza re-descarga en todos los dispositivos
 - Deploy FTP: index.php siempre | app.js si JS cambió | styles.css si CSS cambió | sw.js si hay bump
 - Play Store: TWA via PWABuilder (USD 25, HTTPS) | App Store: Capacitor.js (USD 99/año)

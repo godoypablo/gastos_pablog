@@ -271,12 +271,17 @@ function renderizarDatos() {
     if (!app.datos) return;
 
     // Actualizar resumen
-    const { total_ingresos, total_gastos, gastos_pagados, saldo_disponible } = app.datos.resumen;
+    const { total_ingresos, total_gastos, gastos_pagados, saldo_disponible, saldo } = app.datos.resumen;
     const pctPagado = total_gastos > 0 ? Math.min(100, (gastos_pagados / total_gastos) * 100) : 0;
 
     document.getElementById('totalIngresos').textContent   = formatearMoneda(total_ingresos);
     document.getElementById('totalGastos').textContent     = formatearMoneda(total_gastos);
     document.getElementById('saldoDisponible').textContent = formatearMoneda(saldo_disponible);
+    const elSFH = document.getElementById('saldoFiltroHeader');
+    if (elSFH) {
+        elSFH.textContent = formatearMoneda(saldo);
+        elSFH.style.color = saldo >= 0 ? 'var(--bs-success)' : 'var(--bs-danger)';
+    }
     const elTGH = document.getElementById('totalGastosHeader');
     if (elTGH) elTGH.textContent = formatearMoneda(total_gastos);
     const elGPH = document.getElementById('gastosPagadosHeader');
