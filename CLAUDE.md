@@ -68,8 +68,9 @@ Transferencia: #modalTransferencia | Extracción: solo no-billetera
 .card-resumen: borde neutro | .seccion-header: fondo transparente, ícono con color
 NO usar border-success/danger/primary en cards ni bg-success/danger en headers
 
-## PWA
+## PWA / Deploy
 SW: HTML nunca cacheado (network-first) | assets estáticos cache-first (cifra-v6)
-Bump CACHE_NAME en sw.js para invalidar caché de assets en dispositivos
+Bump CACHE_NAME en sw.js al cambiar CSS o JS — fuerza re-descarga en dispositivos
+Deploy FTP: index.php siempre | app.js si hay JS nuevo | styles.css si hay CSS nuevo | sw.js si hay bump
 Play Store: TWA via PWABuilder (USD 25, HTTPS) | App Store: Capacitor.js (USD 99/año)
 Monetización: multi-tenant + suscripciones | IA descartada (privacidad)
