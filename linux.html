@@ -3,221 +3,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manual Linux Interactivo 2026</title>
+    <title>Manual Linux Pro 2026</title>
     <style>
         :root {
-            --primary: #1a1c2c;
-            --accent: #4a90e2;
-            --bg: #f0f2f5;
-            --white: #ffffff;
-            --code-bg: #1e1e1e;
-            --nav-color: #e67e22;
-            --file-color: #27ae60;
-            --user-color: #9b59b6;
-            --sys-color: #e74c3c;
-            --net-color: #2980b9;
-            --routine-color: #f1c40f;
+            --primary: #0f172a;
+            --accent: #38bdf8;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --code-bg: #1e293b;
+            --text-main: #334155;
+            /* Colores de categorías */
+            --c-nav: #f59e0b;
+            --c-file: #10b981;
+            --c-user: #8b5cf6;
+            --c-sys: #ef4444;
+            --c-net: #0ea5e9;
+            --c-routine: #ec4899;
         }
 
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #333; }
+        body { font-family: 'Inter', system-ui, sans-serif; background-color: var(--bg); color: var(--text-main); margin: 0; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; }
         
         header { 
-            text-align: center; padding: 40px; background: linear-gradient(135deg, var(--primary), #4a4e69); 
-            color: white; border-radius: 15px; margin-bottom: 30px;
+            text-align: center; padding: 60px 20px; background: var(--primary); 
+            color: white; border-radius: 16px; margin-bottom: 40px;
         }
 
-        .category-nav { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 30px; position: sticky; top: 15px; z-index: 1000; }
+        .category-nav { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 40px; position: sticky; top: 10px; z-index: 100; }
         
         .btn-tab {
-            padding: 10px 18px; border: none; background: var(--white); color: var(--primary); 
-            border-radius: 8px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.2s;
+            padding: 10px 20px; border: none; background: var(--card-bg); color: var(--primary); 
+            border-radius: 30px; cursor: pointer; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: 0.2s;
         }
 
         .btn-tab.active { background: var(--accent); color: white; }
 
-        .command-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 15px; }
+        .command-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
         
         .command-card {
-            background: var(--white); padding: 20px; border-radius: 12px; border-left: 6px solid #ccc;
-            display: flex; flex-direction: column; transition: 0.3s;
+            background: var(--card-bg); padding: 24px; border-radius: 12px; border-top: 4px solid #cbd5e1;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column;
         }
 
-        .command-card.nav { border-left-color: var(--nav-color); }
-        .command-card.file { border-left-color: var(--file-color); }
-        .command-card.user { border-left-color: var(--user-color); }
-        .command-card.sys { border-left-color: var(--sys-color); }
-        .command-card.net { border-left-color: var(--net-color); }
-        .command-card.routine { border-left-color: var(--routine-color); background: #fffef2; }
+        /* Colores Dinámicos */
+        .command-card.nav { border-top-color: var(--c-nav); }
+        .command-card.file { border-top-color: var(--c-file); }
+        .command-card.user { border-top-color: var(--c-user); }
+        .command-card.sys { border-top-color: var(--c-sys); }
+        .command-card.net { border-top-color: var(--c-net); }
+        .command-card.routine { border-top-color: var(--c-routine); }
 
-        .command-card h3 { margin: 0 0 10px 0; font-family: monospace; }
-        .desc { font-size: 0.9em; margin-bottom: 12px; color: #555; flex-grow: 1; }
-        
-        /* Contenedor de código con botón */
-        .code-box {
-            background: var(--code-bg);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px;
+        .command-card h3 { margin: 0 0 10px 0; font-family: monospace; font-size: 1.4em; color: var(--primary); }
+        .desc { font-size: 0.95em; line-height: 1.5; color: #64748b; margin-bottom: 20px; flex-grow: 1; }
+
+        /* Bloque de Código Profesional */
+        .code-wrapper {
             position: relative;
+            background: var(--code-bg);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: auto;
         }
 
-        .syntax { 
-            color: #71e06d; 
-            font-size: 0.85em; 
-            font-family: 'Courier New', monospace; 
-            overflow-x: auto;
-            white-space: nowrap;
-            margin-right: 10px;
+        .syntax {
+            color: #e2e8f0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.85em;
+            white-space: pre-wrap;
+            word-break: break-all;
+            padding-right: 40px; /* Espacio para el botón */
         }
 
         .copy-btn {
-            background: #444;
-            color: #fff;
-            border: none;
-            padding: 5px 10px;
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #94a3b8;
+            padding: 4px 8px;
             border-radius: 4px;
+            font-size: 0.7em;
             cursor: pointer;
-            font-size: 0.75em;
             transition: 0.2s;
-            flex-shrink: 0;
+            text-transform: uppercase;
         }
 
-        .copy-btn:hover { background: #666; }
-        .copy-btn.copied { background: #27ae60; }
+        .copy-btn:hover { background: rgba(255, 255, 255, 0.2); color: white; }
+        .copy-btn.copied { background: var(--c-file); color: white; border-color: var(--c-file); }
 
-        footer { text-align: center; margin-top: 50px; padding: 20px; color: #999; }
+        footer { text-align: center; margin-top: 80px; padding: 40px; opacity: 0.6; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <header>
-        <h1>🐧 Linux Interactivo 2026</h1>
-        <p>Copia comandos con un clic y pégalos en tu terminal (Shift + Insert).</p>
+        <h1>🐧 Linux Command Center 2026</h1>
+        <p>Guía interactiva para dominar la terminal desde cero.</p>
     </header>
 
     <nav class="category-nav">
         <button class="btn-tab active" onclick="filterSelection('all')">Todos</button>
-        <button class="btn-tab" onclick="filterSelection('routine')">⭐ Rutinas</button>
-        <button class="btn-tab" onclick="filterSelection('nav')">📍 Navegación</button>
-        <button class="btn-tab" onclick="filterSelection('file')">📂 Archivos</button>
-        <button class="btn-tab" onclick="filterSelection('user')">🔑 Usuarios</button>
-        <button class="btn-tab" onclick="filterSelection('sys')">⚙️ Sistema</button>
-        <button class="btn-tab" onclick="filterSelection('net')">🌐 Redes</button>
+        <button class="btn-tab" onclick="filterSelection('routine')">Rutinas</button>
+        <button class="btn-tab" onclick="filterSelection('nav')">Navegación</button>
+        <button class="btn-tab" onclick="filterSelection('file')">Archivos</button>
+        <button class="btn-tab" onclick="filterSelection('user')">Usuarios</button>
+        <button class="btn-tab" onclick="filterSelection('sys')">Sistema</button>
+        <button class="btn-tab" onclick="filterSelection('net')">Redes</button>
     </nav>
 
     <div class="command-grid">
         
         <div class="command-card routine">
-            <h3>Actualizar Sistema</h3>
-            <p class="desc">Actualiza repositorios y software instalado.</p>
-            <div class="code-box">
-                <div class="syntax">sudo apt update && sudo apt upgrade -y</div>
-                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
-            </div>
-        </div>
-
-        <div class="command-card routine">
-            <h3>Limpiar Basura</h3>
-            <p class="desc">Elimina archivos temporales y paquetes huérfanos.</p>
-            <div class="code-box">
-                <div class="syntax">sudo apt autoremove && sudo apt autoclean</div>
-                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            <h3>Update & Cleanup</h3>
+            <p class="desc">Mantenimiento total: actualiza la lista de software, instala mejoras y borra archivos residuales.</p>
+            <div class="code-wrapper">
+                <div class="syntax">sudo apt update && sudo apt upgrade -y && sudo apt autoremove</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
             </div>
         </div>
 
         <div class="command-card nav">
-            <h3>Listar Detallado</h3>
-            <p class="desc">Muestra archivos con permisos, dueño y tamaño legible.</p>
-            <div class="code-box">
-                <div class="syntax">ls -lah</div>
-                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            <h3>ls -laS</h3>
+            <p class="desc">Lista todos los archivos (incluso ocultos) ordenados por tamaño de mayor a menor.</p>
+            <div class="code-wrapper">
+                <div class="syntax">ls -laS --block-size=M</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
             </div>
         </div>
 
         <div class="command-card nav">
-            <h3>Buscar Archivo</h3>
-            <p class="desc">Busca un archivo por nombre en el directorio actual.</p>
-            <div class="code-box">
-                <div class="syntax">find . -name "archivo.txt"</div>
-                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            <h3>pwd</h3>
+            <p class="desc">Print Working Directory: Muestra la ruta completa de tu ubicación actual.</p>
+            <div class="code-wrapper">
+                <div class="syntax">pwd</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+        </div>
+
+        <div class="command-card file">
+            <h3>grep -r</h3>
+            <p class="desc">Busca un texto específico dentro de todos los archivos de una carpeta de forma recursiva.</p>
+            <div class="code-wrapper">
+                <div class="syntax">grep -r "texto_a_buscar" /ruta/carpeta</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+        </div>
+
+        <div class="command-card file">
+            <h3>tar -xvf</h3>
+            <p class="desc">Descomprime archivos con formato .tar de manera rápida.</p>
+            <div class="code-wrapper">
+                <div class="syntax">tar -xvf archivo.tar</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+        </div>
+
+        <div class="command-card user">
+            <h3>chmod +x</h3>
+            <p class="desc">Da permisos de ejecución a un archivo (útil para scripts .sh).</p>
+            <div class="code-wrapper">
+                <div class="syntax">chmod +x script.sh</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
             </div>
         </div>
 
         <div class="command-card sys">
-            <h3>Espacio en Disco</h3>
-            <p class="desc">Muestra el uso de particiones en formato humano (GB/MB).</p>
-            <div class="code-box">
-                <div class="syntax">df -h</div>
-                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            <h3>ps aux --sort</h3>
+            <p class="desc">Muestra los procesos que más memoria RAM están consumiendo ahora mismo.</p>
+            <div class="code-wrapper">
+                <div class="syntax">ps aux --sort=-%mem | head -n 10</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
             </div>
         </div>
 
         <div class="command-card sys">
-            <h3>Memoria RAM</h3>
-            <p class="desc">Muestra memoria libre y usada en Megabytes.</p>
-            <div class="code-box">
-                <div class="syntax">free -m</div>
-                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            <h3>journalctl -xe</h3>
+            <p class="desc">Muestra los últimos errores detallados del sistema. Ideal para debug.</p>
+            <div class="code-wrapper">
+                <div class="syntax">journalctl -xe</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
             </div>
         </div>
 
         <div class="command-card net">
-            <h3>Mi IP Pública</h3>
-            <p class="desc">Consulta rápidamente qué IP ve internet.</p>
-            <div class="code-box">
-                <div class="syntax">curl ifconfig.me</div>
-                <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+            <h3>mtr</h3>
+            <p class="desc">Combina ping y traceroute para analizar la calidad de tu conexión a un host.</p>
+            <div class="code-wrapper">
+                <div class="syntax">mtr google.com</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
             </div>
         </div>
 
     </div>
 
     <footer>
-        <p>&copy; 2026 - Guía de Comandos para Alumnos de Programación</p>
+        <p>Documento de código abierto para formación en GNU/Linux - 2026</p>
     </footer>
 </div>
 
 <script>
-    // Función para copiar al portapapeles
     function copyCode(button) {
-        // Obtenemos el texto del div "syntax" que está al lado del botón
-        const code = button.previousElementSibling.innerText;
-        
-        navigator.clipboard.writeText(code).then(() => {
-            // Cambio visual de éxito
-            const originalText = button.innerText;
-            button.innerText = "¡Copiado!";
+        const text = button.previousElementSibling.innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            button.innerText = "COPIED!";
             button.classList.add("copied");
-            
-            // Revertir después de 2 segundos
             setTimeout(() => {
-                button.innerText = originalText;
+                button.innerText = "COPY";
                 button.classList.remove("copied");
             }, 2000);
         });
     }
 
-    // Función para filtrar categorías
     function filterSelection(category) {
-        const cards = document.getElementsByClassName("command-card");
-        const buttons = document.getElementsByClassName("btn-tab");
+        const cards = document.querySelectorAll(".command-card");
+        const buttons = document.querySelectorAll(".btn-tab");
         
-        for (let btn of buttons) {
+        buttons.forEach(btn => {
             btn.classList.remove("active");
-            if (btn.getAttribute('onclick').includes(category)) btn.classList.add("active");
-        }
+            if(btn.getAttribute('onclick').includes(category)) btn.classList.add("active");
+        });
 
-        for (let card of cards) {
+        cards.forEach(card => {
             if (category === "all" || card.classList.contains(category)) {
                 card.style.display = "flex";
             } else {
                 card.style.display = "none";
             }
-        }
+        });
     }
 </script>
 
