@@ -44,6 +44,11 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/styles.css">
+    <style>
+        .fab{position:fixed;bottom:1.5rem;right:1.5rem;width:3.25rem;height:3.25rem;border-radius:50%;background:#DC2626;color:#fff;border:none;font-size:1.4rem;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:1039;transition:transform .15s,box-shadow .15s}
+        .fab:hover,.fab:focus{transform:scale(1.08);color:#fff;outline:none}
+        .fab:active{transform:scale(.96)}
+    </style>
 </head>
 <body>
     <!-- Header -->
