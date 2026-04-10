@@ -580,7 +580,8 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
     </div>
 
     <!-- FAB gasto rápido -->
-    <button class="fab" onclick="abrirModalGastoRapido()" title="Gasto rápido">
+    <button onclick="abrirModalGastoRapido()" title="Gasto rápido"
+        style="position:fixed;bottom:1.5rem;right:1.5rem;width:3.5rem;height:3.5rem;border-radius:50%;background:#DC2626;color:#fff;border:none;font-size:1.5rem;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:1039;cursor:pointer">
         <i class="bi bi-plus-lg"></i>
     </button>
 
