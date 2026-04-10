@@ -123,14 +123,15 @@ require_auth_or_redirect();
         <!-- Selector de Mes/Año (colapsable) -->
         <div class="card shadow-sm mb-4">
             <div class="card-header d-flex justify-content-between align-items-center py-2"
-                 onclick="toggleFiltroMes()" style="cursor:pointer;user-select:none">
+                 data-bs-toggle="collapse" data-bs-target="#contenidoFiltroMes"
+                 style="cursor:pointer;user-select:none">
                 <span class="small fw-medium">
                     <i class="bi bi-calendar3 me-2 text-primary"></i>
                     <span id="filtroMesLabel">—</span>
                 </span>
                 <i class="bi bi-chevron-down" id="iconFiltroMes" style="font-size:0.85rem"></i>
             </div>
-            <div id="contenidoFiltroMes" class="d-none">
+            <div id="contenidoFiltroMes" class="collapse">
                 <div class="card-body">
                     <div class="row g-3 align-items-end">
                         <div class="col">

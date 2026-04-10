@@ -3,7 +3,7 @@
  * Estrategia: cache-first para assets locales, network-only para API
  */
 
-const CACHE_NAME = 'cifra-v3';
+const CACHE_NAME = 'cifra-v4';
 
 const ASSETS_LOCALES = [
     './',

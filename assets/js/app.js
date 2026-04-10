@@ -33,10 +33,19 @@ document.addEventListener('DOMContentLoaded', () => {
     inicializarSelectores();
     actualizarLabelFiltro();
 
-    // Restaurar estado del filtro desde localStorage
+    // Filtro mes/año: collapse nativo Bootstrap + persistencia localStorage
+    const elFiltro = document.getElementById('contenidoFiltroMes');
+    const elIconFiltro = document.getElementById('iconFiltroMes');
+    elFiltro.addEventListener('show.bs.collapse', () => {
+        elIconFiltro.className = 'bi bi-chevron-up';
+        localStorage.setItem('cifra-filtro-abierto', '1');
+    });
+    elFiltro.addEventListener('hide.bs.collapse', () => {
+        elIconFiltro.className = 'bi bi-chevron-down';
+        localStorage.setItem('cifra-filtro-abierto', '0');
+    });
     if (localStorage.getItem('cifra-filtro-abierto') === '1') {
-        document.getElementById('contenidoFiltroMes').classList.remove('d-none');
-        document.getElementById('iconFiltroMes').className = 'bi bi-chevron-up';
+        new bootstrap.Collapse(elFiltro, { toggle: false }).show();
     }
 
     cargarDatos();
@@ -1447,14 +1456,6 @@ function obtenerNombreMes(numeroMes) {
 }
 
 // Toggle sección resumen
-function toggleFiltroMes() {
-    const contenido = document.getElementById('contenidoFiltroMes');
-    const icon = document.getElementById('iconFiltroMes');
-    const abierto = !contenido.classList.contains('d-none');
-    contenido.classList.toggle('d-none', abierto);
-    icon.className = abierto ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
-    localStorage.setItem('cifra-filtro-abierto', abierto ? '0' : '1');
-}
 
 function actualizarLabelFiltro() {
     const el = document.getElementById('filtroMesLabel');
