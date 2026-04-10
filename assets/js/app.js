@@ -31,6 +31,14 @@ const app = {
 // Inicializar aplicación
 document.addEventListener('DOMContentLoaded', () => {
     inicializarSelectores();
+    actualizarLabelFiltro();
+
+    // Restaurar estado del filtro desde localStorage
+    if (localStorage.getItem('cifra-filtro-abierto') === '1') {
+        document.getElementById('contenidoFiltroMes').classList.remove('d-none');
+        document.getElementById('iconFiltroMes').className = 'bi bi-chevron-up';
+    }
+
     cargarDatos();
     sincronizarIconDarkMode();
     document.getElementById('btnCargar').addEventListener('click', cargarDatos);
@@ -298,6 +306,7 @@ function renderizarDatos() {
     // Actualizar título del mes
     document.getElementById('mesAnioActual').textContent =
         `${String(app.mesActual).padStart(2, '0')}/${app.anioActual}`;
+    actualizarLabelFiltro();
 
     inicializarDataTables();
     mostrarBannerPeriodo();
@@ -1438,13 +1447,26 @@ function obtenerNombreMes(numeroMes) {
 }
 
 // Toggle sección resumen
-function toggleResumen() {
-    const contenido = document.getElementById('contenidoResumen');
-    const icon = document.getElementById('iconToggleResumen');
-    const oculto = contenido.classList.contains('d-none');
-    contenido.classList.toggle('d-none', !oculto);
-    icon.classList.toggle('bi-chevron-down', !oculto);
-    icon.classList.toggle('bi-chevron-up', oculto);
+function toggleFiltroMes() {
+    const contenido = document.getElementById('contenidoFiltroMes');
+    const icon = document.getElementById('iconFiltroMes');
+    const abierto = !contenido.classList.contains('d-none');
+    contenido.classList.toggle('d-none', abierto);
+    icon.className = abierto ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
+    localStorage.setItem('cifra-filtro-abierto', abierto ? '0' : '1');
+}
+
+function actualizarLabelFiltro() {
+    const el = document.getElementById('filtroMesLabel');
+    if (el) el.textContent = `${obtenerNombreMes(app.mesActual)} ${app.anioActual}`;
+}
+
+function abrirModalResumen() {
+    new bootstrap.Modal(document.getElementById('modalResumen')).show();
+}
+
+function abrirModalCuentas() {
+    new bootstrap.Modal(document.getElementById('modalCuentas')).show();
 }
 
 function abrirModalIngresos() {
@@ -2438,28 +2460,19 @@ function renderizarCuentas() {
     }).join('');
 
     contenedor.innerHTML = `
-    <div class="card shadow-sm">
-        <div class="card-header seccion-header d-flex justify-content-between align-items-center">
-            <h3 class="h6 mb-0 fw-bold seccion-titulo">
-                <i class="bi bi-bank me-2 text-primary"></i>Cuentas
-            </h3>
+    <div class="cuenta-lista">${filasHtml}</div>
+    <div class="cuenta-consolidado">
+        <div class="cuenta-consolidado-row">
+            <span class="cuenta-consolidado-label">Total real en cuentas</span>
+            <span class="cuenta-consolidado-valor">${formatearMoneda(totalReal)}</span>
         </div>
-        <div class="card-body p-0">
-            <div class="cuenta-lista">${filasHtml}</div>
-            <div class="cuenta-consolidado">
-                <div class="cuenta-consolidado-row">
-                    <span class="cuenta-consolidado-label">Total real en cuentas</span>
-                    <span class="cuenta-consolidado-valor">${formatearMoneda(totalReal)}</span>
-                </div>
-                <div class="cuenta-consolidado-row">
-                    <span class="cuenta-consolidado-label">Disponible (sistema)</span>
-                    <span class="cuenta-consolidado-valor">${formatearMoneda(saldoSistema)}</span>
-                </div>
-                <div class="cuenta-consolidado-row cuenta-consolidado-diff">
-                    <span class="cuenta-consolidado-label">Diferencia</span>
-                    <span class="cuenta-consolidado-valor ${diffTotalClass}">${(diffTotal >= 0 ? '+' : '') + formatearMoneda(diffTotal)}</span>
-                </div>
-            </div>
+        <div class="cuenta-consolidado-row">
+            <span class="cuenta-consolidado-label">Disponible (sistema)</span>
+            <span class="cuenta-consolidado-valor">${formatearMoneda(saldoSistema)}</span>
+        </div>
+        <div class="cuenta-consolidado-row cuenta-consolidado-diff">
+            <span class="cuenta-consolidado-label">Diferencia</span>
+            <span class="cuenta-consolidado-valor ${diffTotalClass}">${(diffTotal >= 0 ? '+' : '') + formatearMoneda(diffTotal)}</span>
         </div>
     </div>`;
 }

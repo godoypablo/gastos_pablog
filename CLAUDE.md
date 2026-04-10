@@ -28,6 +28,13 @@ Input: neutral→rojo→pulso→verde 2s | guardandoCambios previene saves concu
 Dark mode: localStorage('cifra-theme') | sw.js: cache-first local, network-only /api/
 Fechas: formatearFechaCorta() → dd/mm/yy (única función, formatearFecha eliminada)
 
+## Layout principal (enfocado en Gastos)
+Pantalla: filtro mes/año (colapsable) → tabla Gastos
+Resumen y Cuentas: en modales accesibles desde hamburguesa (datos ya cargados al abrirlos)
+Filtro: colapsable, por defecto contraído; localStorage('cifra-filtro-abierto') persiste estado
+Header filtro muestra "Mes Año" (ej: Abril 2026) con chevron; actualizarLabelFiltro() lo refresca
+Hamburguesa: Resumen | Cuentas | — | Ingresos | Vencimientos | — | Movimientos | — | Conceptos
+
 ## Vencimiento (permite_multiples=0 únicamente)
 - Grilla principal: .vencimiento-wrap con span.vencimiento-texto (dd/mm/yy) + input[date] oculto
 - Click en span/ícono → showPicker() con fallback focus()
@@ -95,7 +102,7 @@ mysql -u root -p gastos_personales < scripts/migration_cuentas.sql
 - En detalle múltiple: cuenta-wrap-detalle appended al td:first-child (bajo fecha)
 - Mobile: .concepto-nombre .cuenta-wrap con flex-basis:100% → nueva línea
 - guardarCuentaRegistro(registroId, cuentaId) → PATCH → cargarCuentas() (sin full reload)
-- renderizarCuentas() → tarjeta #cardCuentas entre #bannerVencimientos y tabla ingresos
+- renderizarCuentas() → #cardCuentas (modal-body de #modalCuentas), renderiza lista + consolidado sin wrapper card
 - actualizarSaldoCuenta(id) → prompt → PUT → cargarCuentas()
 
 ### Tarjeta Cuentas (#cardCuentas)

@@ -67,6 +67,19 @@ require_auth_or_redirect();
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="btnMenu">
                         <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalResumen();return false;">
+                                <i class="bi bi-graph-up-arrow text-info"></i>
+                                Resumen
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalCuentas();return false;">
+                                <i class="bi bi-bank text-primary"></i>
+                                Cuentas
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
                             <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalIngresos();return false;">
                                 <i class="bi bi-graph-up text-success"></i>
                                 Ingresos
@@ -107,45 +120,55 @@ require_auth_or_redirect();
         <!-- Alertas -->
         <div id="alertContainer"></div>
 
-        <!-- Selector de Mes/Año -->
+        <!-- Selector de Mes/Año (colapsable) -->
         <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <div class="row g-3 align-items-end">
-                    <div class="col">
-                        <label for="selectMes" class="form-label">
-                            <i class="bi bi-calendar-month me-1"></i>
-                            Mes
-                        </label>
-                        <select id="selectMes" class="form-select">
-                            <option value="1">Enero</option>
-                            <option value="2">Febrero</option>
-                            <option value="3">Marzo</option>
-                            <option value="4">Abril</option>
-                            <option value="5">Mayo</option>
-                            <option value="6">Junio</option>
-                            <option value="7">Julio</option>
-                            <option value="8">Agosto</option>
-                            <option value="9">Septiembre</option>
-                            <option value="10">Octubre</option>
-                            <option value="11">Noviembre</option>
-                            <option value="12">Diciembre</option>
-                        </select>
-                    </div>
+            <div class="card-header d-flex justify-content-between align-items-center py-2"
+                 onclick="toggleFiltroMes()" style="cursor:pointer;user-select:none">
+                <span class="small fw-medium">
+                    <i class="bi bi-calendar3 me-2 text-primary"></i>
+                    <span id="filtroMesLabel">—</span>
+                </span>
+                <i class="bi bi-chevron-down" id="iconFiltroMes" style="font-size:0.85rem"></i>
+            </div>
+            <div id="contenidoFiltroMes" class="d-none">
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col">
+                            <label for="selectMes" class="form-label">
+                                <i class="bi bi-calendar-month me-1"></i>
+                                Mes
+                            </label>
+                            <select id="selectMes" class="form-select">
+                                <option value="1">Enero</option>
+                                <option value="2">Febrero</option>
+                                <option value="3">Marzo</option>
+                                <option value="4">Abril</option>
+                                <option value="5">Mayo</option>
+                                <option value="6">Junio</option>
+                                <option value="7">Julio</option>
+                                <option value="8">Agosto</option>
+                                <option value="9">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
 
-                    <div class="col">
-                        <label for="selectAnio" class="form-label">
-                            <i class="bi bi-calendar-event me-1"></i>
-                            Año
-                        </label>
-                        <select id="selectAnio" class="form-select">
-                            <!-- Se llena dinámicamente con JavaScript -->
-                        </select>
-                    </div>
+                        <div class="col">
+                            <label for="selectAnio" class="form-label">
+                                <i class="bi bi-calendar-event me-1"></i>
+                                Año
+                            </label>
+                            <select id="selectAnio" class="form-select">
+                                <!-- Se llena dinámicamente con JavaScript -->
+                            </select>
+                        </div>
 
-                    <div class="col-auto">
-                        <button id="btnCargar" class="btn btn-outline-secondary" title="Recargar">
-                            <i class="bi bi-arrow-clockwise"></i>
-                        </button>
+                        <div class="col-auto">
+                            <button id="btnCargar" class="btn btn-outline-secondary" title="Recargar">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -161,19 +184,42 @@ require_auth_or_redirect();
 
         <!-- Contenido Principal -->
         <div id="contenidoPrincipal">
-            <!-- Resumen -->
+
+            <!-- Tabla de Gastos -->
             <div class="card shadow-sm mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h2 class="h5 mb-0">
-                        <i class="bi bi-graph-up-arrow me-2"></i>
-                        Resumen - <span id="mesAnioActual"></span>
-                    </h2>
-                    <button class="btn btn-sm btn-outline-secondary" id="btnToggleResumen" onclick="toggleResumen()" title="Mostrar/ocultar resumen">
-                        <i class="bi bi-chevron-down" id="iconToggleResumen"></i>
-                    </button>
+                <div class="card-header seccion-header">
+                    <h3 class="h6 mb-0 fw-bold seccion-titulo">
+                        <i class="bi bi-graph-down text-danger me-2"></i>Gastos
+                    </h3>
                 </div>
-                <div class="d-none" id="contenidoResumen">
-                <div class="card-body">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="dtGastos">
+                            <thead>
+                                <tr>
+                                    <th>Concepto</th>
+                                    <th class="text-end">Importe</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaGastos"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Resumen -->
+    <div class="modal fade" id="modalResumen" tabindex="-1" aria-labelledby="modalResumenLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalResumenLabel">
+                        <i class="bi bi-graph-up-arrow me-2 text-info"></i>Resumen — <span id="mesAnioActual"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
                     <div class="row g-3">
                         <!-- Total Ingresos -->
                         <div class="col-md-4">
@@ -187,7 +233,6 @@ require_auth_or_redirect();
                                 </div>
                             </div>
                         </div>
-
                         <!-- Total Gastos -->
                         <div class="col-md-4">
                             <div class="card card-resumen h-100">
@@ -200,7 +245,6 @@ require_auth_or_redirect();
                                 </div>
                             </div>
                         </div>
-
                         <!-- Saldo -->
                         <div class="col-md-4">
                             <div class="card card-resumen h-100" id="cardSaldo">
@@ -229,35 +273,32 @@ require_auth_or_redirect();
                         </div>
                     </div>
                 </div>
-                </div>
-            </div>
-
-            <!-- Cuentas bancarias -->
-            <div id="cardCuentas" class="mb-4"></div>
-
-            <!-- Tabla de Gastos -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-header seccion-header">
-                    <h3 class="h6 mb-0 fw-bold seccion-titulo">
-                        <i class="bi bi-graph-down text-danger me-2"></i>Gastos
-                    </h3>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0" id="dtGastos">
-                            <thead>
-                                <tr>
-                                    <th>Concepto</th>
-                                    <th class="text-end">Importe</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tablaGastos"></tbody>
-                        </table>
-                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
+
+    <!-- Modal Cuentas -->
+    <div class="modal fade" id="modalCuentas" tabindex="-1" aria-labelledby="modalCuentasLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalCuentasLabel">
+                        <i class="bi bi-bank me-2 text-primary"></i>Cuentas
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0" id="cardCuentas">
+                    <!-- renderizado por renderizarCuentas() -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Transferencia -->
     <div class="modal fade" id="modalTransferencia" tabindex="-1" aria-labelledby="modalTransferenciaLabel" aria-hidden="true">
