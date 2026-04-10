@@ -31,17 +31,15 @@ cardSaldo.negativo → border danger + bi-exclamation-triangle-fill
 - Estado: `app.{mesActual, anioActual, datos, guardandoCambios, dtGastos, categorias[], cuentas[]}`
 - DataTables: ordering:false; drawCallback inyecta `<tr.categoria-header>`
 - Input: neutral→rojo→pulso→verde 2s | `guardandoCambios` previene saves concurrentes
-- Dark mode: localStorage('cifra-theme') | sw.js: cache-first local, network-only /api/
-- Fechas: `formatearFechaCorta()` → dd/mm/yy (única función)
+- Dark mode: localStorage('cifra-theme') | Fechas: `formatearFechaCorta()` → dd/mm/yy
 - Sugerencias: SMVM←dtos.gob.ar | Elena/Spotify←hardcoded | YouTube←USD×dolarapi.com
 
 ## Layout
 Pantalla: filtro mes/año (colapsable, default contraído) → tabla Gastos
-Filtro: localStorage('cifra-filtro-abierto') | header muestra "Mes Año" via `actualizarLabelFiltro()`
-Hamburguesa: **Resumen** | **Cuentas** | — | Ingresos | Vencimientos | — | Movimientos | — | Conceptos
-Resumen y Cuentas → modales (#modalResumen, #modalCuentas); datos ya cargados al abrirlos
-Vencimientos → modal #modalVencimientos; badges en hamburguesa si hay vencidos/próximos 7d
-Ingresos → modal #modalIngresos (gestión conceptos + registros unificado)
+Filtro: Bootstrap collapse nativo (`data-bs-toggle`) | label inicial desde PHP | localStorage('cifra-filtro-abierto')
+Hamburguesa: Resumen | Cuentas | — | Ingresos | Vencimientos | — | Movimientos | — | Conceptos
+Resumen/Cuentas → modales; Vencimientos → modal + badges; Ingresos → modal unificado
+FAB: botón fijo bottom-right (style inline, z-index:1039) → #modalGastoRapido (permite_multiples=1)
 
 ## Vencimiento (permite_multiples=0)
 Grilla: `.vencimiento-wrap` → span dd/mm/yy + input[date] oculto; click → showPicker()
@@ -61,17 +59,17 @@ Header: chevron + dot + ícono + label + total (todo con color inline)
 ## Cuentas
 `renderizarCuentas()` → #cardCuentas (modal-body de #modalCuentas), sin wrapper .card
 Por cuenta: dot-lg + nombre + tipo | saldo real | asignado mes | diferencia
-Consolidado: total real | disponible sistema | diferencia total
-`crearSelectorCuenta()` → .cuenta-wrap en fila simple / .cuenta-wrap-detalle en múltiple
-`guardarCuentaRegistro()` → PATCH → `cargarCuentas()` | `actualizarSaldoCuenta()` → prompt → PUT
-Movimientos: toggle pagado/cobrado crea/elimina movimiento y ajusta saldo_actual
-Transferencia: modal #modalTransferencia | Extracción: solo cuentas no-billetera
+`crearSelectorCuenta()` → .cuenta-wrap (fila simple) / .cuenta-wrap-detalle (múltiple)
+Toggle pagado/cobrado → crea/elimina movimiento + ajusta saldo_actual
+Validación saldo: al marcar pagado Y al reasignar cuenta en gasto ya pagado (HTTP 422)
+Transferencia: #modalTransferencia | Extracción: solo no-billetera
 
 ## Diseño
 .card-resumen: borde neutro | .seccion-header: fondo transparente, ícono con color
 NO usar border-success/danger/primary en cards ni bg-success/danger en headers
 
-## PWA / Futuro
-sw.js implementado (cache-first local, network-only /api/)
-Play Store: TWA via PWABuilder (USD 25, requiere HTTPS) | App Store: Capacitor.js (USD 99/año)
-Monetización: requiere multi-tenant + auth + suscripciones | IA descartada (privacidad)
+## PWA
+SW: HTML nunca cacheado (network-first) | assets estáticos cache-first (cifra-v6)
+Bump CACHE_NAME en sw.js para invalidar caché de assets en dispositivos
+Play Store: TWA via PWABuilder (USD 25, HTTPS) | App Store: Capacitor.js (USD 99/año)
+Monetización: multi-tenant + suscripciones | IA descartada (privacidad)
