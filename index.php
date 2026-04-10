@@ -25,7 +25,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
     <meta name="theme-color" content="#1F2A37">
 
     <!-- PWA iOS (Safari no usa el manifest para esto) -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Cifra">
     <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
@@ -182,6 +182,9 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
             </div>
         </div>
 
+        <!-- Card Total en Cuentas -->
+        <div id="cardCuentasHome" class="card shadow-sm mb-4"></div>
+
         <!-- Loading -->
         <div id="loading" class="text-center py-5 d-none">
             <div class="spinner-border text-primary mb-3" role="status">
@@ -195,10 +198,26 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 
             <!-- Tabla de Gastos -->
             <div class="card shadow-sm mb-4">
-                <div class="card-header seccion-header">
+                <div class="card-header seccion-header d-flex justify-content-between align-items-center"
+                     data-bs-toggle="collapse" data-bs-target="#gastosHeaderDetalle"
+                     style="cursor:pointer;user-select:none">
                     <h3 class="h6 mb-0 fw-bold seccion-titulo">
                         <i class="bi bi-graph-down text-danger me-2"></i>Gastos
                     </h3>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-bold text-danger" id="totalGastosHeader" style="font-size:0.85rem"></span>
+                        <i class="bi bi-chevron-down" style="font-size:.75rem;opacity:.5;color:var(--bs-body-color)"></i>
+                    </div>
+                </div>
+                <div class="collapse" id="gastosHeaderDetalle">
+                    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom" style="font-size:.82rem">
+                        <span class="text-muted">Pagados</span>
+                        <span class="fw-medium text-success" id="gastosPagadosHeader"></span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom" style="font-size:.82rem">
+                        <span class="text-muted">Por pagar</span>
+                        <span class="fw-medium text-warning" id="gastosPorPagarHeader"></span>
+                    </div>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -230,9 +249,13 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                 <div class="modal-body p-0">
                     <!-- Ingresos vs Gastos -->
                     <div class="resumen-top-row">
-                        <div class="resumen-stat resumen-stat-ingreso">
+                        <div class="resumen-stat resumen-stat-ingreso"
+                             style="cursor:pointer"
+                             data-bs-toggle="collapse"
+                             data-bs-target="#resumenIngresosDetalle">
                             <div class="resumen-stat-label">
                                 <i class="bi bi-arrow-up-circle-fill"></i> Ingresos
+                                <i class="bi bi-chevron-down" style="font-size:.6rem;opacity:.5"></i>
                                 <i class="bi bi-info-circle resumen-info"
                                    data-bs-toggle="tooltip" data-bs-placement="bottom"
                                    data-bs-title="Total de ingresos registrados en el mes"></i>
@@ -249,6 +272,8 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                             <div class="resumen-stat-valor" id="totalGastos">$0,00</div>
                         </div>
                     </div>
+                    <!-- Detalle ingresos (collapse) -->
+                    <div class="collapse border-top" id="resumenIngresosDetalle"></div>
                     <!-- Barra de progreso -->
                     <div class="resumen-progress-section">
                         <div class="progress resumen-progress">
@@ -266,24 +291,6 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                                    data-bs-title="Ingresos menos los gastos ya pagados"></i>
                             </span>
                             <span class="resumen-saldo-valor" id="saldoDisponible">$0,00</span>
-                        </div>
-                        <div class="resumen-saldo-item">
-                            <span class="resumen-saldo-label">
-                                Pendiente
-                                <i class="bi bi-info-circle resumen-info"
-                                   data-bs-toggle="tooltip" data-bs-placement="top"
-                                   data-bs-title="Gastos del mes que todavía no pagaste"></i>
-                            </span>
-                            <span class="resumen-saldo-valor text-muted" id="saldoPendiente">$0,00</span>
-                        </div>
-                        <div class="resumen-saldo-item">
-                            <span class="resumen-saldo-label">
-                                Proyección
-                                <i class="bi bi-info-circle resumen-info"
-                                   data-bs-toggle="tooltip" data-bs-placement="top"
-                                   data-bs-title="Cómo quedarás a fin de mes si pagás todo"></i>
-                            </span>
-                            <span class="resumen-saldo-valor" id="saldo">$0,00</span>
                         </div>
                     </div>
                     <!-- Gastos por categoría -->
@@ -611,6 +618,10 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                     <div class="mb-3">
                         <label class="form-label form-field-label">Concepto</label>
                         <select id="grConcepto" class="form-select"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label form-field-label">Cuenta <span class="text-danger">*</span></label>
+                        <select id="grCuenta" class="form-select"></select>
                     </div>
                     <div class="row g-2 mb-3">
                         <div class="col">

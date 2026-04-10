@@ -183,19 +183,42 @@ try {
 
             if ($concepto['permite_multiples']) {
                 // Multi-entrada: siempre INSERT con fecha y pagado=1 por defecto
-                $fecha = isset($input['fecha']) ? $input['fecha'] : date('Y-m-d');
-                $sql = "INSERT INTO registros_mensuales (concepto_id, mes, anio, fecha, importe, observaciones, pagado)
-                        VALUES (:concepto_id, :mes, :anio, :fecha, :importe, :observaciones, 1)";
-                $stmt = $db->prepare($sql);
-                $stmt->execute([
-                    'concepto_id'      => $concepto_id,
-                    'mes'              => $mes,
-                    'anio'             => $anio,
-                    'fecha'            => $fecha,
-                    'importe'          => $importe,
-                    'observaciones'    => $observaciones
-                ]);
-                sendResponse(true, ['id' => $db->lastInsertId()], 'Registro creado correctamente');
+                $fecha     = isset($input['fecha']) ? $input['fecha'] : date('Y-m-d');
+                $cuenta_id = isset($input['cuenta_id']) && $input['cuenta_id'] ? (int)$input['cuenta_id'] : null;
+
+                $db->beginTransaction();
+                try {
+                    $sql = "INSERT INTO registros_mensuales (concepto_id, mes, anio, fecha, importe, observaciones, pagado, cuenta_id)
+                            VALUES (:concepto_id, :mes, :anio, :fecha, :importe, :observaciones, 1, :cuenta_id)";
+                    $stmt = $db->prepare($sql);
+                    $stmt->execute([
+                        'concepto_id'   => $concepto_id,
+                        'mes'           => $mes,
+                        'anio'          => $anio,
+                        'fecha'         => $fecha,
+                        'importe'       => $importe,
+                        'observaciones' => $observaciones,
+                        'cuenta_id'     => $cuenta_id,
+                    ]);
+                    $nuevo_id = (int)$db->lastInsertId();
+
+                    // Crear movimiento y descontar saldo si tiene cuenta asignada
+                    if ($cuenta_id && $importe > 0) {
+                        $db->prepare(
+                            "INSERT INTO movimientos_cuenta (tipo, cuenta_origen_id, importe, fecha, registro_id)
+                             VALUES ('pago_gasto', :cid, :imp, :fecha, :rid)"
+                        )->execute(['cid' => $cuenta_id, 'imp' => $importe, 'fecha' => $fecha, 'rid' => $nuevo_id]);
+
+                        $db->prepare("UPDATE cuentas SET saldo_actual = saldo_actual - :imp, fecha_saldo = CURDATE() WHERE id = :id")
+                           ->execute(['imp' => $importe, 'id' => $cuenta_id]);
+                    }
+
+                    $db->commit();
+                    sendResponse(true, ['id' => $nuevo_id], 'Registro creado correctamente');
+                } catch (Exception $e) {
+                    $db->rollBack();
+                    throw $e;
+                }
             } else {
                 // Entrada única: upsert
                 $sql = "SELECT id FROM registros_mensuales
@@ -250,9 +273,40 @@ try {
 
             $registro_id = (int)$input['registro_id'];
 
-            $sql = "DELETE FROM registros_mensuales WHERE id = :id";
-            $stmt = $db->prepare($sql);
-            $stmt->execute(['id' => $registro_id]);
+            $db->beginTransaction();
+            try {
+                // Si el registro estaba pagado, revertir saldo y eliminar movimiento
+                $stmt_mov = $db->prepare(
+                    "SELECT id, cuenta_origen_id, cuenta_destino_id, importe
+                     FROM movimientos_cuenta
+                     WHERE registro_id = :rid AND tipo IN ('ingreso','pago_gasto')
+                     LIMIT 1"
+                );
+                $stmt_mov->execute(['rid' => $registro_id]);
+                $mov = $stmt_mov->fetch();
+
+                if ($mov) {
+                    if ($mov['cuenta_destino_id']) {
+                        // Era ingreso cobrado → restar del saldo
+                        $db->prepare("UPDATE cuentas SET saldo_actual = saldo_actual - :imp, fecha_saldo = CURDATE() WHERE id = :id")
+                           ->execute(['imp' => $mov['importe'], 'id' => $mov['cuenta_destino_id']]);
+                    } elseif ($mov['cuenta_origen_id']) {
+                        // Era gasto pagado → restaurar saldo
+                        $db->prepare("UPDATE cuentas SET saldo_actual = saldo_actual + :imp, fecha_saldo = CURDATE() WHERE id = :id")
+                           ->execute(['imp' => $mov['importe'], 'id' => $mov['cuenta_origen_id']]);
+                    }
+                    $db->prepare("DELETE FROM movimientos_cuenta WHERE id = :id")
+                       ->execute(['id' => $mov['id']]);
+                }
+
+                $db->prepare("DELETE FROM registros_mensuales WHERE id = :id")
+                   ->execute(['id' => $registro_id]);
+
+                $db->commit();
+            } catch (Exception $e) {
+                $db->rollBack();
+                throw $e;
+            }
 
             sendResponse(true, null, 'Registro eliminado correctamente');
             break;

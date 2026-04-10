@@ -271,20 +271,20 @@ function renderizarDatos() {
     if (!app.datos) return;
 
     // Actualizar resumen
-    const { total_ingresos, total_gastos, gastos_pagados, saldo_disponible, saldo } = app.datos.resumen;
-    const pendiente = total_gastos - gastos_pagados;
+    const { total_ingresos, total_gastos, gastos_pagados, saldo_disponible } = app.datos.resumen;
     const pctPagado = total_gastos > 0 ? Math.min(100, (gastos_pagados / total_gastos) * 100) : 0;
 
-    document.getElementById('totalIngresos').textContent  = formatearMoneda(total_ingresos);
-    document.getElementById('totalGastos').textContent    = formatearMoneda(total_gastos);
+    document.getElementById('totalIngresos').textContent   = formatearMoneda(total_ingresos);
+    document.getElementById('totalGastos').textContent     = formatearMoneda(total_gastos);
     document.getElementById('saldoDisponible').textContent = formatearMoneda(saldo_disponible);
-    document.getElementById('saldoPendiente').textContent  = formatearMoneda(pendiente);
+    const elTGH = document.getElementById('totalGastosHeader');
+    if (elTGH) elTGH.textContent = formatearMoneda(total_gastos);
+    const elGPH = document.getElementById('gastosPagadosHeader');
+    if (elGPH) elGPH.textContent = formatearMoneda(gastos_pagados);
+    const elPPH = document.getElementById('gastosPorPagarHeader');
+    if (elPPH) elPPH.textContent = formatearMoneda(total_gastos - gastos_pagados);
     document.getElementById('barraProgreso').style.width   = pctPagado + '%';
     document.getElementById('barraProgreso').title         = `${pctPagado.toFixed(0)}% de gastos pagados`;
-
-    const elSaldo = document.getElementById('saldo');
-    elSaldo.textContent = formatearMoneda(saldo);
-    elSaldo.className   = saldo >= 0 ? 'fw-medium text-success' : 'fw-medium text-danger';
 
     // Color de la card según saldo disponible
     const cardSaldo = document.getElementById('cardSaldo');
@@ -322,7 +322,9 @@ function renderizarDatos() {
     mostrarBannerVencimientos();
     renderizarResumenCategorias();
     renderizarResumenPendientes();
+    renderizarResumenIngresos();
     renderizarCuentas();
+    renderizarCardCuentasHome();
 
     // Si el modal de ingresos está abierto, re-renderizarlo con datos frescos
     if (document.getElementById('modalIngresos')?.classList.contains('show')) {
@@ -1464,6 +1466,31 @@ function actualizarLabelFiltro() {
     if (el) el.textContent = `${obtenerNombreMes(app.mesActual)} ${app.anioActual}`;
 }
 
+function renderizarResumenIngresos() {
+    const el = document.getElementById('resumenIngresosDetalle');
+    if (!el || !app.datos) return;
+
+    const ingresos = (app.datos.conceptos || []).filter(c => c.tipo === 'ingreso');
+
+    if (!ingresos.length) {
+        el.innerHTML = '<div class="px-3 py-2 text-muted small">Sin ingresos registrados</div>';
+        return;
+    }
+
+    el.innerHTML = ingresos.map(c => {
+        const cobrado = c.pagado === 1;
+        const imp = parseFloat(c.importe || 0);
+        return `
+        <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+            <span class="small ${cobrado ? '' : 'text-muted'}">
+                <i class="bi ${cobrado ? 'bi-check-circle-fill text-success' : 'bi-circle'} me-1" style="font-size:.75rem"></i>
+                ${c.nombre}
+            </span>
+            <span class="small fw-medium ${cobrado ? 'text-success' : 'text-muted'}">${imp > 0 ? formatearMoneda(imp) : '—'}</span>
+        </div>`;
+    }).join('');
+}
+
 function renderizarResumenPendientes() {
     const el = document.getElementById('resumenPendientes');
     if (!el || !app.datos) return;
@@ -1598,37 +1625,36 @@ function renderizarModalIngresos() {
                 <i class="bi ${isPaid ? 'bi-check-circle-fill' : 'bi-circle'}"></i>
             </button>
 
-            <div class="ingreso-nombre-wrap" id="ingreso-nombre-wrap-${c.id}">
-                <span class="ingreso-nombre">${c.nombre}</span>
-                <button class="btn-edit-ingreso" title="Editar concepto"
-                        onclick="mostrarEditConceptoIngreso(${c.id})">
-                    <i class="bi bi-pencil-fill"></i>
-                </button>
+            <div class="ingreso-body">
+                <div class="ingreso-linea1" id="ingreso-nombre-wrap-${c.id}">
+                    <span class="ingreso-nombre">${c.nombre}</span>
+                    <button class="btn-edit-ingreso" title="Editar concepto"
+                            onclick="mostrarEditConceptoIngreso(${c.id})">
+                        <i class="bi bi-pencil-fill"></i>
+                    </button>
+                    <input type="text" inputmode="decimal"
+                           class="ingreso-importe input-importe form-control form-control-sm"
+                           value="${imp}"
+                           data-concepto-id="${c.id}"
+                           data-registro-id="${c.registro_id || ''}"
+                           placeholder="0,00"
+                           onfocus="const v=parsearImporte(this.value);this.value=v>0?String(v).replace('.',','):'';this.select()"
+                           onblur="guardarImporteIngreso(this)"
+                           onkeypress="if(event.key==='Enter')this.blur()"
+                           oninput="this.classList.add('unsaved');this.classList.remove('saved')">
+                </div>
+                <div class="ingreso-linea2">
+                    <select class="ingreso-cuenta form-select form-select-sm"
+                            data-cuenta-actual="${c.cuenta_id || ''}"
+                            ${!hasReg ? 'disabled' : `onchange="guardarCuentaRegistro(${c.registro_id}, this.value || null)"`}>
+                        <option value="">— Cuenta —</option>
+                        ${cuentasOpts}
+                    </select>
+                    <input type="date" class="ingreso-fecha form-control form-control-sm"
+                           value="${fechaVal}"
+                           ${!hasReg ? 'disabled title="Ingresá el importe primero"' : `onchange="guardarFechaIngreso(${c.registro_id}, this.value, this)"`}>
+                </div>
             </div>
-
-            <div class="ingreso-secondary">
-                <input type="date" class="ingreso-fecha form-control form-control-sm"
-                       value="${fechaVal}"
-                       ${!hasReg ? 'disabled title="Ingresá el importe primero"' : `onchange="guardarFechaIngreso(${c.registro_id}, this.value, this)"`}>
-
-                <select class="ingreso-cuenta form-select form-select-sm"
-                        data-cuenta-actual="${c.cuenta_id || ''}"
-                        ${!hasReg ? 'disabled' : `onchange="guardarCuentaRegistro(${c.registro_id}, this.value || null)"`}>
-                    <option value="">— Cuenta —</option>
-                    ${cuentasOpts}
-                </select>
-            </div>
-
-            <input type="text" inputmode="decimal"
-                   class="ingreso-importe input-importe form-control form-control-sm"
-                   value="${imp}"
-                   data-concepto-id="${c.id}"
-                   data-registro-id="${c.registro_id || ''}"
-                   placeholder="$ 0,00"
-                   onfocus="const v=parsearImporte(this.value);this.value=v>0?String(v).replace('.',','):'';this.select()"
-                   onblur="guardarImporteIngreso(this)"
-                   onkeypress="if(event.key==='Enter')this.blur()"
-                   oninput="this.classList.add('unsaved');this.classList.remove('saved')">
         </div>`;
     }).join('');
 
@@ -2224,42 +2250,34 @@ function renderizarListaCategorias(categorias) {
         tr.dataset.catId = cat.id;
         tr.draggable = true;
         tr.innerHTML = `
-            <td>
+            <td style="vertical-align:middle">
                 <span class="cat-drag-handle" title="Arrastrar para reordenar"><i class="bi bi-grip-vertical"></i></span>
                 <span class="categoria-dot d-inline-block ms-1" style="background:${cat.color}; width:10px; height:10px; border-radius:50%; vertical-align:middle"></span>
             </td>
-            <td>
-                <span class="cat-nombre-texto">
-                    ${cat.icono ? `<i class="bi ${cat.icono} me-1" style="color:${cat.color}"></i>` : ''}
-                    ${cat.nombre}
+            <td colspan="2">
+                <span class="cat-nombre-texto d-flex justify-content-between align-items-center">
+                    <span>
+                        ${cat.icono ? `<i class="bi ${cat.icono} me-1" style="color:${cat.color}"></i>` : ''}
+                        ${cat.nombre}
+                    </span>
+                    <span class="cat-orden-texto text-muted small me-1">${cat.orden}</span>
                 </span>
-                <span class="cat-nombre-edit d-none d-flex gap-1 align-items-center">
-                    <input type="color" id="edit-cat-color-${cat.id}" class="form-control form-control-sm form-control-color" style="width:36px;padding:2px" value="${cat.color}">
-                    <input type="text" id="edit-cat-nombre-${cat.id}" class="form-control form-control-sm" style="width:130px" value="${cat.nombre}">
-                    <input type="text" id="edit-cat-icono-${cat.id}" class="form-control form-control-sm" style="width:110px" placeholder="bi-house-fill" value="${cat.icono || ''}">
-                </span>
+                <div class="cat-nombre-edit d-none d-flex flex-wrap gap-1 align-items-center">
+                    <input type="color" id="edit-cat-color-${cat.id}" class="form-control form-control-sm form-control-color flex-shrink-0" style="width:32px;padding:2px" value="${cat.color}">
+                    <input type="text" id="edit-cat-nombre-${cat.id}" class="form-control form-control-sm flex-grow-1" style="min-width:80px" value="${cat.nombre}">
+                    <input type="text" id="edit-cat-icono-${cat.id}" class="form-control form-control-sm flex-shrink-0" style="width:90px" placeholder="bi-house-fill" value="${cat.icono || ''}">
+                    <input type="number" id="edit-cat-orden-${cat.id}" class="form-control form-control-sm text-center flex-shrink-0" style="width:50px" value="${cat.orden}" min="1">
+                    <button class="btn btn-success btn-sm flex-shrink-0" onclick="guardarEdicionCategoria(${cat.id})"><i class="bi bi-check-lg"></i></button>
+                    <button class="btn btn-outline-secondary btn-sm flex-shrink-0" onclick="cancelarEdicionCategoria(${cat.id})"><i class="bi bi-x-lg"></i></button>
+                </div>
             </td>
-            <td class="text-center">
-                <span class="cat-orden-texto">${cat.orden}</span>
-                <span class="cat-orden-edit d-none">
-                    <input type="number" id="edit-cat-orden-${cat.id}" class="form-control form-control-sm text-center" style="width:55px" value="${cat.orden}">
-                </span>
-            </td>
-            <td class="text-end">
+            <td class="text-end" style="vertical-align:middle">
                 <div class="cat-acciones-ver d-flex gap-1 justify-content-end">
                     <button class="btn btn-outline-primary btn-sm" title="Editar" onclick="editarCategoria(${cat.id})">
                         <i class="bi bi-pencil"></i>
                     </button>
                     <button class="btn btn-outline-danger btn-sm" title="Eliminar" onclick="eliminarCategoria(${cat.id}, '${cat.nombre.replace(/'/g, "\\'")}')">
                         <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-                <div class="cat-acciones-edit d-none d-flex gap-1 justify-content-end">
-                    <button class="btn btn-success btn-sm" onclick="guardarEdicionCategoria(${cat.id})">
-                        <i class="bi bi-check-lg"></i>
-                    </button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="cancelarEdicionCategoria(${cat.id})">
-                        <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
             </td>
@@ -2372,15 +2390,15 @@ async function guardarNuevaCategoria() {
 
 function editarCategoria(id) {
     const fila = document.getElementById(`fila-categoria-${id}`);
-    fila.querySelectorAll('.cat-nombre-texto, .cat-orden-texto, .cat-acciones-ver').forEach(el => el.classList.add('d-none'));
-    fila.querySelectorAll('.cat-nombre-edit, .cat-orden-edit, .cat-acciones-edit').forEach(el => el.classList.remove('d-none'));
+    fila.querySelectorAll('.cat-nombre-texto, .cat-acciones-ver').forEach(el => el.classList.add('d-none'));
+    fila.querySelector('.cat-nombre-edit').classList.remove('d-none');
     document.getElementById(`edit-cat-nombre-${id}`).focus();
 }
 
 function cancelarEdicionCategoria(id) {
     const fila = document.getElementById(`fila-categoria-${id}`);
-    fila.querySelectorAll('.cat-nombre-texto, .cat-orden-texto, .cat-acciones-ver').forEach(el => el.classList.remove('d-none'));
-    fila.querySelectorAll('.cat-nombre-edit, .cat-orden-edit, .cat-acciones-edit').forEach(el => el.classList.add('d-none'));
+    fila.querySelectorAll('.cat-nombre-texto, .cat-acciones-ver').forEach(el => el.classList.remove('d-none'));
+    fila.querySelector('.cat-nombre-edit').classList.add('d-none');
 }
 
 async function guardarEdicionCategoria(id) {
@@ -2496,8 +2514,43 @@ async function cargarCuentas() {
         if (result.success) {
             app.cuentas = result.data;
             renderizarCuentas();
+            renderizarCardCuentasHome();
         }
     } catch (_) {}
+}
+
+function renderizarCardCuentasHome() {
+    const contenedor = document.getElementById('cardCuentasHome');
+    if (!contenedor) return;
+    if (!app.cuentas || !app.cuentas.length) { contenedor.innerHTML = ''; return; }
+
+    const totalReal = app.cuentas.reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
+
+    const filasHtml = app.cuentas.map(c => {
+        const saldo = parseFloat(c.saldo_actual || 0);
+        return `
+        <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+            <div class="d-flex align-items-center gap-2">
+                <span style="width:.5rem;height:.5rem;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0"></span>
+                <span style="font-size:.82rem">${c.nombre}</span>
+            </div>
+            <span style="font-size:.82rem;font-weight:600">${formatearMoneda(saldo)}</span>
+        </div>`;
+    }).join('');
+
+    contenedor.innerHTML = `
+        <div class="card-header d-flex justify-content-between align-items-center py-2"
+             data-bs-toggle="collapse" data-bs-target="#cuentasHomeDetalle"
+             style="cursor:pointer;user-select:none">
+            <span class="small fw-medium">
+                <i class="bi bi-bank me-2 text-primary"></i>Total en cuentas
+            </span>
+            <div class="d-flex align-items-center gap-2">
+                <span class="fw-bold" style="font-size:.85rem">${formatearMoneda(totalReal)}</span>
+                <i class="bi bi-chevron-down" style="font-size:.75rem;opacity:.5"></i>
+            </div>
+        </div>
+        <div class="collapse" id="cuentasHomeDetalle">${filasHtml}</div>`;
 }
 
 function renderizarCuentas() {
@@ -2508,10 +2561,7 @@ function renderizarCuentas() {
         return;
     }
 
-    const totalReal   = app.cuentas.reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
-    const saldoSistema = app.datos?.resumen?.saldo_disponible ?? 0;
-    const diffTotal   = totalReal - saldoSistema;
-    const diffTotalClass = diffTotal >= 0 ? 'text-success' : 'text-danger';
+    const totalReal = app.cuentas.reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
 
     const tipoLabel = {
         cuenta_corriente: 'Cta. corriente',
@@ -2520,12 +2570,8 @@ function renderizarCuentas() {
     };
 
     const filasHtml = app.cuentas.map(c => {
-        const saldo  = parseFloat(c.saldo_actual || 0);
-        const pagado = parseFloat(c.total_pagado_mes || 0);
-        const diff   = saldo - pagado;
-        const diffClass = diff >= 0 ? 'text-success' : 'text-danger';
-        const diffStr   = (diff >= 0 ? '+' : '') + formatearMoneda(diff);
-        const fechaStr  = c.fecha_saldo ? formatearFechaCorta(c.fecha_saldo) : '—';
+        const saldo    = parseFloat(c.saldo_actual || 0);
+        const fechaStr = c.fecha_saldo ? formatearFechaCorta(c.fecha_saldo) : '—';
 
         return `
         <div class="cuenta-item">
@@ -2537,38 +2583,20 @@ function renderizarCuentas() {
                         <span class="cuenta-tipo">${tipoLabel[c.tipo] || c.tipo}</span>
                     </div>
                 </div>
-                <div class="d-flex gap-1">
-                    <button class="btn btn-ghost-muted btn-sm" title="Transferir" onclick="abrirModalTransferencia(${c.id})">
-                        <i class="bi bi-arrow-left-right"></i>
-                    </button>
-                    ${c.tipo !== 'billetera' ? `<button class="btn btn-ghost-muted btn-sm" title="Extracción Efectivo" onclick="registrarExtraccion(${c.id})"><i class="bi bi-cash-stack"></i></button>` : ''}
-                    <button class="btn btn-ghost-muted btn-sm" title="Actualizar saldo" onclick="actualizarSaldoCuenta(${c.id})">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="cuenta-stats">
-                <div class="cuenta-stat">
-                    <span class="cuenta-stat-label">
-                        Saldo real
-                        <i class="bi bi-info-circle cuenta-info" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Lo que tenés en esta cuenta según tu último registro"></i>
-                    </span>
-                    <span class="cuenta-stat-valor">${formatearMoneda(saldo)}</span>
-                    <span class="cuenta-stat-fecha">${fechaStr}</span>
-                </div>
-                <div class="cuenta-stat">
-                    <span class="cuenta-stat-label">
-                        Asignado mes
-                        <i class="bi bi-info-circle cuenta-info" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Gastos pagados con esta cuenta en el mes"></i>
-                    </span>
-                    <span class="cuenta-stat-valor">${formatearMoneda(pagado)}</span>
-                </div>
-                <div class="cuenta-stat">
-                    <span class="cuenta-stat-label">
-                        Diferencia
-                        <i class="bi bi-info-circle cuenta-info" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Saldo real menos lo asignado al mes"></i>
-                    </span>
-                    <span class="cuenta-stat-valor ${diffClass}">${diffStr}</span>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="text-end">
+                        <div class="cuenta-stat-valor">${formatearMoneda(saldo)}</div>
+                        <div class="cuenta-stat-fecha">${fechaStr}</div>
+                    </div>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-ghost-muted btn-sm" title="Transferir" onclick="abrirModalTransferencia(${c.id})">
+                            <i class="bi bi-arrow-left-right"></i>
+                        </button>
+                        ${c.tipo !== 'billetera' ? `<button class="btn btn-ghost-muted btn-sm" title="Extracción Efectivo" onclick="registrarExtraccion(${c.id})"><i class="bi bi-cash-stack"></i></button>` : ''}
+                        <button class="btn btn-ghost-muted btn-sm" title="Actualizar saldo" onclick="actualizarSaldoCuenta(${c.id})">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>`;
@@ -2578,25 +2606,8 @@ function renderizarCuentas() {
     <div class="cuenta-lista">${filasHtml}</div>
     <div class="cuenta-consolidado">
         <div class="cuenta-consolidado-row">
-            <span class="cuenta-consolidado-label">
-                Total real en cuentas
-                <i class="bi bi-info-circle cuenta-info" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Suma de los saldos reales de todas tus cuentas"></i>
-            </span>
+            <span class="cuenta-consolidado-label">Total en cuentas</span>
             <span class="cuenta-consolidado-valor">${formatearMoneda(totalReal)}</span>
-        </div>
-        <div class="cuenta-consolidado-row">
-            <span class="cuenta-consolidado-label">
-                Disponible (sistema)
-                <i class="bi bi-info-circle cuenta-info" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Ingresos menos gastos pagados según el sistema"></i>
-            </span>
-            <span class="cuenta-consolidado-valor">${formatearMoneda(saldoSistema)}</span>
-        </div>
-        <div class="cuenta-consolidado-row cuenta-consolidado-diff">
-            <span class="cuenta-consolidado-label">
-                Diferencia
-                <i class="bi bi-info-circle cuenta-info" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Diferencia entre el total real y el disponible del sistema. Cero ideal significa que todo cuadra."></i>
-            </span>
-            <span class="cuenta-consolidado-valor ${diffTotalClass}">${(diffTotal >= 0 ? '+' : '') + formatearMoneda(diffTotal)}</span>
         </div>
     </div>`;
 
@@ -2748,8 +2759,25 @@ function abrirModalGastoRapido() {
     const conceptos = (app.datos?.conceptos || [])
         .filter(c => c.tipo === 'gasto' && c.permite_multiples == 1 && c.activo != 0);
     sel.innerHTML = conceptos.length
-        ? conceptos.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('')
+        ? conceptos.map(c => `<option value="${c.id}" data-default-cuenta="${c.cuenta_id_default || ''}">${c.nombre}</option>`).join('')
         : '<option value="">— Sin conceptos disponibles —</option>';
+
+    // Poblar selector de cuentas
+    const selCuenta = document.getElementById('grCuenta');
+    selCuenta.innerHTML = '<option value="">Seleccioná una cuenta…</option>' +
+        app.cuentas.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+
+    // Preseleccionar cuenta default del primer concepto
+    const primerOpt = sel.options[0];
+    if (primerOpt && primerOpt.dataset.defaultCuenta) {
+        selCuenta.value = primerOpt.dataset.defaultCuenta;
+    }
+
+    // Al cambiar concepto, actualizar cuenta default
+    sel.onchange = () => {
+        const opt = sel.options[sel.selectedIndex];
+        if (opt && opt.dataset.defaultCuenta) selCuenta.value = opt.dataset.defaultCuenta;
+    };
 
     // Fecha por defecto: hoy
     document.getElementById('grFecha').value = new Date().toISOString().split('T')[0];
@@ -2762,11 +2790,13 @@ function abrirModalGastoRapido() {
 
 async function guardarGastoRapido() {
     const conceptoId = parseInt(document.getElementById('grConcepto').value);
+    const cuentaId   = parseInt(document.getElementById('grCuenta').value) || null;
     const fecha      = document.getElementById('grFecha').value;
     const importe    = parsearImporte(document.getElementById('grImporte').value);
     const desc       = document.getElementById('grDescripcion').value.trim();
 
     if (!conceptoId) { mostrarError('Seleccioná un concepto.'); return; }
+    if (!cuentaId)   { mostrarError('Seleccioná una cuenta.'); return; }
     if (!fecha)      { mostrarError('Ingresá una fecha.'); return; }
     if (importe <= 0){ mostrarError('El importe debe ser mayor a 0.'); return; }
 
@@ -2776,6 +2806,7 @@ async function guardarGastoRapido() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 concepto_id: conceptoId,
+                cuenta_id: cuentaId,
                 mes: app.mesActual,
                 anio: app.anioActual,
                 fecha,
@@ -2826,27 +2857,28 @@ async function abrirModalMovimientos() {
                 ? `${m.cuenta_origen || '?'} → ${m.cuenta_destino || '?'}`
                 : (m.cuenta_origen || m.cuenta_destino || '—');
             const desc = m.observaciones || m.descripcion || '';
-            return `<tr>
-                <td class="text-muted small">${formatearFechaCorta(m.fecha)}</td>
-                <td><i class="bi ${t.icon} me-1"></i><span class="small">${t.label}</span></td>
-                <td class="small">${cuentaStr}</td>
-                <td class="small text-muted">${desc}</td>
-                <td class="text-end fw-medium ${t.cls}">${formatearMoneda(m.importe)}</td>
-            </tr>`;
+
+            const fechaStr = (m.fecha || '').replace('T', ' ');
+            const [fechaParte, horaParte] = fechaStr.split(' ');
+            const [yy, mm, dd] = (fechaParte || '').split('-');
+            const fechaFmt = fechaParte ? `${dd}/${mm}/${(yy || '').slice(2)}` : '—';
+            const horaFmt  = horaParte  ? horaParte.slice(0, 5) : '';
+
+            return `
+            <div class="d-flex align-items-start gap-2 px-3 py-2 border-bottom">
+                <div class="text-muted text-center flex-shrink-0" style="min-width:2.8rem;font-size:.72rem;line-height:1.4">
+                    <div>${fechaFmt}</div>
+                    ${horaFmt ? `<div>${horaFmt}</div>` : ''}
+                </div>
+                <div class="flex-grow-1" style="font-size:.82rem;min-width:0">
+                    <div class="text-truncate"><i class="bi ${t.icon} me-1"></i><strong>${t.label}</strong> · ${cuentaStr}</div>
+                    ${desc ? `<div class="text-muted text-truncate">${desc}</div>` : ''}
+                </div>
+                <div class="fw-medium ${t.cls} flex-shrink-0 text-end" style="font-size:.82rem">${formatearMoneda(m.importe)}</div>
+            </div>`;
         }).join('');
 
-        body.innerHTML = `
-        <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Fecha</th><th>Tipo</th><th>Cuenta</th><th>Descripción</th>
-                        <th class="text-end">Importe</th>
-                    </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-            </table>
-        </div>`;
+        body.innerHTML = `<div>${rows}</div>`;
     } catch (error) {
         body.innerHTML = `<div class="alert alert-danger m-3">Error: ${error.message}</div>`;
     }

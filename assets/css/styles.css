@@ -1781,11 +1781,20 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
 [data-bs-theme="dark"] .ingreso-row:hover { background: rgba(255,255,255,0.03); }
 [data-bs-theme="dark"] .ingreso-row.ingreso-row-cobrado { background: rgba(25,135,84,0.08); }
 
-.ingreso-nombre-wrap {
+/* Cuerpo del row: dos líneas apiladas */
+.ingreso-body {
     flex: 1 1 auto;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 0.3rem;
+    min-width: 0;
+}
+
+/* Línea 1: nombre + edit + importe */
+.ingreso-linea1 {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
     min-width: 0;
 }
 .ingreso-nombre {
@@ -1794,6 +1803,8 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 .btn-edit-ingreso {
     background: none;
@@ -1801,31 +1812,34 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     padding: 0 0.2rem;
     color: var(--color-gray);
     font-size: 0.7rem;
-    opacity: 0;
+    opacity: 0.4;
     transition: opacity 0.15s;
     cursor: pointer;
     flex-shrink: 0;
 }
 .ingreso-row:hover .btn-edit-ingreso { opacity: 1; }
-
-.ingreso-secondary {
-    display: contents;
-}
-.ingreso-fecha {
-    width: 8rem;
-    flex-shrink: 0;
-    font-size: 0.78rem !important;
-}
-.ingreso-cuenta {
-    width: 9rem;
-    flex-shrink: 0;
-    font-size: 0.78rem !important;
-}
 .ingreso-importe {
-    width: 8rem;
+    width: 7rem;
     flex-shrink: 0;
     text-align: right;
     font-size: 0.85rem !important;
+}
+
+/* Línea 2: cuenta + fecha */
+.ingreso-linea2 {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.ingreso-cuenta {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 0.78rem !important;
+}
+.ingreso-fecha {
+    width: 7.5rem;
+    flex-shrink: 0;
+    font-size: 0.78rem !important;
 }
 
 /* Edit inline form dentro del row */
@@ -1852,22 +1866,6 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
 .ingreso-total-info { font-size: 0.65rem; cursor: pointer; opacity: 0.6; }
 .ingreso-total-info:hover { opacity: 1; }
 .ingreso-total-valor { font-weight: 600; font-family: 'Inter', sans-serif; }
-
-/* Mobile */
-@media (max-width: 575px) {
-    .ingreso-row { flex-wrap: wrap; row-gap: 0.3rem; }
-    .ingreso-nombre-wrap { flex: 1 1 auto; }
-    .ingreso-importe { width: 6.5rem; flex-shrink: 0; }
-    .ingreso-secondary {
-        display: flex;
-        flex: 0 0 100%;
-        gap: 0.5rem;
-        padding-left: 2rem;
-    }
-    .ingreso-secondary .ingreso-fecha { flex: 1; width: auto; }
-    .ingreso-secondary .ingreso-cuenta { flex: 1; width: auto; }
-    .ingreso-totales { gap: 0.8rem; }
-}
 
 /* ==================== FAB — GASTO RÁPIDO ==================== */
 .fab {
