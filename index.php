@@ -22,7 +22,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 
     <!-- PWA: Manifest + tema -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1F2A37">
+    <meta name="theme-color" content="#1e1b4b">
 
     <!-- PWA iOS (Safari no usa el manifest para esto) -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -53,16 +53,11 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 <body>
     <!-- Header -->
     <header class="header bg-primary text-white shadow-sm">
-        <div class="container py-4 d-flex justify-content-between align-items-center">
-            <div>
-                <h1 class="h2 mb-2 cifra-logo">
-                    <i class="bi bi-bar-chart-fill me-2"></i>
-                    Cifra
-                </h1>
-                <p class="mb-0 opacity-75" style="font-size:0.85rem;letter-spacing:0.3px">
-                    Control financiero personal
-                </p>
-            </div>
+        <div class="container py-2 d-flex justify-content-between align-items-center">
+            <h1 class="h5 mb-0 cifra-logo">
+                <i class="bi bi-bar-chart-fill me-2"></i>
+                Cifra
+            </h1>
             <div class="d-flex gap-2 align-items-center">
                 <button class="btn btn-outline-light btn-sm" onclick="toggleDarkMode()" id="btnDarkMode" title="Cambiar tema">
                     <i class="bi bi-moon-fill" id="iconDarkMode"></i>
@@ -75,26 +70,26 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                     <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="btnMenu">
                         <li>
                             <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalResumen();return false;">
-                                <i class="bi bi-graph-up-arrow text-info"></i>
+                                <i class="bi bi-graph-up-arrow menu-icon"></i>
                                 Resumen
                             </a>
                         </li>
                         <li>
                             <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalCuentas();return false;">
-                                <i class="bi bi-bank text-primary"></i>
+                                <i class="bi bi-bank menu-icon"></i>
                                 Cuentas
                             </a>
                         </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalIngresos();return false;">
-                                <i class="bi bi-graph-up text-success"></i>
+                                <i class="bi bi-graph-up menu-icon"></i>
                                 Ingresos
                             </a>
                         </li>
                         <li>
                             <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalVencimientos();return false;">
-                                <i class="bi bi-clock-history text-warning"></i>
+                                <i class="bi bi-clock-history menu-icon"></i>
                                 Vencimientos
                                 <span class="badge bg-danger ms-auto d-none" id="badgeVencMenu"></span>
                             </a>
@@ -102,14 +97,14 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalMovimientos();return false;">
-                                <i class="bi bi-journal-text text-secondary"></i>
+                                <i class="bi bi-journal-text menu-icon"></i>
                                 Movimientos
                             </a>
                         </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalConceptos();return false;">
-                                <i class="bi bi-list-ul text-primary"></i>
+                                <i class="bi bi-list-ul menu-icon"></i>
                                 Conceptos
                             </a>
                         </li>
@@ -122,32 +117,32 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="container my-4">
-        <!-- Alertas -->
-        <div id="alertContainer"></div>
-
-        <!-- Selector de Mes/Año (colapsable) -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center py-2"
-                 data-bs-toggle="collapse" data-bs-target="#contenidoFiltroMes"
-                 style="cursor:pointer;user-select:none">
-                <span class="small fw-medium">
-                    <i class="bi bi-calendar3 me-2 text-primary"></i>
+    <!-- Topbar sticky: filtro + stats rápidos -->
+    <div class="cifra-topbar sticky-top">
+        <div class="container">
+            <div class="topbar-inner">
+                <button class="topbar-chip" data-bs-toggle="collapse" data-bs-target="#contenidoFiltroMes" aria-expanded="false">
+                    <i class="bi bi-calendar3"></i>
                     <span id="filtroMesLabel"><?php echo $labelFiltro; ?></span>
-                </span>
-                <div class="d-flex align-items-center gap-2">
-                    <span id="saldoFiltroHeader" class="small fw-semibold" style="font-family:'Inter',sans-serif"></span>
-                    <i class="bi bi-chevron-down" id="iconFiltroMes" style="font-size:0.85rem"></i>
+                    <i class="bi bi-chevron-down" id="iconFiltroMes"></i>
+                </button>
+                <div class="topbar-stats">
+                    <div class="topbar-stat" onclick="abrirModalResumen()" title="Saldo en cuentas menos gastos pendientes del mes">
+                        <span class="topbar-stat-label">Disponible</span>
+                        <span class="topbar-stat-valor" id="saldoFiltroHeader">—</span>
+                    </div>
+                    <div class="topbar-stat" onclick="abrirModalCuentas()" title="Total real en todas las cuentas">
+                        <span class="topbar-stat-label">Cuentas</span>
+                        <span class="topbar-stat-valor" id="totalCuentasTopbar">—</span>
+                    </div>
                 </div>
             </div>
             <div id="contenidoFiltroMes" class="collapse">
-                <div class="card-body">
+                <div class="topbar-filtro-body">
                     <div class="row g-3 align-items-end">
                         <div class="col">
                             <label for="selectMes" class="form-label">
-                                <i class="bi bi-calendar-month me-1"></i>
-                                Mes
+                                <i class="bi bi-calendar-month me-1"></i>Mes
                             </label>
                             <select id="selectMes" class="form-select">
                                 <option value="1">Enero</option>
@@ -164,17 +159,12 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                                 <option value="12">Diciembre</option>
                             </select>
                         </div>
-
                         <div class="col">
                             <label for="selectAnio" class="form-label">
-                                <i class="bi bi-calendar-event me-1"></i>
-                                Año
+                                <i class="bi bi-calendar-event me-1"></i>Año
                             </label>
-                            <select id="selectAnio" class="form-select">
-                                <!-- Se llena dinámicamente con JavaScript -->
-                            </select>
+                            <select id="selectAnio" class="form-select"></select>
                         </div>
-
                         <div class="col-auto">
                             <button id="btnCargar" class="btn btn-outline-secondary" title="Recargar">
                                 <i class="bi bi-arrow-clockwise"></i>
@@ -184,9 +174,12 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Card Total en Cuentas -->
-        <div id="cardCuentasHome" class="card shadow-sm mb-4"></div>
+    <!-- Main Content -->
+    <main class="container my-3">
+        <!-- Alertas -->
+        <div id="alertContainer"></div>
 
         <!-- Loading -->
         <div id="loading" class="text-center py-5 d-none">
@@ -205,21 +198,21 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                      data-bs-toggle="collapse" data-bs-target="#gastosHeaderDetalle"
                      style="cursor:pointer;user-select:none">
                     <h3 class="h6 mb-0 fw-bold seccion-titulo">
-                        <i class="bi bi-graph-down text-danger me-2"></i>Gastos
+                        <i class="bi bi-graph-down me-2"></i>Gastos
                     </h3>
                     <div class="d-flex align-items-center gap-2">
-                        <span class="fw-bold text-danger" id="totalGastosHeader" style="font-size:0.85rem"></span>
+                        <span class="fw-semibold" id="totalGastosHeader" style="font-size:0.85rem"></span>
                         <i class="bi bi-chevron-down" style="font-size:.75rem;opacity:.5;color:var(--bs-body-color)"></i>
                     </div>
                 </div>
                 <div class="collapse" id="gastosHeaderDetalle">
                     <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom" style="font-size:.82rem">
                         <span class="text-muted">Pagados</span>
-                        <span class="fw-medium text-success" id="gastosPagadosHeader"></span>
+                        <span class="fw-medium" id="gastosPagadosHeader"></span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom" style="font-size:.82rem">
                         <span class="text-muted">Por pagar</span>
-                        <span class="fw-medium text-warning" id="gastosPorPagarHeader"></span>
+                        <span class="fw-medium" id="gastosPorPagarHeader"></span>
                     </div>
                 </div>
                 <div class="card-body p-0">
@@ -288,10 +281,10 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                     <div class="resumen-bottom-row" id="cardSaldo">
                         <div class="resumen-saldo-item">
                             <span class="resumen-saldo-label">
-                                <i class="bi bi-wallet2" id="iconSaldo"></i> Disponible
+                                <i class="bi bi-bar-chart-steps" id="iconSaldo"></i> Balance del mes
                                 <i class="bi bi-info-circle resumen-info"
                                    data-bs-toggle="tooltip" data-bs-placement="top"
-                                   data-bs-title="Ingresos menos los gastos ya pagados"></i>
+                                   data-bs-title="Ingresos del mes menos los gastos ya pagados. No refleja el saldo real en cuentas."></i>
                             </span>
                             <span class="resumen-saldo-valor" id="saldoDisponible">$0,00</span>
                         </div>

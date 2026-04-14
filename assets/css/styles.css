@@ -7,10 +7,10 @@
 
 /* ==================== VARIABLES — CIFRA ==================== */
 :root {
-    /* Paleta oficial Cifra */
-    --color-primary:       #2563EB;
-    --color-primary-dark:  #1F2A37;
-    --color-primary-light: #3B82F6;
+    /* Paleta oficial Cifra — unificada con login (índigo + esmeralda) */
+    --color-primary:       #6366f1;   /* índigo-500 — mismo que login */
+    --color-primary-dark:  #312e81;   /* índigo-900 — header oscuro */
+    --color-primary-light: #818cf8;   /* índigo-400 */
     --color-success:       #16A34A;
     --color-success-dark:  #15803D;
     --color-danger:        #DC2626;
@@ -22,19 +22,23 @@
     --color-bg:            #F8FAFC;
     --color-white:         #FFFFFF;
 
+    /* Texto semántico — familia esmeralda/índigo, apagados */
+    --cifra-pos:           #047857;   /* esmeralda-700 — unificado con login */
+    --cifra-neg:           #991b1b;   /* rojo oscuro */
+
     /* Bootstrap overrides */
     --bs-body-bg:          #F8FAFC;
     --bs-body-color:       #111827;
-    --bs-primary:          #2563EB;
-    --bs-primary-rgb:      37, 99, 235;
+    --bs-primary:          #6366f1;
+    --bs-primary-rgb:      99, 102, 241;
     --bs-success:          #16A34A;
     --bs-success-rgb:      22, 163, 74;
     --bs-danger:           #DC2626;
     --bs-danger-rgb:       220, 38, 38;
     --bs-warning:          #D97706;
     --bs-warning-rgb:      217, 119, 6;
-    --bs-info:             #3B82F6;
-    --bs-info-rgb:         59, 130, 246;
+    --bs-info:             #6366f1;
+    --bs-info-rgb:         99, 102, 241;
 }
 
 /* ==================== BASE ==================== */
@@ -53,7 +57,7 @@ h1, h2, h3, h4, h5, h6,
 
 /* ==================== HEADER ==================== */
 .header {
-    background: linear-gradient(135deg, var(--color-primary-dark) 0%, #253445 100%);
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
 }
 
 .header h1,
@@ -61,6 +65,16 @@ h1, h2, h3, h4, h5, h6,
     font-family: 'Montserrat', sans-serif;
     font-weight: 700;
     letter-spacing: -0.5px;
+}
+
+/* Colores semánticos como clases reutilizables */
+.cifra-pos-text { color: var(--cifra-pos) !important; }
+.cifra-neg-text { color: var(--cifra-neg) !important; }
+
+/* Iconos del menú hamburguesa — color neutro unificado */
+.menu-icon {
+    color: var(--color-gray);
+    font-size: 0.95rem;
 }
 
 /* ==================== BOTONES ==================== */
@@ -228,17 +242,18 @@ h1, h2, h3, h4, h5, h6,
     justify-content: center;
     gap: 0.35rem;
 }
-.resumen-stat-ingreso .resumen-stat-label { color: #198754; }
-.resumen-stat-gasto   .resumen-stat-label { color: #dc3545; }
+.resumen-stat-ingreso .resumen-stat-label { color: var(--cifra-pos); }
+.resumen-stat-gasto   .resumen-stat-label { color: var(--cifra-neg); }
 .resumen-stat-valor {
     font-size: clamp(1rem, 5vw, 1.6rem);
-    font-weight: 700;
+    font-weight: 600;
     font-family: 'Inter', sans-serif;
+    font-variant-numeric: tabular-nums;
     line-height: 1;
     word-break: break-word;
 }
-.resumen-stat-ingreso .resumen-stat-valor { color: #198754; }
-.resumen-stat-gasto   .resumen-stat-valor { color: #dc3545; }
+.resumen-stat-ingreso .resumen-stat-valor { color: var(--cifra-pos); }
+.resumen-stat-gasto   .resumen-stat-valor { color: var(--cifra-neg); }
 
 .resumen-progress-section {
     padding: 1rem 1.5rem 0.8rem;
@@ -415,9 +430,9 @@ h1, h2, h3, h4, h5, h6,
 
 /* Saldo disponible y estado negativo */
 #saldoDisponible { color: var(--color-primary); }
-#cardSaldo.negativo { border-top: 2px solid var(--color-danger-dark); }
-#cardSaldo.negativo #saldoDisponible { color: var(--color-danger-dark) !important; }
-#cardSaldo.negativo #iconSaldo       { color: var(--color-danger-dark) !important; }
+#cardSaldo.negativo { border-top: 2px solid var(--cifra-neg); }
+#cardSaldo.negativo #saldoDisponible { color: var(--cifra-neg) !important; }
+#cardSaldo.negativo #iconSaldo       { color: var(--cifra-neg) !important; }
 
 /* Dark mode */
 [data-bs-theme="dark"] .resumen-top-row,
@@ -850,8 +865,8 @@ table.dataTable > tbody > tr.parent + tr.child td {
 /* ==================== DARK MODE ==================== */
 
 [data-bs-theme="dark"] {
-    --color-primary:      #3B82F6;
-    --color-primary-dark: #0F172A;
+    --color-primary:      #818cf8;   /* índigo-400, legible en oscuro */
+    --color-primary-dark: #1e1b4b;   /* índigo oscuro profundo */
     --color-success:      #22C55E;
     --color-danger:       #F87171;
     --color-warning:      #FBBF24;
@@ -860,6 +875,11 @@ table.dataTable > tbody > tr.parent + tr.child td {
     --color-gray-dark:    #F1F5F9;
     --color-bg:           #0F172A;
     --color-white:        #1E293B;
+    --bs-primary:         #818cf8;
+    --bs-primary-rgb:     129, 140, 248;
+    /* Texto semántico dark */
+    --cifra-pos:          #34d399;   /* esmeralda-400 */
+    --cifra-neg:          #fc9494;
 }
 
 [data-bs-theme="dark"] body {
@@ -1132,7 +1152,7 @@ table.dataTable > tbody > tr > td {
     /* Celdas más compactas pero legibles */
     .table > tbody > tr > td,
     table.dataTable > tbody > tr > td {
-        padding: 0.7rem 0.6rem;
+        padding: 0.5rem 0.6rem;
         font-size: var(--fs-small);
     }
 
@@ -1211,7 +1231,7 @@ table.dataTable > tbody > tr > td {
 
 /* Sticky header en scroll */
 @media (max-width: 991.98px) {
-    .header { position: sticky; top: 0; z-index: 1030; }
+    .header { position: sticky; top: 0; z-index: 1040; }
 }
 
 /* Safe area para notch/home bar en iOS */
@@ -1225,17 +1245,22 @@ table.dataTable > tbody > tr > td {
     user-select: none;
 }
 .categoria-header:hover td {
-    background-color: #D8DDE6 !important;
+    background-color: rgba(0,0,0,0.03) !important;
 }
 [data-bs-theme="dark"] .categoria-header:hover td {
-    background-color: #253347 !important;
+    background-color: rgba(255,255,255,0.05) !important;
 }
 
 .categoria-header td {
-    padding: 0.45rem 1rem !important;
+    padding: 0.4rem 1rem 0.4rem calc(1rem - 3px) !important;
     border-bottom: none !important;
     border-top: none !important;
-    background-color: #E9EDF2 !important;
+    background-color: transparent !important;
+    border-left: 3px solid var(--cat-color, #6B7280) !important;
+}
+
+[data-bs-theme="dark"] .categoria-header td {
+    background-color: transparent !important;
 }
 
 .cat-fila-colapsada { display: none !important; }
@@ -1255,17 +1280,18 @@ table.dataTable > tbody > tr > td {
 }
 
 .categoria-header-label {
-    font-size: 0.72rem;
-    font-weight: 700;
+    font-size: 0.71rem;
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
-    font-family: 'Montserrat', sans-serif;
+    letter-spacing: 1.4px;
+    font-family: 'Inter', sans-serif;
 }
 
 .categoria-header-total {
-    font-size: 0.8rem;
-    font-weight: 600;
-    font-family: 'Montserrat', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    font-variant-numeric: tabular-nums;
     padding-right: 0.25rem;
 }
 
@@ -1275,10 +1301,6 @@ table.dataTable > tbody > tr > td {
     height: calc(1.5em + 0.5rem + 4px);
 }
 
-/* Dark mode: header de categoría */
-[data-bs-theme="dark"] .categoria-header td {
-    background-color: #1E293B !important;
-}
 
 /* ==================== LISTA DE CONCEPTOS (modal ABM) ==================== */
 
@@ -1450,7 +1472,7 @@ table.dataTable > tbody > tr.tr-pagado > td {
 }
 
 table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
-    opacity: 0.7;
+    opacity: 0.85;
 }
 
 /* Dark mode */
@@ -1893,3 +1915,89 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     outline: none;
 }
 .fab:active { transform: scale(0.96); }
+
+/* ==================== TOPBAR ==================== */
+.cifra-topbar {
+    background: #eef2ff;   /* indigo-50 */
+    border-bottom: 1px solid rgba(99,102,241,0.15);
+    z-index: 1030;
+}
+.topbar-inner {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .4rem 0;
+}
+.topbar-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .3rem .7rem;
+    border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 2rem;
+    background: transparent;
+    font-size: .82rem;
+    font-weight: 500;
+    color: var(--bs-body-color);
+    cursor: pointer;
+    transition: background .15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.topbar-chip:hover { background: var(--bs-secondary-bg); }
+.topbar-chip #iconFiltroMes {
+    font-size: .65rem;
+    opacity: .5;
+    transition: transform .2s;
+}
+.topbar-chip[aria-expanded="true"] #iconFiltroMes { transform: rotate(180deg); }
+.topbar-stats {
+    display: flex;
+    gap: .15rem;
+    margin-left: auto;
+}
+.topbar-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    cursor: pointer;
+    padding: .2rem .55rem;
+    border-radius: .4rem;
+    transition: background .15s;
+}
+.topbar-stat:hover { background: var(--bs-secondary-bg); }
+.topbar-stat-label {
+    font-size: .6rem;
+    opacity: .55;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    line-height: 1.3;
+}
+.topbar-stat-valor {
+    font-size: .85rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.2;
+}
+.topbar-filtro-body {
+    padding-bottom: .75rem;
+}
+[data-bs-theme="dark"] .cifra-topbar {
+    background: var(--bs-body-bg);
+    border-bottom-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .topbar-chip {
+    border-color: var(--bs-border-color);
+}
+
+/* Importe pagado: label estático en lugar de input */
+.importe-pagado {
+    font-size: 0.9rem;
+    font-family: 'Inter', sans-serif;
+    font-variant-numeric: tabular-nums;
+    color: var(--cifra-pos);
+    padding: 0.25rem 0;
+    min-width: 5rem;
+    text-align: right;
+    display: inline-block;
+}

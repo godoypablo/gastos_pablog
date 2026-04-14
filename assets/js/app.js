@@ -277,10 +277,15 @@ function renderizarDatos() {
     document.getElementById('totalIngresos').textContent   = formatearMoneda(total_ingresos);
     document.getElementById('totalGastos').textContent     = formatearMoneda(total_gastos);
     document.getElementById('saldoDisponible').textContent = formatearMoneda(saldo_disponible);
+    // Disponible = saldo real en cuentas − gastos pendientes del mes
+    // Siempre ≤ total cuentas; representa lo que queda si se paga todo lo pendiente
+    const totalCuentas    = (app.cuentas || []).reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
+    const gastosPendientes = total_gastos - gastos_pagados;
+    const disponibleReal  = totalCuentas - gastosPendientes;
     const elSFH = document.getElementById('saldoFiltroHeader');
     if (elSFH) {
-        elSFH.textContent = formatearMoneda(saldo);
-        elSFH.style.color = saldo >= 0 ? 'var(--bs-success)' : 'var(--bs-danger)';
+        elSFH.textContent = formatearMoneda(disponibleReal);
+        elSFH.style.color = disponibleReal >= 0 ? 'var(--cifra-pos)' : 'var(--cifra-neg)';
     }
     const elTGH = document.getElementById('totalGastosHeader');
     if (elTGH) elTGH.textContent = formatearMoneda(total_gastos);
@@ -297,12 +302,12 @@ function renderizarDatos() {
 
     if (saldo_disponible < 0) {
         cardSaldo.classList.add('negativo');
-        iconSaldo.classList.remove('bi-wallet2', 'text-primary');
+        iconSaldo.classList.remove('bi-bar-chart-steps');
         iconSaldo.classList.add('bi-exclamation-triangle-fill', 'text-danger');
     } else {
         cardSaldo.classList.remove('negativo');
         iconSaldo.classList.remove('bi-exclamation-triangle-fill', 'text-danger');
-        iconSaldo.classList.add('bi-wallet2', 'text-primary');
+        iconSaldo.classList.add('bi-bar-chart-steps');
     }
 
     // Destruir DataTable gastos antes de limpiar tbody
@@ -510,9 +515,9 @@ function inyectarCabecerasCategorias(api) {
         headerTr.dataset.catToggleId = catId;
         const td = document.createElement('td');
         td.colSpan = 2;
+        td.style.setProperty('--cat-color', color || '#6B7280');
         td.innerHTML = `<div class="categoria-header-inner">
             <i class="bi ${colapsada ? 'bi-chevron-right' : 'bi-chevron-down'} categoria-toggle-chevron" style="color:${color}; font-size:0.65rem;"></i>
-            <span class="categoria-dot" style="background:${color}"></span>
             ${icono ? `<i class="bi ${icono}" style="color:${color}; font-size:0.78rem;"></i>` : ''}
             <span class="categoria-header-label" style="color:${color}">${nombre}</span>
             <span class="categoria-header-total ms-auto" style="color:${color}">${formatearMoneda(total)}</span>
@@ -667,72 +672,81 @@ function crearFilaSimple(concepto, tipo) {
     const inputGroup = document.createElement('div');
     inputGroup.className = 'd-flex justify-content-end align-items-center gap-2';
 
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.inputMode = 'decimal';
-    input.className = 'input-importe form-control';
-    input.value = concepto.importe > 0 ? formatearMoneda(concepto.importe) : '';
-    input.dataset.conceptoId = concepto.id;
-    input.dataset.registroId = concepto.registro_id || '';
-    input.placeholder = '$ 0,00';
+    if (concepto.pagado === 1) {
+        // Pagado: mostrar como label estático
+        const span = document.createElement('span');
+        span.className = 'importe-pagado fw-medium';
+        span.textContent = concepto.importe > 0 ? formatearMoneda(concepto.importe) : '—';
+        inputGroup.appendChild(span);
+    } else {
+        // No pagado: input editable
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.inputMode = 'decimal';
+        input.className = 'input-importe form-control';
+        input.value = concepto.importe > 0 ? formatearMoneda(concepto.importe) : '';
+        input.dataset.conceptoId = concepto.id;
+        input.dataset.registroId = concepto.registro_id || '';
+        input.placeholder = '$ 0,00';
 
-    input.addEventListener('focus', () => {
-        const raw = parsearImporte(input.value);
-        input.value = raw > 0 ? String(raw).replace('.', ',') : '';
-        input.select();
-    });
-    input.addEventListener('blur', () => {
-        const importe = parsearImporte(input.value);
-        input.value = importe > 0 ? formatearMoneda(importe) : '';
-        guardarImporte(concepto.id, importe, concepto.registro_id, input);
-    });
-    input.addEventListener('keypress', (e) => { if (e.key === 'Enter') input.blur(); });
-    input.addEventListener('input', () => {
-        input.classList.add('unsaved');
-        input.classList.remove('saved');
-    });
+        input.addEventListener('focus', () => {
+            const raw = parsearImporte(input.value);
+            input.value = raw > 0 ? String(raw).replace('.', ',') : '';
+            input.select();
+        });
+        input.addEventListener('blur', () => {
+            const importe = parsearImporte(input.value);
+            input.value = importe > 0 ? formatearMoneda(importe) : '';
+            guardarImporte(concepto.id, importe, concepto.registro_id, input);
+        });
+        input.addEventListener('keypress', (e) => { if (e.key === 'Enter') input.blur(); });
+        input.addEventListener('input', () => {
+            input.classList.add('unsaved');
+            input.classList.remove('saved');
+        });
 
-    // Botón SMVM para Cuota Alimentaria (va a la izquierda del input)
-    if (concepto.nombre.toLowerCase().includes('alimentaria')) {
-        const btnSmvm = document.createElement('button');
-        btnSmvm.className = 'btn btn-smvm';
-        btnSmvm.title = 'Sugerir valor del SMVM vigente';
-        btnSmvm.innerHTML = '<i class="bi bi-robot"></i>';
-        btnSmvm.addEventListener('click', () => sugerirSMVM(input, btnSmvm, app.mesActual, app.anioActual));
-        inputGroup.appendChild(btnSmvm);
+        // Botón SMVM para Cuota Alimentaria
+        if (concepto.nombre.toLowerCase().includes('alimentaria')) {
+            const btnSmvm = document.createElement('button');
+            btnSmvm.className = 'btn btn-smvm';
+            btnSmvm.title = 'Sugerir valor del SMVM vigente';
+            btnSmvm.innerHTML = '<i class="bi bi-robot"></i>';
+            btnSmvm.addEventListener('click', () => sugerirSMVM(input, btnSmvm, app.mesActual, app.anioActual));
+            inputGroup.appendChild(btnSmvm);
+        }
+
+        // Botón Elena Limpieza
+        if (concepto.nombre.toLowerCase().includes('elena')) {
+            const btnElena = document.createElement('button');
+            btnElena.className = 'btn btn-smvm';
+            btnElena.title = 'Sugerir importe empleada doméstica (4h/semana)';
+            btnElena.innerHTML = '<i class="bi bi-robot"></i>';
+            btnElena.addEventListener('click', () => sugerirElena(input, btnElena, app.mesActual, app.anioActual));
+            inputGroup.appendChild(btnElena);
+        }
+
+        // Botón Spotify Duo
+        if (concepto.nombre.toLowerCase().includes('spotify')) {
+            const btnSpotify = document.createElement('button');
+            btnSpotify.className = 'btn btn-smvm';
+            btnSpotify.title = 'Sugerir precio Spotify Duo para el mes seleccionado';
+            btnSpotify.innerHTML = '<i class="bi bi-robot"></i>';
+            btnSpotify.addEventListener('click', () => sugerirSpotifyDuo(input, btnSpotify, app.mesActual, app.anioActual));
+            inputGroup.appendChild(btnSpotify);
+        }
+
+        // Botón YouTube Premium
+        if (concepto.nombre.toLowerCase().includes('youtube')) {
+            const btnYt = document.createElement('button');
+            btnYt.className = 'btn btn-smvm';
+            btnYt.title = 'Sugerir precio YouTube Premium al tipo de cambio actual';
+            btnYt.innerHTML = '<i class="bi bi-robot"></i>';
+            btnYt.addEventListener('click', () => sugerirYoutubePremium(input, btnYt));
+            inputGroup.appendChild(btnYt);
+        }
+
+        inputGroup.appendChild(input);
     }
-
-    // Botón Elena Limpieza (va a la izquierda del input)
-    if (concepto.nombre.toLowerCase().includes('elena')) {
-        const btnElena = document.createElement('button');
-        btnElena.className = 'btn btn-smvm';
-        btnElena.title = 'Sugerir importe empleada doméstica (4h/semana)';
-        btnElena.innerHTML = '<i class="bi bi-robot"></i>';
-        btnElena.addEventListener('click', () => sugerirElena(input, btnElena, app.mesActual, app.anioActual));
-        inputGroup.appendChild(btnElena);
-    }
-
-    // Botón Spotify Duo (va a la izquierda del input)
-    if (concepto.nombre.toLowerCase().includes('spotify')) {
-        const btnSpotify = document.createElement('button');
-        btnSpotify.className = 'btn btn-smvm';
-        btnSpotify.title = 'Sugerir precio Spotify Duo para el mes seleccionado';
-        btnSpotify.innerHTML = '<i class="bi bi-robot"></i>';
-        btnSpotify.addEventListener('click', () => sugerirSpotifyDuo(input, btnSpotify, app.mesActual, app.anioActual));
-        inputGroup.appendChild(btnSpotify);
-    }
-
-    // Botón cotización YouTube Premium (va a la izquierda del input)
-    if (concepto.nombre.toLowerCase().includes('youtube')) {
-        const btnYt = document.createElement('button');
-        btnYt.className = 'btn btn-smvm';
-        btnYt.title = 'Sugerir precio YouTube Premium al tipo de cambio actual';
-        btnYt.innerHTML = '<i class="bi bi-robot"></i>';
-        btnYt.addEventListener('click', () => sugerirYoutubePremium(input, btnYt));
-        inputGroup.appendChild(btnYt);
-    }
-
-    inputGroup.appendChild(input);
 
     tdImporte.appendChild(inputGroup);
     tr.appendChild(tdImporte);
@@ -833,16 +847,13 @@ function crearFilasMultiple(concepto, tipo) {
     const inputGroupTotal = document.createElement('div');
     inputGroupTotal.className = 'd-flex justify-content-end align-items-center gap-2';
 
-    const inputTotal = document.createElement('input');
-    inputTotal.type = 'text';
-    inputTotal.className = 'input-importe form-control input-importe-readonly';
-    inputTotal.id = `total-concepto-${concepto.id}`;
-    inputTotal.value = formatearMoneda(concepto.importe);
-    inputTotal.readOnly = true;
-    inputTotal.tabIndex = -1;
-    inputTotal.title = 'Total del mes — expandí para ver el detalle';
+    const spanTotal = document.createElement('span');
+    spanTotal.className = 'importe-pagado';
+    spanTotal.id = `total-concepto-${concepto.id}`;
+    spanTotal.textContent = formatearMoneda(concepto.importe);
+    spanTotal.title = 'Total del mes — expandí para ver el detalle';
 
-    inputGroupTotal.appendChild(inputTotal);
+    inputGroupTotal.appendChild(spanTotal);
     tdTotal.appendChild(inputGroupTotal);
     trHeader.appendChild(tdTotal);
 
@@ -1431,9 +1442,8 @@ async function togglePagado(registroId, btnElement, trElement, conceptoId = null
             trElement.classList.toggle('tr-pagado', paid);
             if (paid) trElement.classList.remove('tr-vencido'); // pagado → no mostrar rojo
         }
-        // Recargar para que el botón tenga el registro_id correcto en su closure
-        if (registroCreado) await cargarDatos();
-        else await cargarCuentas(); // Refrescar saldos si se creó/revirtió movimiento
+        // Recargar filas y saldos (re-renderiza input/label según estado pagado)
+        await cargarDatos();
     } catch (error) {
         mostrarError('Error al actualizar: ' + error.message);
     }
@@ -1488,10 +1498,10 @@ function renderizarResumenIngresos() {
         return `
         <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
             <span class="small ${cobrado ? '' : 'text-muted'}">
-                <i class="bi ${cobrado ? 'bi-check-circle-fill text-success' : 'bi-circle'} me-1" style="font-size:.75rem"></i>
+                <i class="bi ${cobrado ? 'bi-check-circle-fill' : 'bi-circle'} me-1" style="font-size:.75rem;color:${cobrado ? 'var(--cifra-pos)' : 'inherit'}"></i>
                 ${c.nombre}
             </span>
-            <span class="small fw-medium ${cobrado ? 'text-success' : 'text-muted'}">${imp > 0 ? formatearMoneda(imp) : '—'}</span>
+            <span class="small fw-medium" style="color:${cobrado ? 'var(--cifra-pos)' : 'var(--bs-secondary-color)'}">${imp > 0 ? formatearMoneda(imp) : '—'}</span>
         </div>`;
     }).join('');
 }
@@ -1681,9 +1691,9 @@ function renderizarModalIngresos() {
     const pendiente = total - cobrado;
 
     const tooltips = [
-        { label: 'Total',     valor: total,     cls: '',             title: 'Suma de todos los ingresos del mes, cobrados o no' },
-        { label: 'Cobrado',   valor: cobrado,   cls: 'text-success', title: 'Ingresos ya recibidos (marcados con ✓)' },
-        { label: 'Pendiente', valor: pendiente, cls: 'text-muted',   title: 'Ingresos que todavía no cobraste' },
+        { label: 'Total',     valor: total,     cls: '',           title: 'Suma de todos los ingresos del mes, cobrados o no' },
+        { label: 'Cobrado',   valor: cobrado,   cls: 'cifra-pos-text', title: 'Ingresos ya recibidos (marcados con ✓)' },
+        { label: 'Pendiente', valor: pendiente, cls: 'text-muted', title: 'Ingresos que todavía no cobraste' },
     ];
 
     const container = document.getElementById('totalIngresosModal');
@@ -2525,37 +2535,10 @@ async function cargarCuentas() {
 }
 
 function renderizarCardCuentasHome() {
-    const contenedor = document.getElementById('cardCuentasHome');
-    if (!contenedor) return;
-    if (!app.cuentas || !app.cuentas.length) { contenedor.innerHTML = ''; return; }
-
+    const el = document.getElementById('totalCuentasTopbar');
+    if (!el || !app.cuentas || !app.cuentas.length) return;
     const totalReal = app.cuentas.reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
-
-    const filasHtml = app.cuentas.map(c => {
-        const saldo = parseFloat(c.saldo_actual || 0);
-        return `
-        <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
-            <div class="d-flex align-items-center gap-2">
-                <span style="width:.5rem;height:.5rem;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0"></span>
-                <span style="font-size:.82rem">${c.nombre}</span>
-            </div>
-            <span style="font-size:.82rem;font-weight:600">${formatearMoneda(saldo)}</span>
-        </div>`;
-    }).join('');
-
-    contenedor.innerHTML = `
-        <div class="card-header d-flex justify-content-between align-items-center py-2"
-             data-bs-toggle="collapse" data-bs-target="#cuentasHomeDetalle"
-             style="cursor:pointer;user-select:none">
-            <span class="small fw-medium">
-                <i class="bi bi-bank me-2 text-primary"></i>Total en cuentas
-            </span>
-            <div class="d-flex align-items-center gap-2">
-                <span class="fw-bold" style="font-size:.85rem">${formatearMoneda(totalReal)}</span>
-                <i class="bi bi-chevron-down" style="font-size:.75rem;opacity:.5"></i>
-            </div>
-        </div>
-        <div class="collapse" id="cuentasHomeDetalle">${filasHtml}</div>`;
+    el.textContent = formatearMoneda(totalReal);
 }
 
 function renderizarCuentas() {

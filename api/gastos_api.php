@@ -2,10 +2,6 @@
 /**
  * API REST para Sistema de Gastos Personales
  */
- ini_set('display_errors', 1);
-  error_reporting(E_ALL);
-
-
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE');
@@ -279,7 +275,7 @@ try {
                 $stmt_mov = $db->prepare(
                     "SELECT id, cuenta_origen_id, cuenta_destino_id, importe
                      FROM movimientos_cuenta
-                     WHERE registro_id = :rid AND tipo IN ('ingreso','pago_gasto')
+                     WHERE registro_id = :rid AND tipo IN ('ingreso','pago_gasto','extraccion')
                      LIMIT 1"
                 );
                 $stmt_mov->execute(['rid' => $registro_id]);
@@ -372,7 +368,7 @@ try {
 
                 // Leer registro actual para saber cuenta y tipo de concepto
                 $stmt_reg = $db->prepare(
-                    "SELECT rm.cuenta_id, rm.importe, c.tipo AS concepto_tipo
+                    "SELECT rm.cuenta_id, rm.importe, rm.fecha, c.tipo AS concepto_tipo
                      FROM registros_mensuales rm
                      INNER JOIN conceptos c ON rm.concepto_id = c.id
                      WHERE rm.id = :id"
@@ -385,6 +381,7 @@ try {
                     $importe       = (float)$reg['importe'];
                     $tipo_concepto = $reg['concepto_tipo'];
                     $tipo_mov      = ($tipo_concepto === 'ingreso') ? 'ingreso' : 'pago_gasto';
+                    $fecha_mov     = $reg['fecha'] ?: date('Y-m-d');
 
                     $db->beginTransaction();
                     try {
@@ -408,16 +405,16 @@ try {
                             // Crear movimiento y ajustar saldo
                             if ($tipo_mov === 'ingreso') {
                                 $db->prepare(
-                                    "INSERT INTO movimientos_cuenta (tipo, cuenta_destino_id, importe, registro_id)
-                                     VALUES ('ingreso', :cid, :imp, :rid)"
-                                )->execute(['cid' => $cuenta_id, 'imp' => $importe, 'rid' => $registro_id]);
+                                    "INSERT INTO movimientos_cuenta (tipo, cuenta_destino_id, importe, fecha, registro_id)
+                                     VALUES ('ingreso', :cid, :imp, :fecha, :rid)"
+                                )->execute(['cid' => $cuenta_id, 'imp' => $importe, 'fecha' => $fecha_mov, 'rid' => $registro_id]);
                                 $db->prepare("UPDATE cuentas SET saldo_actual = saldo_actual + :imp, fecha_saldo = CURDATE() WHERE id = :id")
                                    ->execute(['imp' => $importe, 'id' => $cuenta_id]);
                             } else {
                                 $db->prepare(
-                                    "INSERT INTO movimientos_cuenta (tipo, cuenta_origen_id, importe, registro_id)
-                                     VALUES ('pago_gasto', :cid, :imp, :rid)"
-                                )->execute(['cid' => $cuenta_id, 'imp' => $importe, 'rid' => $registro_id]);
+                                    "INSERT INTO movimientos_cuenta (tipo, cuenta_origen_id, importe, fecha, registro_id)
+                                     VALUES ('pago_gasto', :cid, :imp, :fecha, :rid)"
+                                )->execute(['cid' => $cuenta_id, 'imp' => $importe, 'fecha' => $fecha_mov, 'rid' => $registro_id]);
                                 $db->prepare("UPDATE cuentas SET saldo_actual = saldo_actual - :imp, fecha_saldo = CURDATE() WHERE id = :id")
                                    ->execute(['imp' => $importe, 'id' => $cuenta_id]);
                             }
@@ -426,7 +423,7 @@ try {
                             $stmt_mov = $db->prepare(
                                 "SELECT id, cuenta_origen_id, cuenta_destino_id, importe
                                  FROM movimientos_cuenta
-                                 WHERE registro_id = :rid AND tipo IN ('ingreso','pago_gasto')
+                                 WHERE registro_id = :rid AND tipo IN ('ingreso','pago_gasto','extraccion')
                                  LIMIT 1"
                             );
                             $stmt_mov->execute(['rid' => $registro_id]);
@@ -478,7 +475,7 @@ try {
                         $stmt_mov = $db->prepare(
                             "SELECT id, cuenta_origen_id, cuenta_destino_id
                              FROM movimientos_cuenta
-                             WHERE registro_id = :rid AND tipo IN ('ingreso','pago_gasto')
+                             WHERE registro_id = :rid AND tipo IN ('ingreso','pago_gasto','extraccion')
                              LIMIT 1"
                         );
                         $stmt_mov->execute(['rid' => $registro_id]);
