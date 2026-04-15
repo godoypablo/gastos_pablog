@@ -145,7 +145,6 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                         <div class="topbar-stat d-none" id="statUSD" onclick="abrirModalCuentas()" title="Saldo USD en cuentas menos gastos USD pendientes">
                             <span class="topbar-stat-label">USD disp.</span>
                             <span class="topbar-stat-valor" id="saldoUSDHeader">—</span>
-                            <span class="topbar-stat-equiv d-none text-muted" id="saldoUSDEquiv" style="font-size:0.62rem"></span>
                         </div>
                         <div class="topbar-stat" onclick="abrirModalCuentas()" title="Total real en cuentas ARS">
                             <span class="topbar-stat-label">Cuentas</span>
@@ -531,6 +530,17 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                                         <input class="form-check-input" type="checkbox" id="nuevoPermiteMultiples">
                                         <label class="form-check-label small" for="nuevoPermiteMultiples">Multi</label>
                                     </div>
+                                </div>
+                                <div class="col-6 col-sm-1">
+                                    <label class="form-label small">Moneda</label>
+                                    <select id="nuevoMoneda" class="form-select form-select-sm" onchange="actualizarCtaDefNuevo()">
+                                        <option value="ARS">ARS $</option>
+                                        <option value="USD">USD U$D</option>
+                                    </select>
+                                </div>
+                                <div class="col-6 col-sm-2">
+                                    <label class="form-label small">Cuenta default</label>
+                                    <select id="nuevoCtaDef" class="form-select form-select-sm"></select>
                                 </div>
                                 <div class="col-sm-2 d-flex gap-1">
                                     <button class="btn btn-primary btn-sm flex-fill" onclick="guardarNuevoConcepto()">

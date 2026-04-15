@@ -68,12 +68,12 @@ try {
                         AND rm.mes = :mes
                         AND rm.anio = :anio
                     WHERE c.activo = 1
-                    GROUP BY c.id, c.nombre, c.tipo, c.orden, c.permite_multiples,
+                    GROUP BY c.id, c.nombre, c.tipo, c.moneda, c.orden, c.permite_multiples,
                              c.categoria_id, c.cuenta_id_default, cat.nombre, cat.color, cat.icono
                     ORDER BY c.tipo DESC,
-                             c.moneda ASC,
                              COALESCE(cat.orden, 9999) ASC,
                              COALESCE(cat.id, 9999) ASC,
+                             c.moneda ASC,
                              c.orden ASC";
 
             $stmt = $db->prepare($sql);
@@ -404,7 +404,7 @@ try {
 
                 // Leer registro actual para saber cuenta y tipo de concepto
                 $stmt_reg = $db->prepare(
-                    "SELECT rm.cuenta_id, rm.importe, rm.fecha, c.tipo AS concepto_tipo
+                    "SELECT rm.cuenta_id, rm.importe, rm.fecha, c.tipo AS concepto_tipo, c.moneda AS concepto_moneda
                      FROM registros_mensuales rm
                      INNER JOIN conceptos c ON rm.concepto_id = c.id
                      WHERE rm.id = :id"
@@ -413,11 +413,13 @@ try {
                 $reg = $stmt_reg->fetch();
 
                 if ($reg && $reg['cuenta_id'] && (float)$reg['importe'] > 0) {
-                    $cuenta_id     = (int)$reg['cuenta_id'];
-                    $importe       = (float)$reg['importe'];
-                    $tipo_concepto = $reg['concepto_tipo'];
-                    $tipo_mov      = ($tipo_concepto === 'ingreso') ? 'ingreso' : 'pago_gasto';
-                    $fecha_mov     = $reg['fecha'] ?: date('Y-m-d');
+                    $cuenta_id       = (int)$reg['cuenta_id'];
+                    $importe         = (float)$reg['importe'];
+                    $tipo_concepto   = $reg['concepto_tipo'];
+                    $concepto_moneda = $reg['concepto_moneda'] ?? 'ARS';
+                    $tipo_mov        = ($tipo_concepto === 'ingreso') ? 'ingreso' : 'pago_gasto';
+                    $fecha_mov       = $reg['fecha'] ?: date('Y-m-d');
+                    $simbolo         = $concepto_moneda === 'USD' ? 'U$D ' : '$';
 
                     $db->beginTransaction();
                     try {
@@ -432,8 +434,8 @@ try {
                                     $db->rollBack();
                                     sendResponse(false, null,
                                         'Saldo insuficiente en "' . $cuenta_row['nombre'] . '". ' .
-                                        'Disponible: $' . number_format($saldo_disp, 2, ',', '.') . ' — ' .
-                                        'Requerido: $' . number_format($importe, 2, ',', '.'),
+                                        'Disponible: ' . $simbolo . number_format($saldo_disp, 2, ',', '.') . ' — ' .
+                                        'Requerido: ' . $simbolo . number_format($importe, 2, ',', '.'),
                                         422);
                                 }
                             }

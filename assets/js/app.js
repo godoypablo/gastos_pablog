@@ -254,11 +254,6 @@ async function cargarDatos() {
     mostrarLoading();
 
     try {
-        // Cotización USD (no bloquea la carga principal)
-        fetchTipoCambioUSD().then(() => {
-            if (app.datos) renderizarDatos(); // re-renderizar para mostrar equivalente
-        });
-
         const [response, respCuentas] = await Promise.all([
             fetch(`${API_URL}?mes=${app.mesActual}&anio=${app.anioActual}`),
             fetch(`api/cuentas_api.php?mes=${app.mesActual}&anio=${app.anioActual}`)
@@ -284,15 +279,15 @@ async function cargarDatos() {
 function renderizarDatos() {
     if (!app.datos) return;
 
-    // Actualizar resumen — resumen ahora viene separado por moneda
-    const resARS = app.datos.resumen.ARS;
-    const resUSD = app.datos.resumen.USD;
+    // Actualizar resumen — resumen viene separado por moneda {ARS: {...}, USD: {...}}
+    const resARS = app.datos.resumen?.ARS || { total_ingresos: 0, ingresos_cobrados: 0, total_gastos: 0, gastos_pagados: 0 };
+    const resUSD = app.datos.resumen?.USD || { total_ingresos: 0, ingresos_cobrados: 0, total_gastos: 0, gastos_pagados: 0 };
 
     // Disponible por moneda = saldo real en cuentas − gastos pendientes del mes
     const totalCuentasARS  = (app.cuentas || []).filter(c => (c.moneda || 'ARS') === 'ARS').reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
     const totalCuentasUSD  = (app.cuentas || []).filter(c => c.moneda === 'USD').reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
     const disponibleARS    = totalCuentasARS - (resARS.total_gastos - resARS.gastos_pagados);
-    const disponibleUSD    = totalCuentasUSD - (resUSD.total_gastos - resUSD.gastos_pagados);
+    const disponibleUSD    = totalCuentasUSD;
     const pctPagado        = resARS.total_gastos > 0 ? Math.min(100, (resARS.gastos_pagados / resARS.total_gastos) * 100) : 0;
 
     document.getElementById('totalIngresos').textContent   = formatearMoneda(resARS.total_ingresos);
@@ -313,12 +308,6 @@ function renderizarDatos() {
     if (elUSDH) {
         elUSDH.textContent = formatearMoneda(disponibleUSD, 'USD');
         elUSDH.style.color = disponibleUSD >= 0 ? 'var(--cifra-pos)' : 'var(--cifra-neg)';
-        // Equivalente en ARS si hay cotización cacheada
-        const elUSDEquiv = document.getElementById('saldoUSDEquiv');
-        if (elUSDEquiv && app.tipoCambioUSD) {
-            elUSDEquiv.textContent = '≈\u00A0' + formatearMoneda(disponibleUSD * app.tipoCambioUSD);
-            elUSDEquiv.classList.remove('d-none');
-        }
     }
 
     const elTGH = document.getElementById('totalGastosHeader');
@@ -415,7 +404,7 @@ function mostrarBannerVencimientos() {
         <div class="venc-fila">
             <span class="venc-nombre">${c.nombre}</span>
             <span class="venc-fecha ${esVencido ? 'venc-fecha-vencido' : ''}">${esVencido ? 'vencido' : formatearFechaCorta(c.fv)}</span>
-            <span class="venc-importe">${formatearMoneda(parseFloat(c.importe) || 0)}</span>
+            <span class="venc-importe">${formatearMoneda(parseFloat(c.importe) || 0, c.moneda || 'ARS')}</span>
         </div>`;
 
     modalBody.innerHTML = `
@@ -545,10 +534,9 @@ function inyectarCabecerasCategorias(api) {
 
         const colapsada = app.categoriasColapsadas.has(catId);
         const t = totalesPorCat[catId] || { ARS: 0, USD: 0 };
-        const partes = [];
-        if (t.ARS > 0) partes.push(formatearMoneda(t.ARS, 'ARS'));
-        if (t.USD > 0) partes.push(formatearMoneda(t.USD, 'USD'));
-        const totalStr = partes.join(' + ') || '—';
+        const arsStr = t.ARS > 0 ? formatearMoneda(t.ARS) : (t.USD === 0 ? '—' : '');
+        const usdStr = t.USD > 0 ? `<small class="d-block" style="font-size:0.65rem;opacity:0.8">${formatearMoneda(t.USD, 'USD')}</small>` : '';
+        const totalStr = arsStr + usdStr || '—';
 
         const headerTr = document.createElement('tr');
         headerTr.className = 'categoria-header';
@@ -560,7 +548,7 @@ function inyectarCabecerasCategorias(api) {
             <i class="bi ${colapsada ? 'bi-chevron-right' : 'bi-chevron-down'} categoria-toggle-chevron" style="color:${color}; font-size:0.65rem;"></i>
             ${icono ? `<i class="bi ${icono}" style="color:${color}; font-size:0.78rem;"></i>` : ''}
             <span class="categoria-header-label" style="color:${color}">${nombre}</span>
-            <span class="categoria-header-total ms-auto" style="color:${color}">${totalStr}</span>
+            <span class="categoria-header-total ms-auto text-end" style="color:${color}">${totalStr}</span>
         </div>`;
         headerTr.appendChild(td);
         headerTr.addEventListener('click', () => toggleCategoria(catId));
@@ -716,7 +704,7 @@ function crearFilaSimple(concepto, tipo) {
         // Pagado: mostrar como label estático
         const span = document.createElement('span');
         span.className = 'importe-pagado fw-medium';
-        span.textContent = concepto.importe > 0 ? formatearMoneda(concepto.importe) : '—';
+        span.textContent = concepto.importe > 0 ? formatearMoneda(concepto.importe, concepto.moneda || 'ARS') : '—';
         inputGroup.appendChild(span);
     } else {
         // No pagado: input editable
@@ -724,10 +712,10 @@ function crearFilaSimple(concepto, tipo) {
         input.type = 'text';
         input.inputMode = 'decimal';
         input.className = 'input-importe form-control';
-        input.value = concepto.importe > 0 ? formatearMoneda(concepto.importe) : '';
+        input.value = concepto.importe > 0 ? formatearMoneda(concepto.importe, concepto.moneda || 'ARS') : '';
         input.dataset.conceptoId = concepto.id;
         input.dataset.registroId = concepto.registro_id || '';
-        input.placeholder = '$ 0,00';
+        input.placeholder = (concepto.moneda === 'USD') ? 'U$D 0,00' : '$ 0,00';
 
         input.addEventListener('focus', () => {
             const raw = parsearImporte(input.value);
@@ -890,7 +878,7 @@ function crearFilasMultiple(concepto, tipo) {
     const spanTotal = document.createElement('span');
     spanTotal.className = 'importe-pagado';
     spanTotal.id = `total-concepto-${concepto.id}`;
-    spanTotal.textContent = formatearMoneda(concepto.importe);
+    spanTotal.textContent = formatearMoneda(concepto.importe, concepto.moneda || 'ARS');
     spanTotal.title = 'Total del mes — expandí para ver el detalle';
 
     inputGroupTotal.appendChild(spanTotal);
@@ -1055,6 +1043,10 @@ async function agregarRegistroMultiple(conceptoId) {
         return;
     }
 
+    // Buscar cuenta_id_default del concepto para aplicar el saldo correcto
+    const conceptoData = (app.datos?.conceptos || []).find(c => c.id == conceptoId);
+    const cuentaId = conceptoData?.cuenta_id_default || null;
+
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -1065,7 +1057,8 @@ async function agregarRegistroMultiple(conceptoId) {
                 anio: app.anioActual,
                 fecha,
                 importe,
-                observaciones: observaciones || null
+                observaciones: observaciones || null,
+                ...(cuentaId ? { cuenta_id: cuentaId } : {})
             })
         });
 
@@ -2093,6 +2086,7 @@ function renderizarListaConceptos(containerId, conceptos) {
     conceptos.forEach(c => {
         const activo     = c.activo == 1;
         const multiples  = c.permite_multiples == 1;
+        const esUSD      = (c.moneda || 'ARS') === 'USD';
         const catBadge   = c.categoria_id
             ? `<span class="badge rounded-pill" style="background:${c.categoria_color};color:#fff;font-size:0.68rem">${c.categoria_nombre}</span>`
             : '';
@@ -2111,6 +2105,9 @@ function renderizarListaConceptos(containerId, conceptos) {
                         <span class="concepto-meta-chip">Ord: ${c.orden}</span>
                         <span class="badge ${multiples ? 'bg-info' : 'bg-secondary bg-opacity-25 text-secondary border'}" style="font-size:0.68rem">
                             ${multiples ? 'Multi' : 'Único'}
+                        </span>
+                        <span class="badge ${esUSD ? 'text-bg-warning' : 'bg-secondary bg-opacity-25 text-secondary border'}" style="font-size:0.68rem">
+                            ${esUSD ? 'USD' : 'ARS'}
                         </span>
                         <span class="badge ${activo ? 'bg-success' : 'bg-secondary'}" style="font-size:0.68rem">
                             ${activo ? 'Activo' : 'Inactivo'}
@@ -2159,6 +2156,18 @@ function renderizarListaConceptos(containerId, conceptos) {
                                 id="edit-multiples-${c.id}" ${multiples ? 'checked' : ''}>
                         </div>
                     </div>
+                    <div class="col-6 col-sm-1">
+                        <label class="form-label form-label-sm mb-1">Moneda</label>
+                        <select class="form-select form-select-sm" id="edit-moneda-${c.id}"
+                                onchange="actualizarCtaDefEdit(${c.id})">
+                            <option value="ARS" ${!esUSD ? 'selected' : ''}>ARS</option>
+                            <option value="USD" ${esUSD ? 'selected' : ''}>USD</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-sm-2">
+                        <label class="form-label form-label-sm mb-1">Cuenta default</label>
+                        <select class="form-select form-select-sm" id="edit-cuentadef-${c.id}"></select>
+                    </div>
                     <div class="col-6 col-sm-2 d-flex gap-1 justify-content-end align-items-end">
                         <button class="btn btn-success btn-sm flex-fill" onclick="guardarEdicionConcepto(${c.id})">
                             <i class="bi bi-check-lg"></i> Guardar
@@ -2174,6 +2183,16 @@ function renderizarListaConceptos(containerId, conceptos) {
         if (c.categoria_id) {
             const sel = item.querySelector(`#edit-categoria-${c.id}`);
             if (sel) sel.value = c.categoria_id;
+        }
+
+        // Poblar cuentas filtradas por moneda del concepto
+        const selCtaDef = item.querySelector(`#edit-cuentadef-${c.id}`);
+        if (selCtaDef) {
+            const mon = c.moneda || 'ARS';
+            selCtaDef.innerHTML = '<option value="">— Sin cuenta —</option>' +
+                (app.cuentas || []).filter(cu => (cu.moneda || 'ARS') === mon)
+                    .map(cu => `<option value="${cu.id}">${cu.nombre}</option>`).join('');
+            if (c.cuenta_id_default) selCtaDef.value = c.cuenta_id_default;
         }
 
         lista.appendChild(item);
@@ -2202,6 +2221,8 @@ async function guardarEdicionConcepto(id) {
     const permite_multiples = document.getElementById(`edit-multiples-${id}`).checked ? 1 : 0;
     const catEl  = document.getElementById(`edit-categoria-${id}`);
     const categoria_id = catEl && catEl.value !== '' ? parseInt(catEl.value) : null;
+    const moneda = document.getElementById(`edit-moneda-${id}`)?.value || 'ARS';
+    const ctaDef = document.getElementById(`edit-cuentadef-${id}`)?.value || null;
 
     if (!nombre) {
         mostrarError('El nombre no puede estar vacío.');
@@ -2212,7 +2233,7 @@ async function guardarEdicionConcepto(id) {
         const response = await fetch(CONCEPTOS_API_URL, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, nombre, orden, permite_multiples, categoria_id })
+            body: JSON.stringify({ id, nombre, orden, permite_multiples, categoria_id, moneda, cuenta_id_default: ctaDef || null })
         });
         const result = await response.json();
         if (!result.success) throw new Error(result.message);
@@ -2269,6 +2290,26 @@ async function eliminarConcepto(id, nombre) {
     }
 }
 
+function actualizarCtaDefNuevo() {
+    const moneda = document.getElementById('nuevoMoneda')?.value || 'ARS';
+    const sel = document.getElementById('nuevoCtaDef');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Sin cuenta —</option>' +
+        (app.cuentas || []).filter(c => (c.moneda || 'ARS') === moneda)
+            .map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+}
+
+function actualizarCtaDefEdit(id) {
+    const moneda = document.getElementById(`edit-moneda-${id}`)?.value || 'ARS';
+    const sel = document.getElementById(`edit-cuentadef-${id}`);
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">— Sin cuenta —</option>' +
+        (app.cuentas || []).filter(c => (c.moneda || 'ARS') === moneda)
+            .map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+    sel.value = prev;
+}
+
 function mostrarFormNuevo(tipo) {
     const form = document.getElementById('formNuevoConcepto');
     document.getElementById('nuevoTipo').value = tipo;
@@ -2276,6 +2317,8 @@ function mostrarFormNuevo(tipo) {
     document.getElementById('nuevoOrden').value = '';
     document.getElementById('nuevoPermiteMultiples').checked = false;
     document.getElementById('nuevoCategoria').value = '';
+    document.getElementById('nuevoMoneda').value = 'ARS';
+    actualizarCtaDefNuevo();
     form.classList.remove('d-none');
     document.getElementById('nuevoNombre').focus();
 }
@@ -2291,6 +2334,8 @@ async function guardarNuevoConcepto() {
     const permite_multiples = document.getElementById('nuevoPermiteMultiples').checked ? 1 : 0;
     const catVal = document.getElementById('nuevoCategoria').value;
     const categoria_id = catVal !== '' ? parseInt(catVal) : null;
+    const moneda = document.getElementById('nuevoMoneda')?.value || 'ARS';
+    const ctaDef = document.getElementById('nuevoCtaDef')?.value || null;
 
     if (!nombre) {
         mostrarError('El nombre no puede estar vacío.');
@@ -2301,7 +2346,7 @@ async function guardarNuevoConcepto() {
         const response = await fetch(CONCEPTOS_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, tipo, orden: orden || undefined, permite_multiples, categoria_id })
+            body: JSON.stringify({ nombre, tipo, orden: orden || undefined, permite_multiples, categoria_id, moneda, cuenta_id_default: ctaDef || null })
         });
         const result = await response.json();
         if (!result.success) throw new Error(result.message);
@@ -2863,25 +2908,26 @@ function abrirModalGastoRapido() {
     const conceptos = (app.datos?.conceptos || [])
         .filter(c => c.tipo === 'gasto' && c.permite_multiples == 1 && c.activo != 0);
     sel.innerHTML = conceptos.length
-        ? conceptos.map(c => `<option value="${c.id}" data-default-cuenta="${c.cuenta_id_default || ''}">${c.nombre}</option>`).join('')
+        ? conceptos.map(c => `<option value="${c.id}" data-default-cuenta="${c.cuenta_id_default || ''}" data-moneda="${c.moneda || 'ARS'}">${c.nombre}</option>`).join('')
         : '<option value="">— Sin conceptos disponibles —</option>';
 
-    // Poblar selector de cuentas
     const selCuenta = document.getElementById('grCuenta');
-    selCuenta.innerHTML = '<option value="">Seleccioná una cuenta…</option>' +
-        app.cuentas.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+    const grImporte = document.getElementById('grImporte');
 
-    // Preseleccionar cuenta default del primer concepto
-    const primerOpt = sel.options[0];
-    if (primerOpt && primerOpt.dataset.defaultCuenta) {
-        selCuenta.value = primerOpt.dataset.defaultCuenta;
-    }
-
-    // Al cambiar concepto, actualizar cuenta default
-    sel.onchange = () => {
+    // Actualiza cuentas e importe según moneda del concepto seleccionado
+    const actualizarPorConcepto = () => {
         const opt = sel.options[sel.selectedIndex];
-        if (opt && opt.dataset.defaultCuenta) selCuenta.value = opt.dataset.defaultCuenta;
+        if (!opt) return;
+        const moneda = opt.dataset.moneda || 'ARS';
+        selCuenta.innerHTML = '<option value="">Seleccioná una cuenta…</option>' +
+            app.cuentas.filter(c => (c.moneda || 'ARS') === moneda)
+                .map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+        if (opt.dataset.defaultCuenta) selCuenta.value = opt.dataset.defaultCuenta;
+        grImporte.placeholder = moneda === 'USD' ? 'U$D 0,00' : '$ 0,00';
     };
+
+    actualizarPorConcepto();
+    sel.onchange = actualizarPorConcepto;
 
     // Fecha por defecto: hoy
     document.getElementById('grFecha').value = new Date().toISOString().split('T')[0];
