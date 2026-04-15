@@ -112,7 +112,8 @@ Resumen/Cuentas → modales | Vencimientos → modal+badges | Ingresos → modal
 ## PWA / Deploy
 - SW: HTML network-first, assets cache-first | CACHE_NAME formato: `cifra-YYYYMMDD-N`
 - **Bump CACHE_NAME en sw.js cada vez que cambie CSS o JS** — fuerza re-descarga en todos los dispositivos
-- Si hay varios bumps en el mismo día, incrementar el sufijo: `-1`, `-2`, etc.
+- **Bump APP_VERSION en index.php en cada deploy** (cada vez que se suben archivos al FTP) — se muestra en el menú como `v...`
+- Si hay varios bumps en el mismo día, incrementar el sufijo: `-1`, `-2`, etc. (aplica a ambos)
 - SW registration: `{ updateViaCache: 'none' }` — el browser siempre busca sw.js fresco ignorando HTTP cache
 - Auto-reload: listener `controllerchange` en app.js recarga la página cuando activa un SW nuevo
 - `.htaccess`: `Cache-Control: no-cache, no-store` para sw.js — el servidor tampoco lo cachea
