@@ -2102,7 +2102,7 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     -webkit-tap-highlight-color: transparent;
     opacity: 0.7;
 }
-.cat-chip.abierta {
+.cat-chip.activa {
     background: var(--chip-color, #6B7280);
     color: #fff;
     opacity: 1;
@@ -2123,9 +2123,6 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
 
 /* Categorías colapsadas en mobile: ocultar filas de concepto */
 @media (max-width: 767px) {
-    .categoria-header {
-        cursor: pointer;
-    }
     .categoria-header td {
         padding-top: 10px;
         padding-bottom: 10px;
@@ -2133,10 +2130,12 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     .categoria-header-inner {
         gap: 8px;
     }
-    /* Fila de concepto oculta cuando su categoría está colapsada */
-    .cat-fila-colapsada {
-        display: none;
-    }
+    /* En mobile no hay collapse → ocultar el chevron de colapsar */
+    .categoria-toggle-chevron { display: none; }
+    /* Fila oculta por collapse (desktop-only) */
+    .cat-fila-colapsada { display: none; }
+    /* Fila oculta por filtro de chip */
+    .cat-fila-oculta { display: none; }
 }
 
 [data-bs-theme="dark"] .cat-nav-wrap {

@@ -25,6 +25,7 @@ const app = {
     dtGastos: null,
     categorias: [],
     categoriasColapsadas: new Set(),
+    categoriaFiltrada: null,   // mobile: filtro activo (null = mostrar todo)
     cuentas: [],
     tipoCambioUSD: null,  // cotización dólar oficial (cacheada por día)
 };
@@ -346,13 +347,6 @@ function renderizarDatos() {
     // Destruir DataTable gastos antes de limpiar tbody
     if (app.dtGastos) { app.dtGastos.destroy(); app.dtGastos = null; }
 
-    // En mobile: colapsar todas las categorías por defecto en la primera carga
-    if (window.innerWidth < 768 && app.categoriasColapsadas.size === 0) {
-        (app.datos.conceptos || [])
-            .filter(c => c.tipo === 'gasto' && c.categoria_id)
-            .forEach(c => app.categoriasColapsadas.add(String(c.categoria_id)));
-    }
-
     // Renderizar gastos
     const gastos = app.datos.conceptos.filter(c => c.tipo === 'gasto');
     const tbodyGastos = document.getElementById('tablaGastos');
@@ -569,7 +563,8 @@ function inyectarCabecerasCategorias(api) {
             <span class="categoria-header-total ms-auto text-end" style="color:${color}">${totalStr}</span>
         </div>`;
         headerTr.appendChild(td);
-        headerTr.addEventListener('click', () => toggleCategoria(catId));
+        // En desktop: click en header colapsa/expande. En mobile: solo chips filtran.
+        headerTr.addEventListener('click', () => { if (window.innerWidth >= 768) toggleCategoria(catId); });
         tr.parentNode.insertBefore(headerTr, tr);
     });
 
@@ -584,6 +579,9 @@ function inyectarCabecerasCategorias(api) {
             tr.classList.remove('cat-fila-colapsada');
         }
     });
+
+    // Reaplicar filtro mobile si estaba activo
+    aplicarFiltroCategoria();
 }
 
 function toggleCategoria(catId) {
@@ -619,24 +617,22 @@ function toggleCategoria(catId) {
         }
     });
 
-    // Sincronizar chips del nav (el usuario puede tocar el header directamente en la tabla)
-    renderizarCatNav();
 }
 
-// Nav de categorías — chips horizontales (solo visible en mobile vía CSS d-md-none)
+// Nav de categorías — chips horizontales filtro (solo mobile, d-md-none)
 function renderizarCatNav() {
     const el = document.getElementById('catNav');
     if (!el || !app.datos) return;
 
-    // Construir mapa de categorías con totales
     const cats = {};
     (app.datos.conceptos || []).filter(c => c.tipo === 'gasto').forEach(c => {
         const id = String(c.categoria_id || '0');
         if (!cats[id]) cats[id] = {
             id,
-            nombre:  c.categoria_nombre || 'Sin cat.',
-            color:   c.categoria_color  || '#6B7280',
-            icono:   c.categoria_icono  || 'bi-tag',
+            nombre:          c.categoria_nombre || 'Sin cat.',
+            color:           c.categoria_color  || '#6B7280',
+            icono:           c.categoria_icono  || 'bi-tag',
+            esSinCategoria:  !c.categoria_id,
             totalARS: 0,
             totalUSD: 0,
         };
@@ -644,14 +640,21 @@ function renderizarCatNav() {
         else                                cats[id].totalARS  += parseFloat(c.importe || 0);
     });
 
-    const chips = Object.values(cats).map(cat => {
-        const abierta = !app.categoriasColapsadas.has(cat.id);
-        const total = cat.totalARS > 0
+    // Orden: categorías con nombre primero; "Sin cat." al final
+    const sorted = Object.values(cats).sort((a, b) => {
+        if (a.esSinCategoria && !b.esSinCategoria) return 1;
+        if (!a.esSinCategoria && b.esSinCategoria) return -1;
+        return 0;
+    });
+
+    const chips = sorted.map(cat => {
+        const activa = app.categoriaFiltrada === cat.id;
+        const total  = cat.totalARS > 0
             ? formatearMoneda(cat.totalARS)
             : (cat.totalUSD > 0 ? formatearMoneda(cat.totalUSD, 'USD') : '—');
-        return `<button class="cat-chip${abierta ? ' abierta' : ''}"
+        return `<button class="cat-chip${activa ? ' activa' : ''}"
                     style="--chip-color:${cat.color}"
-                    onclick="toggleCatNavChip('${cat.id}')">
+                    onclick="seleccionarCategoria('${cat.id}')">
                     <i class="bi ${cat.icono} cat-chip-icon"></i>
                     <span class="cat-chip-nombre">${cat.nombre}</span>
                     <span class="cat-chip-total">${total}</span>
@@ -661,26 +664,39 @@ function renderizarCatNav() {
     el.innerHTML = `<div class="cat-nav-scroll">${chips}</div>`;
 }
 
-// Tap en chip de categoría: toggle + scroll al header en la tabla
-function toggleCatNavChip(catId) {
-    const estabaColapsada = app.categoriasColapsadas.has(catId);
-    toggleCategoria(catId);
+// Filtro por chip: seleccionar → mostrar solo esa categoría; repetir → mostrar todo
+function seleccionarCategoria(catId) {
+    app.categoriaFiltrada = app.categoriaFiltrada === catId ? null : catId;
     renderizarCatNav();
-    // Si se acaba de abrir, hacer scroll al header de esa categoría
-    // con offset manual para no quedar tapado por el header sticky + catNav
-    if (estabaColapsada) {
+    aplicarFiltroCategoria();
+    // Scroll al inicio del contenido si se activó un filtro
+    if (app.categoriaFiltrada) {
         setTimeout(() => {
-            const header = document.querySelector(`[data-cat-toggle-id="${catId}"]`);
-            if (!header) return;
+            const contenido = document.getElementById('contenidoPrincipal');
+            if (!contenido) return;
             const stickyH = parseInt(
                 getComputedStyle(document.documentElement).getPropertyValue('--sticky-nav-top')
             ) || 0;
             const catNavH = document.getElementById('catNav')?.offsetHeight || 0;
-            const offset  = stickyH + catNavH + 8;
-            const top     = header.getBoundingClientRect().top + window.scrollY - offset;
+            const top = contenido.getBoundingClientRect().top + window.scrollY - (stickyH + catNavH + 8);
             window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
         }, 60);
     }
+}
+
+// Aplicar/quitar filtro de categoría en las filas del tbody (solo mobile)
+function aplicarFiltroCategoria() {
+    if (window.innerWidth >= 768) return;
+    const catId = app.categoriaFiltrada;
+    // Filas de concepto: ocultar las que no pertenecen a la categoría activa
+    document.querySelectorAll('#tablaGastos tr[data-categoria-id]').forEach(tr => {
+        const trCat = tr.dataset.categoriaId || '';
+        tr.classList.toggle('cat-fila-oculta', catId !== null && trCat !== catId);
+    });
+    // Headers de categoría: ocultar todos cuando hay filtro activo (el chip ya indica cuál es)
+    document.querySelectorAll('#tablaGastos tr.categoria-header').forEach(tr => {
+        tr.classList.toggle('cat-fila-oculta', catId !== null);
+    });
 }
 
 // Crear filas de concepto — devuelve array de <tr>
