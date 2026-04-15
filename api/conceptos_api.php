@@ -33,7 +33,7 @@ try {
 
         case 'GET':
             $stmt = $db->query(
-                "SELECT c.id, c.nombre, c.tipo, c.orden, c.activo, c.permite_multiples,
+                "SELECT c.id, c.nombre, c.tipo, c.moneda, c.orden, c.activo, c.permite_multiples,
                         c.categoria_id, cat.nombre AS categoria_nombre, cat.color AS categoria_color
                  FROM conceptos c
                  LEFT JOIN categorias cat ON c.categoria_id = cat.id
@@ -65,14 +65,16 @@ try {
             $permite_multiples = !empty($input['permite_multiples']) ? 1 : 0;
             $categoria_id      = !empty($input['categoria_id'])      ? (int)$input['categoria_id']      : null;
             $cuenta_id_default = !empty($input['cuenta_id_default']) ? (int)$input['cuenta_id_default'] : null;
+            $moneda            = isset($input['moneda']) && $input['moneda'] === 'USD' ? 'USD' : 'ARS';
 
             $stmt = $db->prepare(
-                "INSERT INTO conceptos (nombre, tipo, orden, permite_multiples, categoria_id, cuenta_id_default)
-                 VALUES (:nombre, :tipo, :orden, :permite_multiples, :categoria_id, :cuenta_id_default)"
+                "INSERT INTO conceptos (nombre, tipo, moneda, orden, permite_multiples, categoria_id, cuenta_id_default)
+                 VALUES (:nombre, :tipo, :moneda, :orden, :permite_multiples, :categoria_id, :cuenta_id_default)"
             );
             $stmt->execute([
                 'nombre'            => $nombre,
                 'tipo'              => $tipo,
+                'moneda'            => $moneda,
                 'orden'             => $orden,
                 'permite_multiples' => $permite_multiples,
                 'categoria_id'      => $categoria_id,
@@ -120,6 +122,10 @@ try {
             if (array_key_exists('cuenta_id_default', $input)) {
                 $fields[] = 'cuenta_id_default = :cuenta_id_default';
                 $params['cuenta_id_default'] = !empty($input['cuenta_id_default']) ? (int)$input['cuenta_id_default'] : null;
+            }
+            if (isset($input['moneda']) && in_array($input['moneda'], ['ARS', 'USD'])) {
+                $fields[] = 'moneda = :moneda';
+                $params['moneda'] = $input['moneda'];
             }
 
             if (empty($fields)) {

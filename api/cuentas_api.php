@@ -32,7 +32,7 @@ try {
             $anio = isset($_GET['anio']) ? (int)$_GET['anio'] : date('Y');
 
             $sql = "SELECT
-                        cu.id, cu.nombre, cu.banco, cu.tipo, cu.color,
+                        cu.id, cu.nombre, cu.banco, cu.tipo, cu.moneda, cu.color,
                         cu.saldo_actual, cu.fecha_saldo, cu.activo,
                         COALESCE(SUM(
                             CASE WHEN rm.mes = :mes AND rm.anio = :anio AND rm.pagado = 1
@@ -48,7 +48,7 @@ try {
                     LEFT JOIN registros_mensuales rm ON rm.cuenta_id = cu.id
                     LEFT JOIN conceptos con ON con.id = rm.concepto_id
                     WHERE cu.activo = 1
-                    GROUP BY cu.id, cu.nombre, cu.banco, cu.tipo, cu.color,
+                    GROUP BY cu.id, cu.nombre, cu.banco, cu.tipo, cu.moneda, cu.color,
                              cu.saldo_actual, cu.fecha_saldo, cu.activo
                     ORDER BY cu.id ASC";
 
@@ -119,14 +119,17 @@ try {
                 sendResponse(false, null, 'tipo inválido', 400);
             }
 
+            $moneda = isset($input['moneda']) && $input['moneda'] === 'USD' ? 'USD' : 'ARS';
+
             $stmt = $db->prepare(
-                "INSERT INTO cuentas (nombre, banco, tipo, color, saldo_actual, fecha_saldo)
-                 VALUES (:nombre, :banco, :tipo, :color, :saldo, :fecha)"
+                "INSERT INTO cuentas (nombre, banco, tipo, moneda, color, saldo_actual, fecha_saldo)
+                 VALUES (:nombre, :banco, :tipo, :moneda, :color, :saldo, :fecha)"
             );
             $stmt->execute([
                 'nombre' => trim($input['nombre']),
                 'banco'  => trim($input['banco'] ?? ''),
                 'tipo'   => $input['tipo'],
+                'moneda' => $moneda,
                 'color'  => $input['color'] ?? '#6c757d',
                 'saldo'  => (float)($input['saldo_actual'] ?? 0),
                 'fecha'  => date('Y-m-d'),

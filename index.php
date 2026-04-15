@@ -1,6 +1,7 @@
 <?php
 require_once 'config/auth_check.php';
 require_auth_or_redirect();
+define('APP_VERSION', '20260415-2');
 $meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 ?>
@@ -108,6 +109,12 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                                 Conceptos
                             </a>
                         </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <span class="dropdown-item-text text-muted" style="font-size:0.7rem;opacity:.6;user-select:all">
+                                v<?= APP_VERSION ?>
+                            </span>
+                        </li>
                     </ul>
                 </div>
                 <a href="logout.php" class="btn btn-outline-light btn-sm" title="Cerrar sesión">
@@ -127,13 +134,23 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                     <i class="bi bi-chevron-down" id="iconFiltroMes"></i>
                 </button>
                 <div class="topbar-stats">
-                    <div class="topbar-stat" onclick="abrirModalResumen()" title="Saldo en cuentas menos gastos pendientes del mes">
+                    <div class="topbar-stat" onclick="abrirModalResumen()" title="Saldo ARS en cuentas menos gastos ARS pendientes del mes">
                         <span class="topbar-stat-label">Disponible</span>
                         <span class="topbar-stat-valor" id="saldoFiltroHeader">—</span>
                     </div>
-                    <div class="topbar-stat" onclick="abrirModalCuentas()" title="Total real en todas las cuentas">
-                        <span class="topbar-stat-label">Cuentas</span>
-                        <span class="topbar-stat-valor" id="totalCuentasTopbar">—</span>
+                    <button class="topbar-more-btn" id="btnStatsMore" onclick="toggleStatsExtra()" title="Ver más">
+                        <i class="bi bi-chevron-left" id="iconStatsMore"></i>
+                    </button>
+                    <div class="topbar-stats-extra" id="statsExtra">
+                        <div class="topbar-stat d-none" id="statUSD" onclick="abrirModalCuentas()" title="Saldo USD en cuentas menos gastos USD pendientes">
+                            <span class="topbar-stat-label">USD disp.</span>
+                            <span class="topbar-stat-valor" id="saldoUSDHeader">—</span>
+                            <span class="topbar-stat-equiv d-none text-muted" id="saldoUSDEquiv" style="font-size:0.62rem"></span>
+                        </div>
+                        <div class="topbar-stat" onclick="abrirModalCuentas()" title="Total real en cuentas ARS">
+                            <span class="topbar-stat-label">Cuentas</span>
+                            <span class="topbar-stat-valor" id="totalCuentasTopbar">—</span>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -25,7 +25,8 @@ const app = {
     dtGastos: null,
     categorias: [],
     categoriasColapsadas: new Set(),
-    cuentas: []
+    cuentas: [],
+    tipoCambioUSD: null,  // cotización dólar oficial (cacheada por día)
 };
 
 // Inicializar aplicación
@@ -71,7 +72,15 @@ document.addEventListener('DOMContentLoaded', () => {
 // Registrar Service Worker (PWA)
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+            .then(reg => {
+                // Cuando el nuevo SW toma el control, recargar para servir assets frescos
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    window.location.reload();
+                });
+                // Forzar chequeo de actualización en cada carga
+                reg.update();
+            })
             .catch(err => console.warn('Service Worker no registrado:', err));
     });
 }
@@ -245,6 +254,11 @@ async function cargarDatos() {
     mostrarLoading();
 
     try {
+        // Cotización USD (no bloquea la carga principal)
+        fetchTipoCambioUSD().then(() => {
+            if (app.datos) renderizarDatos(); // re-renderizar para mostrar equivalente
+        });
+
         const [response, respCuentas] = await Promise.all([
             fetch(`${API_URL}?mes=${app.mesActual}&anio=${app.anioActual}`),
             fetch(`api/cuentas_api.php?mes=${app.mesActual}&anio=${app.anioActual}`)
@@ -270,37 +284,57 @@ async function cargarDatos() {
 function renderizarDatos() {
     if (!app.datos) return;
 
-    // Actualizar resumen
-    const { total_ingresos, total_gastos, gastos_pagados, saldo_disponible, saldo } = app.datos.resumen;
-    const pctPagado = total_gastos > 0 ? Math.min(100, (gastos_pagados / total_gastos) * 100) : 0;
+    // Actualizar resumen — resumen ahora viene separado por moneda
+    const resARS = app.datos.resumen.ARS;
+    const resUSD = app.datos.resumen.USD;
 
-    document.getElementById('totalIngresos').textContent   = formatearMoneda(total_ingresos);
-    document.getElementById('totalGastos').textContent     = formatearMoneda(total_gastos);
-    document.getElementById('saldoDisponible').textContent = formatearMoneda(saldo_disponible);
-    // Disponible = saldo real en cuentas − gastos pendientes del mes
-    // Siempre ≤ total cuentas; representa lo que queda si se paga todo lo pendiente
-    const totalCuentas    = (app.cuentas || []).reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
-    const gastosPendientes = total_gastos - gastos_pagados;
-    const disponibleReal  = totalCuentas - gastosPendientes;
+    // Disponible por moneda = saldo real en cuentas − gastos pendientes del mes
+    const totalCuentasARS  = (app.cuentas || []).filter(c => (c.moneda || 'ARS') === 'ARS').reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
+    const totalCuentasUSD  = (app.cuentas || []).filter(c => c.moneda === 'USD').reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
+    const disponibleARS    = totalCuentasARS - (resARS.total_gastos - resARS.gastos_pagados);
+    const disponibleUSD    = totalCuentasUSD - (resUSD.total_gastos - resUSD.gastos_pagados);
+    const pctPagado        = resARS.total_gastos > 0 ? Math.min(100, (resARS.gastos_pagados / resARS.total_gastos) * 100) : 0;
+
+    document.getElementById('totalIngresos').textContent   = formatearMoneda(resARS.total_ingresos);
+    document.getElementById('totalGastos').textContent     = formatearMoneda(resARS.total_gastos);
+    document.getElementById('saldoDisponible').textContent = formatearMoneda(disponibleARS);
+
+    // Topbar ARS
     const elSFH = document.getElementById('saldoFiltroHeader');
     if (elSFH) {
-        elSFH.textContent = formatearMoneda(disponibleReal);
-        elSFH.style.color = disponibleReal >= 0 ? 'var(--cifra-pos)' : 'var(--cifra-neg)';
+        elSFH.textContent = formatearMoneda(disponibleARS);
+        elSFH.style.color = disponibleARS >= 0 ? 'var(--cifra-pos)' : 'var(--cifra-neg)';
     }
+    // Topbar USD — solo visible si hay cuentas o gastos USD
+    const hayUSD = totalCuentasUSD > 0 || resUSD.total_gastos > 0;
+    const elStatUSD = document.getElementById('statUSD');
+    if (elStatUSD) elStatUSD.classList.toggle('d-none', !hayUSD);
+    const elUSDH = document.getElementById('saldoUSDHeader');
+    if (elUSDH) {
+        elUSDH.textContent = formatearMoneda(disponibleUSD, 'USD');
+        elUSDH.style.color = disponibleUSD >= 0 ? 'var(--cifra-pos)' : 'var(--cifra-neg)';
+        // Equivalente en ARS si hay cotización cacheada
+        const elUSDEquiv = document.getElementById('saldoUSDEquiv');
+        if (elUSDEquiv && app.tipoCambioUSD) {
+            elUSDEquiv.textContent = '≈\u00A0' + formatearMoneda(disponibleUSD * app.tipoCambioUSD);
+            elUSDEquiv.classList.remove('d-none');
+        }
+    }
+
     const elTGH = document.getElementById('totalGastosHeader');
-    if (elTGH) elTGH.textContent = formatearMoneda(total_gastos);
+    if (elTGH) elTGH.textContent = formatearMoneda(resARS.total_gastos);
     const elGPH = document.getElementById('gastosPagadosHeader');
-    if (elGPH) elGPH.textContent = formatearMoneda(gastos_pagados);
+    if (elGPH) elGPH.textContent = formatearMoneda(resARS.gastos_pagados);
     const elPPH = document.getElementById('gastosPorPagarHeader');
-    if (elPPH) elPPH.textContent = formatearMoneda(total_gastos - gastos_pagados);
+    if (elPPH) elPPH.textContent = formatearMoneda(resARS.total_gastos - resARS.gastos_pagados);
     document.getElementById('barraProgreso').style.width   = pctPagado + '%';
     document.getElementById('barraProgreso').title         = `${pctPagado.toFixed(0)}% de gastos pagados`;
 
-    // Color de la card según saldo disponible
+    // Color de la card según disponible ARS
     const cardSaldo = document.getElementById('cardSaldo');
     const iconSaldo = document.getElementById('iconSaldo');
 
-    if (saldo_disponible < 0) {
+    if (disponibleARS < 0) {
         cardSaldo.classList.add('negativo');
         iconSaldo.classList.remove('bi-bar-chart-steps');
         iconSaldo.classList.add('bi-exclamation-triangle-fill', 'text-danger');
@@ -484,12 +518,14 @@ function inicializarDataTables() {
 
 // Inyectar filas de cabecera de categoría en el tbody después de cada draw de DataTables
 function inyectarCabecerasCategorias(api) {
-    // Calcular totales por categoría desde los datos en memoria
+    // Calcular totales por categoría y moneda desde los datos en memoria
     const totalesPorCat = {};
     if (app.datos && app.datos.conceptos) {
         app.datos.conceptos.forEach(c => {
             if (c.categoria_id) {
-                totalesPorCat[c.categoria_id] = (totalesPorCat[c.categoria_id] || 0) + parseFloat(c.importe || 0);
+                if (!totalesPorCat[c.categoria_id]) totalesPorCat[c.categoria_id] = { ARS: 0, USD: 0 };
+                const m = c.moneda || 'ARS';
+                totalesPorCat[c.categoria_id][m] += parseFloat(c.importe || 0);
             }
         });
     }
@@ -508,7 +544,11 @@ function inyectarCabecerasCategorias(api) {
         lastCatId = catId;
 
         const colapsada = app.categoriasColapsadas.has(catId);
-        const total     = totalesPorCat[catId] || 0;
+        const t = totalesPorCat[catId] || { ARS: 0, USD: 0 };
+        const partes = [];
+        if (t.ARS > 0) partes.push(formatearMoneda(t.ARS, 'ARS'));
+        if (t.USD > 0) partes.push(formatearMoneda(t.USD, 'USD'));
+        const totalStr = partes.join(' + ') || '—';
 
         const headerTr = document.createElement('tr');
         headerTr.className = 'categoria-header';
@@ -520,7 +560,7 @@ function inyectarCabecerasCategorias(api) {
             <i class="bi ${colapsada ? 'bi-chevron-right' : 'bi-chevron-down'} categoria-toggle-chevron" style="color:${color}; font-size:0.65rem;"></i>
             ${icono ? `<i class="bi ${icono}" style="color:${color}; font-size:0.78rem;"></i>` : ''}
             <span class="categoria-header-label" style="color:${color}">${nombre}</span>
-            <span class="categoria-header-total ms-auto" style="color:${color}">${formatearMoneda(total)}</span>
+            <span class="categoria-header-total ms-auto" style="color:${color}">${totalStr}</span>
         </div>`;
         headerTr.appendChild(td);
         headerTr.addEventListener('click', () => toggleCategoria(catId));
@@ -658,7 +698,7 @@ function crearFilaSimple(concepto, tipo) {
 
     // Selector de cuenta (solo si ya existe registro)
     if (concepto.registro_id) {
-        divNombre.appendChild(crearSelectorCuenta(concepto.registro_id, concepto.cuenta_id));
+        divNombre.appendChild(crearSelectorCuenta(concepto.registro_id, concepto.cuenta_id, concepto.moneda || 'ARS'));
     }
 
     tdNombre.appendChild(divNombre);
@@ -873,7 +913,7 @@ function crearTablaDetalle(concepto) {
     // Filas de registros existentes
     if (concepto.detalle && concepto.detalle.length > 0) {
         concepto.detalle.forEach(reg => {
-            tbody.appendChild(crearFilaRegistroDetalle(reg, concepto.id));
+            tbody.appendChild(crearFilaRegistroDetalle(reg, concepto.id, concepto.moneda || 'ARS'));
         });
     } else {
         const trVacio = document.createElement('tr');
@@ -891,7 +931,7 @@ function crearTablaDetalle(concepto) {
 }
 
 // Fila de un registro individual dentro del detalle
-function crearFilaRegistroDetalle(reg, conceptoId) {
+function crearFilaRegistroDetalle(reg, conceptoId, moneda = 'ARS') {
     const tr = document.createElement('tr');
     tr.id = `registro-${reg.id}`;
     const isPaid = reg.pagado === 1;
@@ -916,7 +956,7 @@ function crearFilaRegistroDetalle(reg, conceptoId) {
             </div>
         </td>
         <td class="text-muted fst-italic" style="font-size:0.82rem">${reg.observaciones || '<span class="opacity-50">—</span>'}</td>
-        <td class="text-end fw-medium">${formatearMoneda(reg.importe)}</td>
+        <td class="text-end fw-medium">${formatearMoneda(reg.importe, moneda)}</td>
         <td class="text-end pe-3" style="width:50px">
             <button class="btn btn-outline-danger btn-sm py-0 px-1"
                 title="Eliminar"
@@ -928,7 +968,7 @@ function crearFilaRegistroDetalle(reg, conceptoId) {
 
     // Agregar selector de cuenta en la primera celda (bajo pagado+fecha)
     const tdFecha = tr.querySelector('td:first-child');
-    const wrapCuenta = crearSelectorCuenta(reg.id, reg.cuenta_id);
+    const wrapCuenta = crearSelectorCuenta(reg.id, reg.cuenta_id, moneda);
     wrapCuenta.classList.add('cuenta-wrap-detalle');
     tdFecha.appendChild(wrapCuenta);
 
@@ -1197,30 +1237,43 @@ function sugerirSpotifyDuo(inputElement, btnElement, mes, anio) {
 // Verificar en tu cuenta de YouTube si cambia
 const YOUTUBE_PREMIUM_USD = 3.19;
 
-// Sugerir precio de YouTube Premium convertido a ARS al dólar oficial
+// Obtener y cachear cotización del dólar oficial (válido por el día)
+async function fetchTipoCambioUSD() {
+    const hoy    = new Date().toISOString().split('T')[0];
+    const cached = localStorage.getItem('cifra-tc-usd');
+    if (cached) {
+        try {
+            const { fecha, venta } = JSON.parse(cached);
+            if (fecha === hoy) { app.tipoCambioUSD = venta; return; }
+        } catch (_) {}
+    }
+    try {
+        const resp = await fetch('https://dolarapi.com/v1/dolares/oficial');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        app.tipoCambioUSD = data.venta;
+        localStorage.setItem('cifra-tc-usd', JSON.stringify({ fecha: hoy, venta: data.venta }));
+    } catch (_) {}
+}
+
+// Sugerir precio de YouTube Premium (ahora en USD directamente)
 async function sugerirYoutubePremium(inputElement, btnElement) {
     const iconOriginal = btnElement.innerHTML;
     btnElement.disabled = true;
     btnElement.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
     try {
-        const response = await fetch('https://dolarapi.com/v1/dolares/oficial');
-        if (!response.ok) throw new Error('No se pudo obtener la cotización');
-        const oficial = await response.json();
-
-        const venta = oficial.venta;
-        const valorARS = Math.round(YOUTUBE_PREMIUM_USD * venta);
-        const fecha = new Date(oficial.fechaActualizacion).toLocaleDateString('es-AR');
+        // Obtener cotización para mostrar equivalente informativo
+        await fetchTipoCambioUSD();
+        const equiv = app.tipoCambioUSD
+            ? `\nEquivalente al dólar oficial: ${formatearMoneda(YOUTUBE_PREMIUM_USD * app.tipoCambioUSD)}`
+            : '';
 
         const confirmar = confirm(
-            `YouTube Premium Individual: USD ${YOUTUBE_PREMIUM_USD}\n` +
-            `Dólar oficial al ${fecha}: $${venta.toLocaleString('es-AR')}\n\n` +
-            `Valor estimado: ${formatearMoneda(valorARS)}\n\n` +
-            `¿Usar este valor?`
+            `YouTube Premium Individual: U$D ${YOUTUBE_PREMIUM_USD}${equiv}\n\n¿Usar este valor?`
         );
-
         if (confirmar) {
-            inputElement.value = valorARS;
+            inputElement.value = String(YOUTUBE_PREMIUM_USD).replace('.', ',');
             inputElement.classList.add('unsaved');
             inputElement.focus();
             inputElement.blur();
@@ -1449,8 +1502,13 @@ async function togglePagado(registroId, btnElement, trElement, conceptoId = null
     }
 }
 
-// Formatear moneda
-function formatearMoneda(valor) {
+// Formatear moneda — acepta 'ARS' (default) o 'USD'
+function formatearMoneda(valor, moneda = 'ARS') {
+    if (moneda === 'USD') {
+        const num = parseFloat(valor);
+        const formatted = Math.abs(num).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return (num < 0 ? '-' : '') + 'U$D\u00A0' + formatted;
+    }
     return new Intl.NumberFormat('es-AR', {
         style: 'currency',
         currency: 'ARS',
@@ -1494,14 +1552,15 @@ function renderizarResumenIngresos() {
 
     el.innerHTML = ingresos.map(c => {
         const cobrado = c.pagado === 1;
-        const imp = parseFloat(c.importe || 0);
+        const imp     = parseFloat(c.importe || 0);
+        const moneda  = c.moneda || 'ARS';
         return `
         <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
             <span class="small ${cobrado ? '' : 'text-muted'}">
                 <i class="bi ${cobrado ? 'bi-check-circle-fill' : 'bi-circle'} me-1" style="font-size:.75rem;color:${cobrado ? 'var(--cifra-pos)' : 'inherit'}"></i>
                 ${c.nombre}
             </span>
-            <span class="small fw-medium" style="color:${cobrado ? 'var(--cifra-pos)' : 'var(--bs-secondary-color)'}">${imp > 0 ? formatearMoneda(imp) : '—'}</span>
+            <span class="small fw-medium" style="color:${cobrado ? 'var(--cifra-pos)' : 'var(--bs-secondary-color)'}">${imp > 0 ? formatearMoneda(imp, moneda) : '—'}</span>
         </div>`;
     }).join('');
 }
@@ -1523,20 +1582,33 @@ function renderizarResumenPendientes() {
         return;
     }
 
-    const total = pendientes.reduce((s, c) => s + parseFloat(c.importe), 0);
+    const pendientesARS = pendientes.filter(c => (c.moneda || 'ARS') === 'ARS');
+    const pendientesUSD = pendientes.filter(c => c.moneda === 'USD');
+    const totalARS = pendientesARS.reduce((s, c) => s + parseFloat(c.importe), 0);
+    const totalUSD = pendientesUSD.reduce((s, c) => s + parseFloat(c.importe), 0);
 
-    el.innerHTML = `
-        <div class="resumen-pendientes-header">Pendientes de pago</div>
-        ${pendientes.map(c => `
+    const filasPendiente = (lista, moneda) => lista.map(c => `
         <div class="resumen-pendiente-row">
             <span class="resumen-pendiente-punto" style="background:${c.categoria_color || '#94a3b8'}"></span>
             <span class="resumen-pendiente-nombre">${c.nombre}</span>
-            <span class="resumen-pendiente-importe">${formatearMoneda(parseFloat(c.importe))}</span>
-        </div>`).join('')}
+            <span class="resumen-pendiente-importe">${formatearMoneda(parseFloat(c.importe), moneda)}</span>
+        </div>`).join('');
+
+    const totalUSDHtml = totalUSD > 0 ? `
         <div class="resumen-pendiente-total">
-            <span>Total pendiente</span>
-            <span>${formatearMoneda(total)}</span>
-        </div>`;
+            <span>Total pendiente USD</span>
+            <span>${formatearMoneda(totalUSD, 'USD')}</span>
+        </div>` : '';
+
+    el.innerHTML = `
+        <div class="resumen-pendientes-header">Pendientes de pago</div>
+        ${filasPendiente(pendientesARS, 'ARS')}
+        ${filasPendiente(pendientesUSD, 'USD')}
+        <div class="resumen-pendiente-total">
+            <span>Total pendiente ARS</span>
+            <span>${formatearMoneda(totalARS)}</span>
+        </div>
+        ${totalUSDHtml}`;
 }
 
 function renderizarResumenCategorias() {
@@ -1553,23 +1625,30 @@ function renderizarResumenCategorias() {
                     nombre: c.categoria_nombre || 'Sin categoría',
                     color:  c.categoria_color  || '#94a3b8',
                     icono:  c.categoria_icono   || 'bi-tag',
-                    total:  0
+                    totalARS: 0,
+                    totalUSD: 0,
                 };
             }
-            gastosPorCat[key].total += parseFloat(c.importe);
+            const m = c.moneda || 'ARS';
+            if (m === 'USD') gastosPorCat[key].totalUSD += parseFloat(c.importe);
+            else             gastosPorCat[key].totalARS += parseFloat(c.importe);
         });
 
-    const cats = Object.values(gastosPorCat).sort((a, b) => b.total - a.total);
+    const cats = Object.values(gastosPorCat).sort((a, b) => b.totalARS - a.totalARS);
     if (!cats.length) { el.innerHTML = ''; return; }
 
-    const totalGastos = cats.reduce((s, c) => s + c.total, 0);
+    const totalGastosARS = cats.reduce((s, c) => s + c.totalARS, 0);
 
     el.innerHTML = `
         <div class="resumen-cats-header">
             <span>Gastos por categoría</span>
         </div>
         ${cats.map(cat => {
-            const pct = totalGastos > 0 ? (cat.total / totalGastos * 100) : 0;
+            const pct = totalGastosARS > 0 ? (cat.totalARS / totalGastosARS * 100) : 0;
+            const partes = [];
+            if (cat.totalARS > 0) partes.push(formatearMoneda(cat.totalARS, 'ARS'));
+            if (cat.totalUSD > 0) partes.push(formatearMoneda(cat.totalUSD, 'USD'));
+            const importeStr = partes.join(' + ') || '—';
             return `
             <div class="resumen-cat-row">
                 <div class="resumen-cat-info">
@@ -1580,11 +1659,34 @@ function renderizarResumenCategorias() {
                     <div class="resumen-cat-barra" style="width:${pct.toFixed(1)}%;background:${cat.color}"></div>
                 </div>
                 <div class="resumen-cat-cifras">
-                    <span class="resumen-cat-importe">${formatearMoneda(cat.total)}</span>
-                    <span class="resumen-cat-pct">${pct.toFixed(0)}%</span>
+                    <span class="resumen-cat-importe">${importeStr}</span>
+                    <span class="resumen-cat-pct">${cat.totalARS > 0 ? pct.toFixed(0) + '%' : ''}</span>
                 </div>
             </div>`;
         }).join('')}`;
+}
+
+function toggleStatsExtra() {
+    const extra = document.getElementById('statsExtra');
+    const btn = document.getElementById('btnStatsMore');
+    const visible = extra.classList.toggle('visible');
+    btn.classList.toggle('expanded', visible);
+    if (visible) {
+        setTimeout(() => {
+            document.addEventListener('click', _cerrarStatsExtra, { once: true, capture: true });
+        }, 0);
+    }
+}
+function _cerrarStatsExtra(e) {
+    const extra = document.getElementById('statsExtra');
+    const btn = document.getElementById('btnStatsMore');
+    if (extra && !extra.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+        extra.classList.remove('visible');
+        btn.classList.remove('expanded');
+    } else if (extra) {
+        // clic dentro del dropdown: re-registrar para cerrarlo después
+        document.addEventListener('click', _cerrarStatsExtra, { once: true, capture: true });
+    }
 }
 
 function abrirModalResumen() {
@@ -1619,14 +1721,14 @@ function renderizarModalIngresos() {
         return;
     }
 
-    const cuentasOpts = app.cuentas.map(c =>
-        `<option value="${c.id}">${c.nombre}</option>`
-    ).join('');
-
     const rows = ingresos.map(c => {
         const isPaid   = c.pagado === 1;
         const fechaVal = c.fecha ? c.fecha.split('T')[0] : '';
-        const imp      = c.importe > 0 ? formatearMoneda(c.importe) : '';
+        const moneda   = c.moneda || 'ARS';
+        const imp      = c.importe > 0 ? formatearMoneda(c.importe, moneda) : '';
+        const cuentasOpts = app.cuentas
+            .filter(cu => (cu.moneda || 'ARS') === moneda)
+            .map(cu => `<option value="${cu.id}">${cu.nombre}</option>`).join('');
         const hasReg   = !!c.registro_id;
 
         return `
@@ -2468,7 +2570,7 @@ async function eliminarCategoria(id, nombre) {
 // Cuentas bancarias
 // ============================================================
 
-function crearSelectorCuenta(registroId, cuentaId) {
+function crearSelectorCuenta(registroId, cuentaId, moneda = 'ARS') {
     const wrap = document.createElement('div');
     wrap.className = 'cuenta-wrap';
 
@@ -2482,7 +2584,8 @@ function crearSelectorCuenta(registroId, cuentaId) {
 
     const optNone = new Option('Cuenta…', '');
     sel.appendChild(optNone);
-    app.cuentas.forEach(c => {
+    // Solo mostrar cuentas de la misma moneda que el concepto
+    app.cuentas.filter(c => (c.moneda || 'ARS') === moneda).forEach(c => {
         const opt = new Option(c.nombre, c.id);
         if (c.id == cuentaId) opt.selected = true;
         sel.appendChild(opt);
@@ -2537,8 +2640,8 @@ async function cargarCuentas() {
 function renderizarCardCuentasHome() {
     const el = document.getElementById('totalCuentasTopbar');
     if (!el || !app.cuentas || !app.cuentas.length) return;
-    const totalReal = app.cuentas.reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
-    el.textContent = formatearMoneda(totalReal);
+    const totalARS = app.cuentas.filter(c => (c.moneda || 'ARS') === 'ARS').reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
+    el.textContent = formatearMoneda(totalARS);
 }
 
 function renderizarCuentas() {
@@ -2549,7 +2652,8 @@ function renderizarCuentas() {
         return;
     }
 
-    const totalReal = app.cuentas.reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
+    const totalARS  = app.cuentas.filter(c => (c.moneda || 'ARS') === 'ARS').reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
+    const totalUSD  = app.cuentas.filter(c => c.moneda === 'USD').reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
 
     const tipoLabel = {
         cuenta_corriente: 'Cta. corriente',
@@ -2561,19 +2665,24 @@ function renderizarCuentas() {
         const saldo    = parseFloat(c.saldo_actual || 0);
         const fechaStr = c.fecha_saldo ? formatearFechaCorta(c.fecha_saldo) : '—';
 
+        const monedaCuenta = c.moneda || 'ARS';
+        const badgeUSD = monedaCuenta === 'USD'
+            ? '<span class="badge text-bg-warning ms-1" style="font-size:0.6rem;vertical-align:middle">USD</span>'
+            : '';
+
         return `
         <div class="cuenta-item">
             <div class="cuenta-item-header">
                 <div class="d-flex align-items-center gap-2">
                     <span class="cuenta-dot-lg" style="background:${c.color}"></span>
                     <div>
-                        <span class="cuenta-nombre">${c.nombre}</span>
+                        <span class="cuenta-nombre">${c.nombre}${badgeUSD}</span>
                         <span class="cuenta-tipo">${tipoLabel[c.tipo] || c.tipo}</span>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <div class="text-end">
-                        <div class="cuenta-stat-valor">${formatearMoneda(saldo)}</div>
+                        <div class="cuenta-stat-valor">${formatearMoneda(saldo, monedaCuenta)}</div>
                         <div class="cuenta-stat-fecha">${fechaStr}</div>
                     </div>
                     <div class="d-flex gap-1">
@@ -2590,13 +2699,20 @@ function renderizarCuentas() {
         </div>`;
     }).join('');
 
+    const consolidadoUSD = totalUSD > 0
+        ? `<div class="cuenta-consolidado-row">
+               <span class="cuenta-consolidado-label">Total en cuentas USD</span>
+               <span class="cuenta-consolidado-valor">${formatearMoneda(totalUSD, 'USD')}</span>
+           </div>` : '';
+
     contenedor.innerHTML = `
     <div class="cuenta-lista">${filasHtml}</div>
     <div class="cuenta-consolidado">
         <div class="cuenta-consolidado-row">
-            <span class="cuenta-consolidado-label">Total en cuentas</span>
-            <span class="cuenta-consolidado-valor">${formatearMoneda(totalReal)}</span>
+            <span class="cuenta-consolidado-label">Total en cuentas ARS</span>
+            <span class="cuenta-consolidado-valor">${formatearMoneda(totalARS)}</span>
         </div>
+        ${consolidadoUSD}
     </div>`;
 
     contenedor.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el =>

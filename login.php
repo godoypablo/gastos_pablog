@@ -2,16 +2,22 @@
 require_once 'config/auth_check.php';
 cifra_start_session();
 
+// Si ya está autenticado (sesión o cookie), ir directo
+if (!empty($_SESSION['logged_in']) || cifra_validate_remember_cookie()) {
+    $_SESSION['logged_in'] = true;
+    header('Location: index.php');
+    exit;
+}
+
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = trim($_POST['usuario'] ?? '');
     $pass = $_POST['password'] ?? '';
-    $remember = !empty($_POST['recordarme']);
 
     if ($user === AUTH_USER && password_verify($pass, AUTH_PASS_HASH)) {
         $_SESSION['logged_in'] = true;
-        if ($remember) cifra_set_remember_cookie();
+        cifra_set_remember_cookie(); // siempre recordar (app single-user)
         header('Location: index.php');
         exit;
     } else {
@@ -50,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         .login-wrap {
             width: 100%;
-            max-width: 400px;
+            max-width: 380px;
             padding: 1rem;
         }
         .login-logo {
@@ -59,9 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-weight: 700;
             letter-spacing: -0.5px;
         }
-        .login-logo .logo-dot {
-            color: #6366f1;
-        }
+        .login-logo .logo-dot { color: #6366f1; }
         .login-card {
             border: none;
             border-radius: 1rem;
@@ -70,43 +74,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         [data-bs-theme="dark"] .login-card {
             box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 1.5px 4px rgba(0,0,0,0.2);
         }
-        .login-card .card-body {
-            padding: 2rem 2rem 1.75rem;
-        }
+        .login-card .card-body { padding: 2rem 2rem 1.75rem; }
         .login-divider {
             height: 3px;
             border-radius: 2px;
             background: linear-gradient(90deg, #6366f1 0%, #10b981 100%);
             margin-bottom: 1.75rem;
         }
-        .form-control, .input-group-text {
-            border-radius: 0.5rem !important;
+        /* Inputs con ícono absoluto — sin input-group */
+        .login-field {
+            position: relative;
         }
-        .input-group .input-group-text {
-            border-right: none;
-            background: transparent;
+        .login-field-icon {
+            position: absolute;
+            left: .75rem;
+            top: 50%;
+            transform: translateY(-50%);
             color: var(--bs-secondary-color);
+            font-size: .9rem;
+            pointer-events: none;
+            z-index: 5;
+            transition: color .15s;
         }
-        .input-group .form-control {
-            border-left: none;
+        .login-field .form-control {
+            padding-left: 2.2rem;
+            border-radius: .5rem;
         }
-        .input-group .form-control:focus {
+        .login-field .form-control:focus {
             border-color: #6366f1;
             box-shadow: 0 0 0 0.2rem rgba(99,102,241,0.15);
         }
-        .input-group:focus-within .input-group-text {
-            border-color: #6366f1;
-            color: #6366f1;
-        }
-        .btn-toggle-pass {
-            border-left: none;
+        .login-field:focus-within .login-field-icon { color: #6366f1; }
+        /* Botón ojo contraseña */
+        .btn-eye {
+            position: absolute;
+            right: .5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            border: none;
             background: transparent;
             color: var(--bs-secondary-color);
-            border-color: var(--bs-border-color);
-            border-radius: 0 0.5rem 0.5rem 0 !important;
+            padding: .25rem .4rem;
+            border-radius: .35rem;
+            font-size: .9rem;
+            line-height: 1;
+            z-index: 5;
+            cursor: pointer;
         }
-        .btn-toggle-pass:hover { color: #6366f1; background: transparent; }
-        .input-group:focus-within .btn-toggle-pass { border-color: #6366f1; }
+        .btn-eye:hover { color: #6366f1; }
+        /* Cuando hay botón ojo, el input tiene padding-right extra */
+        .login-field-pass .form-control { padding-right: 2.4rem; }
+        /* Botón ingresar */
         .btn-ingresar {
             background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
             border: none;
@@ -153,8 +171,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <!-- Usuario -->
                     <div class="mb-3">
                         <label for="usuario" class="form-label small fw-medium">Usuario</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <div class="login-field">
+                            <i class="bi bi-person login-field-icon"></i>
                             <input type="text" id="usuario" name="usuario" class="form-control"
                                    placeholder="Tu usuario"
                                    value="<?= htmlspecialchars($_POST['usuario'] ?? '') ?>"
@@ -163,27 +181,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <!-- Contraseña -->
-                    <div class="mb-3">
+                    <div class="mb-4">
                         <label for="password" class="form-label small fw-medium">Contraseña</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                        <div class="login-field login-field-pass">
+                            <i class="bi bi-lock login-field-icon"></i>
                             <input type="password" id="password" name="password" class="form-control"
                                    placeholder="••••••••"
                                    autocomplete="current-password" required>
-                            <button type="button" class="btn btn-outline-secondary btn-toggle-pass"
-                                    id="btnTogglePass" tabindex="-1" aria-label="Mostrar contraseña">
+                            <button type="button" class="btn-eye" id="btnTogglePass"
+                                    tabindex="-1" aria-label="Mostrar contraseña">
                                 <i class="bi bi-eye" id="iconTogglePass"></i>
                             </button>
                         </div>
-                    </div>
-
-                    <!-- Recordarme -->
-                    <div class="mb-4 form-check">
-                        <input type="checkbox" class="form-check-input" id="recordarme" name="recordarme"
-                               <?= !empty($_POST['recordarme']) ? 'checked' : '' ?>>
-                        <label class="form-check-label small" for="recordarme">
-                            Recordarme por <?= REMEMBER_DAYS ?> días
-                        </label>
                     </div>
 
                     <button type="submit" class="btn btn-primary btn-ingresar w-100">

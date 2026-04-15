@@ -1943,6 +1943,12 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     transition: background .15s;
     white-space: nowrap;
     flex-shrink: 0;
+    min-width: 0;
+}
+.topbar-chip #filtroMesLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .topbar-chip:hover { background: var(--bs-secondary-bg); }
 .topbar-chip #iconFiltroMes {
@@ -1955,6 +1961,7 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     display: flex;
     gap: .15rem;
     margin-left: auto;
+    min-width: 0;
 }
 .topbar-stat {
     display: flex;
@@ -1964,6 +1971,7 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     padding: .2rem .55rem;
     border-radius: .4rem;
     transition: background .15s;
+    min-width: 0;
 }
 .topbar-stat:hover { background: var(--bs-secondary-bg); }
 .topbar-stat-label {
@@ -1978,6 +1986,7 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     font-weight: 600;
     font-family: 'Inter', sans-serif;
     line-height: 1.2;
+    white-space: nowrap;
 }
 .topbar-filtro-body {
     padding-bottom: .75rem;
@@ -1988,6 +1997,58 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
 }
 [data-bs-theme="dark"] .topbar-chip {
     border-color: var(--bs-border-color);
+}
+/* Botón expandir stats secundarios (solo mobile) */
+.topbar-more-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--bs-body-color);
+    opacity: .5;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    font-size: .65rem;
+    transition: opacity .15s;
+}
+.topbar-more-btn:hover { opacity: .85; }
+.topbar-more-btn.expanded { opacity: .85; }
+#iconStatsMore { transition: transform .2s; }
+.topbar-more-btn.expanded #iconStatsMore { transform: rotate(180deg); }
+/* Stats secundarios: siempre visibles en desktop */
+.topbar-stats-extra {
+    display: flex;
+    gap: .15rem;
+}
+@media (max-width: 575.98px) {
+    .topbar-more-btn { display: inline-flex; }
+    /* En mobile: dropdown flotante, no inline */
+    .topbar-stats {
+        position: relative;
+    }
+    .topbar-stats-extra {
+        display: none;
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        flex-direction: row;
+        gap: .15rem;
+        background: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: .6rem;
+        box-shadow: 0 4px 16px rgba(0,0,0,.13);
+        padding: .3rem .2rem;
+        z-index: 1040;
+    }
+    .topbar-stats-extra.visible { display: flex; }
+    [data-bs-theme="dark"] .topbar-stats-extra {
+        box-shadow: 0 4px 16px rgba(0,0,0,.35);
+    }
 }
 
 /* Importe pagado: label estático en lugar de input */
