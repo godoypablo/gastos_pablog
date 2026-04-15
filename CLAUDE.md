@@ -46,6 +46,7 @@ movimientos_api.php GET | POST transferencia | POST extraccion
 ## Layout — pantalla principal
 - Filtro mes/año: Bootstrap collapse, default contraído, localStorage('cifra-filtro-abierto')
 - Topbar sticky: `#saldoFiltroHeader` = total_cuentas − gastos_pendientes_mes (siempre ≤ total cuentas) | `#totalCuentasTopbar` = suma saldos reales
+- Topbar stats mobile: solo "Disponible" visible; botón `#btnStatsMore` (`.topbar-more-btn`) abre dropdown flotante (`position:absolute`) con USD Disp. + Cuentas — NO inline, no corre el layout. Desktop: los 3 siempre visibles. Cierre con clic fuera via `_cerrarStatsExtra()`.
 - Card Gastos: header colapsable → muestra Pagados (`#gastosPagadosHeader`) + Por pagar (`#gastosPorPagarHeader`); total en `#totalGastosHeader`
 - FAB `.fab` bottom-right z-index:1039 → #modalGastoRapido (permite_multiples=1) — estilos en `<style>` de index.php, NO inline
 
@@ -102,14 +103,20 @@ Resumen/Cuentas → modales | Vencimientos → modal+badges | Ingresos → modal
 
 ## Login (login.php)
 - Logo Montserrat + barra degradé índigo→verde + card shadow
-- Toggle ojo para contraseña: `#btnTogglePass` → alterna type password/text + icono bi-eye/bi-eye-slash
+- Inputs con ícono `position:absolute` (`.login-field` + `.login-field-icon`) — NO usar Bootstrap input-group (causa solapamiento con autofill del browser en mobile)
+- Toggle ojo: `.btn-eye` con `position:absolute` right dentro de `.login-field-pass` — NO en input-group
 - Foco inputs en índigo | btn-ingresar con gradiente + microanimación hover
+- Auth: siempre setea remember cookie al login (single-user, sin checkbox) — `cifra_set_remember_cookie()` incondicionalmente
+- Al entrar a login.php ya autenticado (sesión o cookie válida) → redirect inmediato a index.php
 
 ## PWA / Deploy
 - SW: HTML network-first, assets cache-first | CACHE_NAME formato: `cifra-YYYYMMDD-N`
 - **Bump CACHE_NAME en sw.js cada vez que cambie CSS o JS** — fuerza re-descarga en todos los dispositivos
 - Si hay varios bumps en el mismo día, incrementar el sufijo: `-1`, `-2`, etc.
-- Deploy FTP: index.php siempre | app.js si JS cambió | styles.css si CSS cambió | sw.js si hay bump
+- SW registration: `{ updateViaCache: 'none' }` — el browser siempre busca sw.js fresco ignorando HTTP cache
+- Auto-reload: listener `controllerchange` en app.js recarga la página cuando activa un SW nuevo
+- `.htaccess`: `Cache-Control: no-cache, no-store` para sw.js — el servidor tampoco lo cachea
+- Deploy FTP: index.php siempre | app.js si JS cambió | styles.css si CSS cambió | sw.js si hay bump | .htaccess si es la primera vez
 - Play Store: TWA via PWABuilder (USD 25, HTTPS) | App Store: Capacitor.js (USD 99/año)
 - Monetización: multi-tenant + suscripciones | IA descartada (privacidad)
 - Android: para limpiar caché de SW → Chrome → ⋮ → Configuración del sitio → Almacenamiento → Borrar
