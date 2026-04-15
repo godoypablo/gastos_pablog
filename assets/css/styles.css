@@ -1229,9 +1229,11 @@ table.dataTable > tbody > tr > td {
     .input-importe { max-width: 160px; font-size: 15px; }
 }
 
-/* Sticky header en scroll */
+/* Sticky header en scroll — en mobile, header + topbar se apilan */
 @media (max-width: 991.98px) {
     .header { position: sticky; top: 0; z-index: 1040; }
+    /* Topbar se pega justo debajo del header sticky */
+    .cifra-topbar { top: var(--header-height, 0px) !important; z-index: 1035; }
 }
 
 /* Safe area para notch/home bar en iOS */

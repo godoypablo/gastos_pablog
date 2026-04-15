@@ -49,14 +49,15 @@ document.addEventListener('DOMContentLoaded', () => {
         new bootstrap.Collapse(elFiltro, { toggle: false }).show();
     }
 
-    // CSS var para que catNav sticky quede justo debajo del header + topbar
-    const _setStickyNavTop = () => {
-        const h = (document.querySelector('.header')?.offsetHeight || 0) +
-                  (document.querySelector('.cifra-topbar')?.offsetHeight || 0);
-        document.documentElement.style.setProperty('--sticky-nav-top', h + 'px');
+    // CSS vars para sticky: header fija su altura, topbar se pega debajo, catNav debajo de ambos
+    const _setStickyOffsets = () => {
+        const headerH = document.querySelector('.header')?.offsetHeight || 0;
+        const topbarH = document.querySelector('.cifra-topbar')?.offsetHeight || 0;
+        document.documentElement.style.setProperty('--header-height',   headerH + 'px');
+        document.documentElement.style.setProperty('--sticky-nav-top', (headerH + topbarH) + 'px');
     };
-    _setStickyNavTop();
-    window.addEventListener('resize', _setStickyNavTop);
+    _setStickyOffsets();
+    window.addEventListener('resize', _setStickyOffsets);
 
     cargarDatos();
     sincronizarIconDarkMode();
