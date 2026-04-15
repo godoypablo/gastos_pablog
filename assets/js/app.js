@@ -49,6 +49,15 @@ document.addEventListener('DOMContentLoaded', () => {
         new bootstrap.Collapse(elFiltro, { toggle: false }).show();
     }
 
+    // CSS var para que catNav sticky quede justo debajo del header + topbar
+    const _setStickyNavTop = () => {
+        const h = (document.querySelector('.header')?.offsetHeight || 0) +
+                  (document.querySelector('.cifra-topbar')?.offsetHeight || 0);
+        document.documentElement.style.setProperty('--sticky-nav-top', h + 'px');
+    };
+    _setStickyNavTop();
+    window.addEventListener('resize', _setStickyNavTop);
+
     cargarDatos();
     sincronizarIconDarkMode();
     document.getElementById('btnCargar').addEventListener('click', cargarDatos);
@@ -657,10 +666,18 @@ function toggleCatNavChip(catId) {
     toggleCategoria(catId);
     renderizarCatNav();
     // Si se acaba de abrir, hacer scroll al header de esa categoría
+    // con offset manual para no quedar tapado por el header sticky + catNav
     if (estabaColapsada) {
         setTimeout(() => {
             const header = document.querySelector(`[data-cat-toggle-id="${catId}"]`);
-            if (header) header.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (!header) return;
+            const stickyH = parseInt(
+                getComputedStyle(document.documentElement).getPropertyValue('--sticky-nav-top')
+            ) || 0;
+            const catNavH = document.getElementById('catNav')?.offsetHeight || 0;
+            const offset  = stickyH + catNavH + 8;
+            const top     = header.getBoundingClientRect().top + window.scrollY - offset;
+            window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
         }, 60);
     }
 }

@@ -2069,6 +2069,9 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     padding: 10px 12px 8px;
     border-bottom: 1px solid var(--bs-border-color);
     background: var(--bs-body-bg);
+    position: sticky;
+    top: var(--sticky-nav-top, 0px);
+    z-index: 1025;
 }
 
 .cat-nav-scroll {
