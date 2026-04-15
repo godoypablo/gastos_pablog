@@ -911,7 +911,7 @@ function crearTablaDetalle(concepto) {
     }
 
     // Fila formulario para agregar
-    tbody.appendChild(crearFilaFormNuevoRegistro(concepto.id));
+    tbody.appendChild(crearFilaFormNuevoRegistro(concepto.id, concepto.moneda || 'ARS', concepto.cuenta_id_default));
 
     tabla.appendChild(tbody);
     wrapper.appendChild(tabla);
@@ -964,18 +964,28 @@ function crearFilaRegistroDetalle(reg, conceptoId, moneda = 'ARS') {
 }
 
 // Fila con formulario para agregar nuevo registro
-function crearFilaFormNuevoRegistro(conceptoId) {
+function crearFilaFormNuevoRegistro(conceptoId, moneda = 'ARS', cuentaDefault = null) {
     const tr = document.createElement('tr');
     tr.className = 'fila-nuevo-registro';
     tr.id = `form-nuevo-${conceptoId}`;
 
     const hoy = new Date().toISOString().split('T')[0];
 
+    // Selector de cuenta filtrado por moneda del concepto
+    const cuentasMoneda = (app.cuentas || []).filter(c => (c.moneda || 'ARS') === moneda);
+    const opcionesCuenta = cuentasMoneda
+        .map(c => `<option value="${c.id}" ${c.id == cuentaDefault ? 'selected' : ''}>${c.nombre}</option>`)
+        .join('');
+    const cuentaSelectHtml = cuentasMoneda.length > 0
+        ? `<select id="cuenta-nuevo-${conceptoId}" class="form-select form-select-sm mt-1" style="font-size:0.72rem">${opcionesCuenta}</select>`
+        : '';
+
     tr.innerHTML = `
-        <td class="ps-3" style="width:100px">
+        <td class="ps-3" style="width:110px">
             <span class="form-field-label">Fecha</span>
             <input type="date" class="form-control form-control-sm input-vencimiento-detalle"
                 id="fecha-nuevo-${conceptoId}" value="${hoy}">
+            ${cuentaSelectHtml}
         </td>
         <td>
             <span class="form-field-label">Descripción</span>
@@ -983,7 +993,7 @@ function crearFilaFormNuevoRegistro(conceptoId) {
                 id="obs-nuevo-${conceptoId}" placeholder="(opcional)">
         </td>
         <td>
-            <span class="form-field-label">Importe</span>
+            <span class="form-field-label">Importe ${moneda === 'USD' ? 'U$D' : '$'}</span>
             <input type="number" step="0.01" min="0" class="form-control form-control-sm text-end"
                 id="importe-nuevo-${conceptoId}" placeholder="0.00">
         </td>
@@ -1043,9 +1053,11 @@ async function agregarRegistroMultiple(conceptoId) {
         return;
     }
 
-    // Buscar cuenta_id_default del concepto para aplicar el saldo correcto
-    const conceptoData = (app.datos?.conceptos || []).find(c => c.id == conceptoId);
-    const cuentaId = conceptoData?.cuenta_id_default || null;
+    // Cuenta: primero el selector inline del form, luego cuenta_id_default del concepto
+    const cuentaSelectEl = document.getElementById(`cuenta-nuevo-${conceptoId}`);
+    const cuentaId = cuentaSelectEl
+        ? (parseInt(cuentaSelectEl.value) || null)
+        : ((app.datos?.conceptos || []).find(c => c.id == conceptoId)?.cuenta_id_default || null);
 
     try {
         const response = await fetch(API_URL, {
