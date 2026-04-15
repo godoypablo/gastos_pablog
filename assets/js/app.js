@@ -336,6 +336,13 @@ function renderizarDatos() {
     // Destruir DataTable gastos antes de limpiar tbody
     if (app.dtGastos) { app.dtGastos.destroy(); app.dtGastos = null; }
 
+    // En mobile: colapsar todas las categorías por defecto en la primera carga
+    if (window.innerWidth < 768 && app.categoriasColapsadas.size === 0) {
+        (app.datos.conceptos || [])
+            .filter(c => c.tipo === 'gasto' && c.categoria_id)
+            .forEach(c => app.categoriasColapsadas.add(String(c.categoria_id)));
+    }
+
     // Renderizar gastos
     const gastos = app.datos.conceptos.filter(c => c.tipo === 'gasto');
     const tbodyGastos = document.getElementById('tablaGastos');
@@ -351,6 +358,7 @@ function renderizarDatos() {
     actualizarLabelFiltro();
 
     inicializarDataTables();
+    renderizarCatNav();
     mostrarBannerPeriodo();
     mostrarBannerVencimientos();
     renderizarResumenCategorias();
@@ -600,6 +608,61 @@ function toggleCategoria(catId) {
             }
         }
     });
+
+    // Sincronizar chips del nav (el usuario puede tocar el header directamente en la tabla)
+    renderizarCatNav();
+}
+
+// Nav de categorías — chips horizontales (solo visible en mobile vía CSS d-md-none)
+function renderizarCatNav() {
+    const el = document.getElementById('catNav');
+    if (!el || !app.datos) return;
+
+    // Construir mapa de categorías con totales
+    const cats = {};
+    (app.datos.conceptos || []).filter(c => c.tipo === 'gasto').forEach(c => {
+        const id = String(c.categoria_id || '0');
+        if (!cats[id]) cats[id] = {
+            id,
+            nombre:  c.categoria_nombre || 'Sin cat.',
+            color:   c.categoria_color  || '#6B7280',
+            icono:   c.categoria_icono  || 'bi-tag',
+            totalARS: 0,
+            totalUSD: 0,
+        };
+        if ((c.moneda || 'ARS') === 'USD') cats[id].totalUSD += parseFloat(c.importe || 0);
+        else                                cats[id].totalARS  += parseFloat(c.importe || 0);
+    });
+
+    const chips = Object.values(cats).map(cat => {
+        const abierta = !app.categoriasColapsadas.has(cat.id);
+        const total = cat.totalARS > 0
+            ? formatearMoneda(cat.totalARS)
+            : (cat.totalUSD > 0 ? formatearMoneda(cat.totalUSD, 'USD') : '—');
+        return `<button class="cat-chip${abierta ? ' abierta' : ''}"
+                    style="--chip-color:${cat.color}"
+                    onclick="toggleCatNavChip('${cat.id}')">
+                    <i class="bi ${cat.icono} cat-chip-icon"></i>
+                    <span class="cat-chip-nombre">${cat.nombre}</span>
+                    <span class="cat-chip-total">${total}</span>
+                </button>`;
+    }).join('');
+
+    el.innerHTML = `<div class="cat-nav-scroll">${chips}</div>`;
+}
+
+// Tap en chip de categoría: toggle + scroll al header en la tabla
+function toggleCatNavChip(catId) {
+    const estabaColapsada = app.categoriasColapsadas.has(catId);
+    toggleCategoria(catId);
+    renderizarCatNav();
+    // Si se acaba de abrir, hacer scroll al header de esa categoría
+    if (estabaColapsada) {
+        setTimeout(() => {
+            const header = document.querySelector(`[data-cat-toggle-id="${catId}"]`);
+            if (header) header.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 60);
+    }
 }
 
 // Crear filas de concepto — devuelve array de <tr>

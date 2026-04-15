@@ -231,6 +231,9 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                         <span class="fw-medium" id="gastosPorPagarHeader"></span>
                     </div>
                 </div>
+                <!-- Nav de categorías (solo mobile) -->
+                <div id="catNav" class="cat-nav-wrap d-md-none"></div>
+
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0" id="dtGastos">
