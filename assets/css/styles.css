@@ -877,6 +877,8 @@ table.dataTable > tbody > tr.parent + tr.child td {
     --color-white:        #1E293B;
     --bs-primary:         #818cf8;
     --bs-primary-rgb:     129, 140, 248;
+    --bs-body-color:      #F1F5F9;   /* texto principal dark */
+    --bs-body-bg:         #0F172A;   /* fondo principal dark */
     /* Texto semántico dark */
     --cifra-pos:          #34d399;   /* esmeralda-400 */
     --cifra-neg:          #fc9494;
@@ -1283,15 +1285,15 @@ table.dataTable > tbody > tr > td {
 
 .categoria-header-label {
     font-size: 0.71rem;
-    font-weight: 500;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1.4px;
     font-family: 'Inter', sans-serif;
 }
 
 .categoria-header-total {
-    font-size: 0.82rem;
-    font-weight: 500;
+    font-size: 0.88rem;
+    font-weight: 700;
     font-family: 'Inter', sans-serif;
     font-variant-numeric: tabular-nums;
     padding-right: 0.25rem;
@@ -1994,8 +1996,8 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     padding-bottom: .75rem;
 }
 [data-bs-theme="dark"] .cifra-topbar {
-    background: var(--bs-body-bg);
-    border-bottom-color: var(--bs-border-color);
+    background: #1E293B;
+    border-bottom-color: #334155;
 }
 [data-bs-theme="dark"] .topbar-chip {
     border-color: var(--bs-border-color);
@@ -2053,6 +2055,76 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     }
 }
 
+/* ==================== PRIVACIDAD: OCULTAR IMPORTES ==================== */
+/* Elementos display: colapsar texto, mostrar asteriscos con ::after */
+.cifra-oculto .topbar-stat-valor,
+.cifra-oculto .cat-chip-total,
+.cifra-oculto .importe-pagado,
+.cifra-oculto #totalGastosHeader,
+.cifra-oculto #gastosPagadosHeader,
+.cifra-oculto #gastosPorPagarHeader,
+.cifra-oculto .categoria-header-total {
+    font-size: 0 !important;
+    user-select: none;
+    white-space: nowrap;
+    min-width: 1.5rem;
+}
+.cifra-oculto .topbar-stat-valor::after,
+.cifra-oculto .cat-chip-total::after,
+.cifra-oculto .importe-pagado::after,
+.cifra-oculto #totalGastosHeader::after,
+.cifra-oculto #gastosPagadosHeader::after,
+.cifra-oculto #gastosPorPagarHeader::after,
+.cifra-oculto .categoria-header-total::after {
+    content: '* * *';
+    font-size: 0.78rem;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 2px;
+    opacity: 0.5;
+}
+/* Detalle múltiple: celdas de importe en filas expandidas */
+.cifra-oculto .det-importe {
+    font-size: 0 !important;
+    user-select: none;
+    white-space: nowrap;
+}
+.cifra-oculto .det-importe::after {
+    content: '* * *';
+    font-size: 0.78rem;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 2px;
+    opacity: 0.5;
+}
+/* Input formulario múltiple: wrapper con overlay de asteriscos */
+.det-importe-wrap {
+    position: relative;
+}
+.cifra-oculto .det-importe-wrap::after {
+    content: '* * *';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 2px;
+    opacity: 0.5;
+    background: var(--bs-body-bg);
+    pointer-events: none;
+}
+/* Inputs simples (ingresos, etc.): no soportan ::after — blur más suave */
+.cifra-oculto .input-importe {
+    filter: blur(4px);
+    user-select: none;
+}
+/* Botón ojo: activo en modo privacidad */
+.cifra-oculto #btnOcultarImportes {
+    opacity: 1;
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
 /* Importe pagado: label estático en lugar de input */
 .importe-pagado {
     font-size: 0.9rem;
@@ -2107,6 +2179,10 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     color: #fff;
     opacity: 1;
 }
+.cat-chip.en-vista {
+    background: color-mix(in srgb, var(--chip-color, #6B7280) 16%, transparent);
+    opacity: 1;
+}
 .cat-chip-icon { font-size: 1rem; line-height: 1; }
 .cat-chip-nombre {
     font-size: 0.68rem;
@@ -2139,5 +2215,206 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
 }
 
 [data-bs-theme="dark"] .cat-nav-wrap {
-    background: var(--bs-body-bg);
+    background: #1E293B;
+    border-bottom-color: #334155;
 }
+
+/* ==================== PANEL GERENCIAL ==================== */
+.ger-section {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+.ger-section:last-child { border-bottom: none; }
+
+.ger-section-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-gray);
+    margin-bottom: 0.75rem;
+}
+
+/* KPIs */
+.ger-kpi {
+    background: var(--bs-secondary-bg);
+    border-radius: 0.5rem;
+    padding: 0.7rem 0.9rem;
+    height: 100%;
+}
+.ger-kpi-label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-gray);
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+}
+.ger-kpi-valor {
+    font-size: clamp(0.85rem, 2.5vw, 1.05rem);
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ger-kpi-sub {
+    font-size: 0.6rem;
+    color: var(--color-gray);
+    line-height: 1.4;
+}
+.ger-prog {
+    height: 3px;
+    background: var(--color-gray-light);
+    border-radius: 2px;
+    margin-bottom: 0.25rem;
+    overflow: hidden;
+}
+.ger-prog-bar {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease;
+}
+.ger-semaforo {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.3rem;
+}
+.ger-sem-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* Filas genéricas (cuentas, alertas) */
+.ger-fila {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.32rem 0;
+    font-size: 0.8rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+.ger-fila:last-child { border-bottom: none; }
+.ger-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.ger-fila-nombre {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ger-fila-valor {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    white-space: nowrap;
+    font-size: 0.8rem;
+}
+.ger-fila-meta {
+    font-size: 0.65rem;
+    color: var(--color-gray);
+    white-space: nowrap;
+}
+
+/* Liquidez — totales y disponible */
+.ger-totales-block {
+    margin-top: 0.6rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--bs-border-color);
+}
+.ger-total-fila {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    padding: 0.15rem 0;
+    color: var(--color-gray);
+}
+.ger-total-fila span:last-child {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    color: var(--bs-body-color);
+}
+.ger-disponible-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.45rem 0.7rem;
+    border-radius: 0.4rem;
+    margin-top: 0.5rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+.ger-disponible-row span:last-child {
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+}
+
+/* Categorías */
+.ger-distrib { min-height: 4rem; }
+.ger-cat-row {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.45rem;
+    font-size: 0.75rem;
+}
+.ger-cat-nombre {
+    min-width: 80px;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ger-cat-bar-wrap {
+    flex: 1;
+    height: 6px;
+    background: var(--color-gray-light);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.ger-cat-bar { height: 100%; border-radius: 3px; }
+.ger-cat-importe {
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    text-align: right;
+    min-width: 5.5rem;
+    white-space: nowrap;
+    font-size: 0.75rem;
+}
+.ger-cat-pct {
+    color: var(--color-gray);
+    font-size: 0.62rem;
+    min-width: 2.2rem;
+    text-align: right;
+}
+
+/* Alertas */
+.ger-alerta-titulo {
+    font-size: 0.63rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+}
+.ger-ok {
+    text-align: center;
+    padding: 0.6rem;
+    font-size: 0.82rem;
+    color: var(--color-success);
+    font-weight: 500;
+}
+
+/* Layout dos columnas: borde derecho solo en md+ */
+@media (min-width: 768px) {
+    .ger-mid-row { border-bottom: 1px solid var(--bs-border-color); }
+    .ger-col-border { border-right: 1px solid var(--bs-border-color); }
+}
+
+/* Dark mode */
+[data-bs-theme="dark"] .ger-prog      { background: rgba(255,255,255,0.07); }
+[data-bs-theme="dark"] .ger-cat-bar-wrap { background: rgba(255,255,255,0.07); }

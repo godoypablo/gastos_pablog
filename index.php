@@ -1,7 +1,7 @@
 <?php
 require_once 'config/auth_check.php';
 require_auth_or_redirect();
-define('APP_VERSION', '20260415-3');
+define('APP_VERSION', '20260416-7');
 $meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 ?>
@@ -60,15 +60,18 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                 Cifra
             </h1>
             <div class="d-flex gap-2 align-items-center">
-                <button class="btn btn-outline-light btn-sm" onclick="toggleDarkMode()" id="btnDarkMode" title="Cambiar tema">
-                    <i class="bi bi-moon-fill" id="iconDarkMode"></i>
-                </button>
                 <div class="dropdown">
                     <button class="btn btn-outline-light btn-sm position-relative" id="btnMenu" data-bs-toggle="dropdown" aria-expanded="false" title="Menú">
                         <i class="bi bi-list fs-5"></i>
                         <span class="badge bg-danger position-absolute top-0 start-100 translate-middle rounded-pill d-none" id="badgeMenuVenc" style="font-size:0.6rem;padding:2px 5px"></span>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="btnMenu">
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalGerencial();return false;">
+                                <i class="bi bi-speedometer2 menu-icon"></i>
+                                Panel Gerencial
+                            </a>
+                        </li>
                         <li>
                             <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalResumen();return false;">
                                 <i class="bi bi-graph-up-arrow menu-icon"></i>
@@ -111,15 +114,25 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                         </li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="toggleDarkMode();return false;">
+                                <i class="bi bi-moon-fill menu-icon" id="iconDarkMode"></i>
+                                Cambiar tema
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="logout.php">
+                                <i class="bi bi-box-arrow-right menu-icon"></i>
+                                Cerrar sesión
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
                             <span class="dropdown-item-text text-muted" style="font-size:0.7rem;opacity:.6;user-select:all">
                                 v<?= APP_VERSION ?>
                             </span>
                         </li>
                     </ul>
                 </div>
-                <a href="logout.php" class="btn btn-outline-light btn-sm" title="Cerrar sesión">
-                    <i class="bi bi-box-arrow-right"></i>
-                </a>
             </div>
         </div>
     </header>
@@ -132,6 +145,9 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                     <i class="bi bi-calendar3"></i>
                     <span id="filtroMesLabel"><?php echo $labelFiltro; ?></span>
                     <i class="bi bi-chevron-down" id="iconFiltroMes"></i>
+                </button>
+                <button class="topbar-more-btn" id="btnOcultarImportes" onclick="toggleImportesOcultos()" title="Ocultar importes">
+                    <i class="bi bi-eye" id="iconOcultarImportes"></i>
                 </button>
                 <div class="topbar-stats">
                     <div class="topbar-stat" onclick="abrirModalResumen()" title="Saldo ARS en cuentas menos gastos ARS pendientes del mes">
@@ -670,6 +686,21 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                         <i class="bi bi-plus-lg me-1"></i>Agregar
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Panel Gerencial -->
+    <div class="modal fade" id="modalGerencial" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-speedometer2 me-2 text-primary"></i>Información General — <span id="mesAnioGerencial"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0" id="modalGerencialBody"></div>
             </div>
         </div>
     </div>
