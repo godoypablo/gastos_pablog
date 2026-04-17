@@ -1,7 +1,7 @@
 <?php
 require_once 'config/auth_check.php';
 require_auth_or_redirect();
-define('APP_VERSION', '20260416-7');
+define('APP_VERSION', '20260416-13');
 $meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 ?>
@@ -67,12 +67,6 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="btnMenu">
                         <li>
-                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalGerencial();return false;">
-                                <i class="bi bi-speedometer2 menu-icon"></i>
-                                Panel Gerencial
-                            </a>
-                        </li>
-                        <li>
                             <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalResumen();return false;">
                                 <i class="bi bi-graph-up-arrow menu-icon"></i>
                                 Resumen
@@ -136,6 +130,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
             </div>
         </div>
     </header>
+    <div style="height:3px;background:linear-gradient(90deg,#6366f1 0%,#10b981 100%)"></div>
 
     <!-- Topbar sticky: filtro + stats rápidos -->
     <div class="cifra-topbar sticky-top">
@@ -269,7 +264,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 
     <!-- Modal Resumen -->
     <div class="modal fade" id="modalResumen" tabindex="-1" aria-labelledby="modalResumenLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalResumenLabel">
@@ -278,58 +273,14 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0">
-                    <!-- Ingresos vs Gastos -->
-                    <div class="resumen-top-row">
-                        <div class="resumen-stat resumen-stat-ingreso"
-                             style="cursor:pointer"
-                             data-bs-toggle="collapse"
-                             data-bs-target="#resumenIngresosDetalle">
-                            <div class="resumen-stat-label">
-                                <i class="bi bi-arrow-up-circle-fill"></i> Ingresos
-                                <i class="bi bi-chevron-down" style="font-size:.6rem;opacity:.5"></i>
-                                <i class="bi bi-info-circle resumen-info"
-                                   data-bs-toggle="tooltip" data-bs-placement="bottom"
-                                   data-bs-title="Total de ingresos registrados en el mes"></i>
-                            </div>
-                            <div class="resumen-stat-valor" id="totalIngresos">$0,00</div>
-                        </div>
-                        <div class="resumen-stat resumen-stat-gasto">
-                            <div class="resumen-stat-label">
-                                <i class="bi bi-arrow-down-circle-fill"></i> Gastos
-                                <i class="bi bi-info-circle resumen-info"
-                                   data-bs-toggle="tooltip" data-bs-placement="bottom"
-                                   data-bs-title="Total de gastos registrados en el mes"></i>
-                            </div>
-                            <div class="resumen-stat-valor" id="totalGastos">$0,00</div>
-                        </div>
-                    </div>
-                    <!-- Detalle ingresos (collapse) -->
-                    <div class="collapse border-top" id="resumenIngresosDetalle"></div>
-                    <!-- Barra de progreso -->
-                    <div class="resumen-progress-section">
-                        <div class="progress resumen-progress">
-                            <div class="progress-bar" id="barraProgreso" role="progressbar" style="width:0%"></div>
-                        </div>
-                        <div class="resumen-progress-label">gastos pagados</div>
-                    </div>
-                    <!-- Saldo -->
-                    <div class="resumen-bottom-row" id="cardSaldo">
-                        <div class="resumen-saldo-item">
-                            <span class="resumen-saldo-label">
-                                <i class="bi bi-bar-chart-steps" id="iconSaldo"></i> Balance del mes
-                                <i class="bi bi-info-circle resumen-info"
-                                   data-bs-toggle="tooltip" data-bs-placement="top"
-                                   data-bs-title="Ingresos del mes menos los gastos ya pagados. No refleja el saldo real en cuentas."></i>
-                            </span>
-                            <span class="resumen-saldo-valor" id="saldoDisponible">$0,00</span>
-                        </div>
-                    </div>
-                    <!-- Gastos por categoría -->
-                    <div id="resumenCategorias"></div>
-                    <!-- Pendientes de pago -->
-                    <div id="resumenPendientes"></div>
+                    <div id="modalGerencialBody"></div>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-sm me-auto"
+                            style="background:linear-gradient(135deg,#6366f1 0%,#10b981 100%);color:#fff;border:none"
+                            onclick="descargarResumenPDF()">
+                        <i class="bi bi-file-earmark-pdf me-1"></i>Descargar PDF
+                    </button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
@@ -422,10 +373,11 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalIngresosLabel">
-                        <i class="bi bi-graph-up text-success me-2"></i>Ingresos — <span id="mesAnioIngresos"></span>
+                        <i class="bi bi-graph-up me-2" style="color:#6366f1"></i>Ingresos — <span id="mesAnioIngresos"></span>
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
+                <div class="ingreso-modal-divider"></div>
 
                 <!-- Formulario nuevo ingreso (oculto por defecto) -->
                 <div id="formNuevoIngreso" class="d-none border-bottom px-3 pt-3 pb-2">
@@ -445,7 +397,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                             <input type="text" inputmode="decimal" id="nuevoIngresoImporte" class="form-control form-control-sm" placeholder="$ 0,00">
                         </div>
                         <div class="col-12 col-sm-2 d-flex gap-1">
-                            <button class="btn btn-success btn-sm flex-fill" onclick="guardarNuevoIngreso()">
+                            <button class="btn btn-sm flex-fill" style="background:linear-gradient(135deg,#6366f1 0%,#10b981 100%);color:#fff;border:none" onclick="guardarNuevoIngreso()">
                                 <i class="bi bi-check-lg"></i>
                             </button>
                             <button class="btn btn-outline-secondary btn-sm" onclick="ocultarFormNuevoIngreso()">
@@ -464,7 +416,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                 <div class="ingreso-totales border-top" id="totalIngresosModal"></div>
 
                 <div class="modal-footer">
-                    <button class="btn btn-success btn-sm me-auto" onclick="mostrarFormNuevoIngreso()">
+                    <button class="btn btn-sm me-auto" style="background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%);color:#fff;border:none" onclick="mostrarFormNuevoIngreso()">
                         <i class="bi bi-plus-lg me-1"></i>Nuevo ingreso
                     </button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -686,21 +638,6 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                         <i class="bi bi-plus-lg me-1"></i>Agregar
                     </button>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Panel Gerencial -->
-    <div class="modal fade" id="modalGerencial" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-speedometer2 me-2 text-primary"></i>Información General — <span id="mesAnioGerencial"></span>
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body p-0" id="modalGerencialBody"></div>
             </div>
         </div>
     </div>

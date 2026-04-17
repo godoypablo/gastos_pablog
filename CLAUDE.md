@@ -90,12 +90,13 @@ Resumen/Cuentas → modales | Vencimientos → modal+badges | Ingresos → modal
 - NO usar border-success/danger/primary en cards ni bg-success/danger en headers
 - Fuentes responsivas: `clamp()` en valores monetarios grandes
 
-## Resumen modal
-- Ingresos: clicable → collapse `#resumenIngresosDetalle` con items individuales — `renderizarResumenIngresos()`
-- Solo muestra: Disponible (ingresos−gastos_pagados) — SIN Pendiente ni Proyección
-- Barras por categoría: `renderizarResumenCategorias()` | Lista pendientes: `renderizarResumenPendientes()`
-- Tooltips ⓘ en todos los valores numéricos (Bootstrap, trigger hover+focus)
-- `saldo_disponible = ingresos − gastos_pagados` | barra progreso 4px (pctPagado)
+## Resumen modal (unificado con Panel Gerencial)
+- `modal-xl` | body: `<div id="modalGerencialBody">` — renderizado por `renderizarGerencial()`
+- Layout: KPIs (Cobrado/Pagado/PorPagar/Resultado) → mid-row 2 cols (`col-md-5` Pendientes | `col-md-7` Distribución) → Alertas
+- KPI "Por pagar" clicable → collapse con lista de pendientes
+- Distribución: **donut SVG** (stroke-dasharray) + leyenda con mini barras — clases `.ger-donut-*` y `.ger-leg-*`
+- Footer: botón "Descargar PDF" → `descargarResumenPDF()` → `window.print()` con `@media print` + clase `cifra-printing` en body
+- **SIN** bloque "Saldo en cuentas" (removido — ver modal Cuentas)
 
 ## Cuentas modal
 - `renderizarCuentas()` → #cardCuentas (sin wrapper .card)
@@ -107,15 +108,30 @@ Resumen/Cuentas → modales | Vencimientos → modal+badges | Ingresos → modal
 - `total_pagado_mes`: JOIN conceptos filtrando `tipo='gasto'` (si no, suma ingresos — bug histórico)
 
 ## Ingresos modal
-- Layout dos líneas por ítem:
-  - Línea 1 `.ingreso-linea1`: nombre + btn-edit-ingreso + importe (input)
-  - Línea 2 `.ingreso-linea2`: select cuenta (flex:1) + input fecha (7.5rem fijo)
-- Wrapper `.ingreso-body` (flex-direction:column) al lado de `.btn-pagado`
+- Header con barra degradé índigo→esmeralda (`.ingreso-modal-divider`)
+- Layout por ítem: `[btn-pagado] [.ingreso-body flex:1] [.ingreso-importe-col 9rem]`
+  - `.ingreso-body` línea 1: nombre + btn-edit (solo nombre, sin importe)
+  - `.ingreso-body` línea 2: select cuenta + input fecha
+  - `.ingreso-importe-col`: columna fija derecha con el input importe (9rem, text-align:right)
+- `btn-pagado.pagado` → índigo (override local `#modalIngresos`) — NO esmeralda como el resto
+- Fondo fila cobrada → tinte índigo (`.ingreso-row-cobrado`)
 - `renderizarModalIngresos()` en app.js
+
+## Errores y notificaciones
+- **Todos los errores** via `mostrarError(msg)` → delega a `mostrarToast(msg, 'danger')` — toast abajo, nunca alerta superior
+- `mostrarToast(msg, tipo)`: tipo `'success'` (3s, verde) | `'danger'` (6s, rojo oscuro `.toast-danger`) | `'info'`
+- Saldo insuficiente: HTTP 422 → muestra símbolo correcto ARS/USD según `concepto_moneda`
+
+## Privacidad (modo oculto)
+- Toggle: `document.documentElement.classList.toggle('cifra-oculto')` + localStorage
+- `.cifra-oculto .importe-input-wrap::after` → overlay `* * *` sobre inputs de importe
+- `focus-within` retira el overlay al editar; se restaura al salir — sin JS
+- **NO usar `filter:blur`** en inputs — no funciona en replaced elements
 
 ## Vencimientos (permite_multiples=0)
 - `.vencimiento-wrap` → span dd/mm/yy + input[date] oculto; click → showPicker()
 - Mobile: flex-basis:100% en .concepto-nombre → nueva línea
+- Si la fecha elegida es de un mes posterior: API mueve el registro (`mes`/`anio` actualizados), devuelve `movido_a`; frontend muestra toast "Movido a [Mes Año]" y llama `cargarDatos()`
 
 ## Detalle múltiple (permite_multiples=1)
 - POST siempre pagado=1, sin fecha_vencimiento
@@ -125,20 +141,36 @@ Resumen/Cuentas → modales | Vencimientos → modal+badges | Ingresos → modal
 - Selector de cuenta inline en el form: filtra cuentas por moneda del concepto
 
 ## Categorías
-- Header desktop: chevron (colapsar) + dot + ícono + label + total (color inline)
-- Header mobile: sin chevron (no colapsa); solo dot + ícono + label + total
-- `.categoria-header-label`: 0.72rem | `.categoria-header-total`: 0.8rem
-- Edit: todo en `.cat-nombre-edit` con `d-flex flex-wrap` (nombre+orden+botones), colspan="2" — evita overflow mobile
+- Header desktop: chevron + dot + ícono + label + total | Header mobile: sin chevron
+- Edit: `.cat-nombre-edit` con `d-flex flex-wrap` (nombre+orden+botones), colspan="2"
+- **Selector de color**: `_cifraColorPickerHtml(inputId, color)` — NO usar `<input type="color">` (nativo es feo en Android). Genera `<div class="cifra-cp">` con botón + `<input type="hidden">` + grilla de swatches de `CIFRA_PALETTE` (20 colores). Funciones: `cifraColorToggle()`, `cifraColorSelect()`. Aplica también en "Nueva cuenta".
 
 ## Movimientos modal
 - Layout flex por fila: fecha(dd/mm/yy)+hora(hh:mm) | tipo+cuenta | descripción+importe
 - Sin tabla, diseño responsive puro flex
 
+## Paleta de colores — Cifra (unificada con login)
+| Variable | Valor | Uso |
+|---|---|---|
+| `--color-primary` | `#6366f1` | índigo-500 — acciones primarias, foco |
+| `--color-primary-dark` | `#4f46e5` | índigo-600 — hover |
+| `--color-primary-deep` | `#312e81` | índigo-900 — fondo header |
+| `--color-success` | `#10b981` | esmeralda-500 — pagado/activo |
+| `--color-success-dark` | `#059669` | esmeralda-600 — hover success |
+| `--cifra-pos` / `--cifra-neg` | `#059669` / `#991b1b` | montos +/− |
+| Gradiente divider | `linear-gradient(90deg, #6366f1 0%, #10b981 100%)` | barra bajo header, modal ingresos |
+| `btn-success` override | `linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)` | botones guardar/confirmar |
+
+- Dark: `--color-primary`→`#818cf8` | `--color-success`→`#34d399`
+- `CIFRA_PALETTE` (20 colores) definida en app.js — usar para pickers, nunca `<input type="color">`
+- `btn-success` ya overrideado a índigo en styles.css — estados pagado/activo usan esmeralda
+- Modal Ingresos: override local → `btn-pagado.pagado` + fondo cobrado en índigo (no esmeralda)
+
 ## Login (login.php)
-- Logo Montserrat + barra degradé índigo→verde + card shadow
+- Logo Montserrat + barra degradé índigo→esmeralda + card shadow
 - Inputs con ícono `position:absolute` (`.login-field` + `.login-field-icon`) — NO usar Bootstrap input-group (causa solapamiento con autofill del browser en mobile)
 - Toggle ojo: `.btn-eye` con `position:absolute` right dentro de `.login-field-pass` — NO en input-group
-- Foco inputs en índigo | btn-ingresar con gradiente + microanimación hover
+- Foco inputs en índigo | btn-ingresar con gradiente índigo + microanimación hover
 - Auth: siempre setea remember cookie al login (single-user, sin checkbox) — `cifra_set_remember_cookie()` incondicionalmente
 - Al entrar a login.php ya autenticado (sesión o cookie válida) → redirect inmediato a index.php
 

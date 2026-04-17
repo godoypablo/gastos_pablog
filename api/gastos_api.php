@@ -404,7 +404,7 @@ try {
 
                 // Leer registro actual para saber cuenta y tipo de concepto
                 $stmt_reg = $db->prepare(
-                    "SELECT rm.cuenta_id, rm.importe, rm.fecha, c.tipo AS concepto_tipo, c.moneda AS concepto_moneda
+                    "SELECT rm.cuenta_id, rm.importe, rm.fecha, c.tipo AS concepto_tipo, c.moneda AS concepto_moneda, c.cuenta_id_default
                      FROM registros_mensuales rm
                      INNER JOIN conceptos c ON rm.concepto_id = c.id
                      WHERE rm.id = :id"
@@ -412,14 +412,23 @@ try {
                 $stmt_reg->execute(['id' => $registro_id]);
                 $reg = $stmt_reg->fetch();
 
-                if ($reg && $reg['cuenta_id'] && (float)$reg['importe'] > 0) {
-                    $cuenta_id       = (int)$reg['cuenta_id'];
+                // Fallback: si el registro no tiene cuenta_id, usar cuenta_id_default del concepto
+                $cuenta_id_efectiva = $reg['cuenta_id'] ?: $reg['cuenta_id_default'];
+
+                if ($reg && $cuenta_id_efectiva && (float)$reg['importe'] > 0) {
+                    $cuenta_id       = (int)$cuenta_id_efectiva;
                     $importe         = (float)$reg['importe'];
                     $tipo_concepto   = $reg['concepto_tipo'];
                     $concepto_moneda = $reg['concepto_moneda'] ?? 'ARS';
                     $tipo_mov        = ($tipo_concepto === 'ingreso') ? 'ingreso' : 'pago_gasto';
                     $fecha_mov       = $reg['fecha'] ?: date('Y-m-d');
                     $simbolo         = $concepto_moneda === 'USD' ? 'U$D ' : '$';
+
+                    // Si se usó el fallback, persistir cuenta_id en el registro
+                    if (!$reg['cuenta_id'] && $reg['cuenta_id_default']) {
+                        $sets[]              = 'cuenta_id = :cuenta_id';
+                        $params['cuenta_id'] = $cuenta_id;
+                    }
 
                     $db->beginTransaction();
                     try {
@@ -584,9 +593,28 @@ try {
             }
 
             if (array_key_exists('fecha_vencimiento', $input)) {
-                $sets[]                    = 'fecha_vencimiento = :fecha_vencimiento';
-                $params['fecha_vencimiento'] = ($input['fecha_vencimiento'] !== '' && $input['fecha_vencimiento'] !== null)
+                $nueva_fv = ($input['fecha_vencimiento'] !== '' && $input['fecha_vencimiento'] !== null)
                     ? $input['fecha_vencimiento'] : null;
+                $sets[]                    = 'fecha_vencimiento = :fecha_vencimiento';
+                $params['fecha_vencimiento'] = $nueva_fv;
+
+                // Si la fecha pertenece a un mes/año distinto, mover el registro a ese período
+                $movido_a = null;
+                if ($nueva_fv) {
+                    $dt = date_create($nueva_fv);
+                    $mes_fv  = (int)date_format($dt, 'n');
+                    $anio_fv = (int)date_format($dt, 'Y');
+                    $reg_actual = $db->prepare("SELECT mes, anio FROM registros_mensuales WHERE id = :id");
+                    $reg_actual->execute(['id' => $registro_id]);
+                    $ra = $reg_actual->fetch();
+                    if ($ra && ((int)$ra['mes'] !== $mes_fv || (int)$ra['anio'] !== $anio_fv)) {
+                        $sets[]        = 'mes = :mes_nuevo';
+                        $sets[]        = 'anio = :anio_nuevo';
+                        $params['mes_nuevo']  = $mes_fv;
+                        $params['anio_nuevo'] = $anio_fv;
+                        $movido_a = ['mes' => $mes_fv, 'anio' => $anio_fv];
+                    }
+                }
             }
             if (array_key_exists('fecha', $input)) {
                 $sets[]          = 'fecha = :fecha';
@@ -602,7 +630,7 @@ try {
             $msg = isset($params['pagado'])
                 ? ($params['pagado'] ? 'Marcado como pagado/cobrado' : 'Revertido a no pagado')
                 : 'Actualizado';
-            sendResponse(true, null, $msg);
+            sendResponse(true, isset($movido_a) ? $movido_a : null, $msg);
             break;
 
         default:

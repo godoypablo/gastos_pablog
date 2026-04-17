@@ -15,6 +15,49 @@ window.fetch = async function(...args) {
 
 const API_URL = 'api/gastos_api.php';
 
+// Paleta de colores Cifra — misma que login (índigo + esmeralda + complementarios)
+const CIFRA_PALETTE = [
+    '#6366f1','#4f46e5','#818cf8','#a78bfa',
+    '#10b981','#059669','#34d399','#0d9488',
+    '#0ea5e9','#0284c7','#7c3aed','#9333ea',
+    '#f59e0b','#d97706','#ef4444','#dc2626',
+    '#ec4899','#db2777','#6b7280','#374151',
+];
+
+function _cifraColorPickerHtml(inputId, currentColor) {
+    const cur = (currentColor || '#6b7280').toLowerCase();
+    const swatches = CIFRA_PALETTE.map(c =>
+        `<button type="button" class="cifra-cp-swatch${c.toLowerCase() === cur ? ' activo' : ''}"
+                 style="background:${c}" data-color="${c}"
+                 onclick="cifraColorSelect('${inputId}','${c}',event)"></button>`
+    ).join('');
+    return `<div class="cifra-cp" id="cifra-cp-${inputId}">
+        <button type="button" class="cifra-cp-btn" style="background:${cur}"
+                onclick="cifraColorToggle('${inputId}',event)"></button>
+        <input type="hidden" id="${inputId}" value="${cur}">
+        <div class="cifra-cp-swatches d-none">${swatches}</div>
+    </div>`;
+}
+
+function cifraColorToggle(inputId, e) {
+    e.stopPropagation();
+    const wrap = document.getElementById('cifra-cp-' + inputId);
+    const swatches = wrap.querySelector('.cifra-cp-swatches');
+    const isOpen = !swatches.classList.contains('d-none');
+    document.querySelectorAll('.cifra-cp-swatches').forEach(s => s.classList.add('d-none'));
+    if (!isOpen) swatches.classList.remove('d-none');
+}
+
+function cifraColorSelect(inputId, color, e) {
+    e.stopPropagation();
+    const wrap = document.getElementById('cifra-cp-' + inputId);
+    wrap.querySelector('.cifra-cp-btn').style.background = color;
+    wrap.querySelector('input[type="hidden"]').value = color;
+    wrap.querySelectorAll('.cifra-cp-swatch').forEach(s =>
+        s.classList.toggle('activo', s.dataset.color === color));
+    wrap.querySelector('.cifra-cp-swatches').classList.add('d-none');
+}
+
 // Scroll tracker para chips catNav
 let _catScrollHandler  = null;
 let _catScrollRafPending = false;
@@ -35,6 +78,11 @@ const app = {
     cuentas: [],
     tipoCambioUSD: null,  // cotización dólar oficial (cacheada por día)
 };
+
+// Cerrar color pickers al hacer clic fuera
+document.addEventListener('click', () => {
+    document.querySelectorAll('.cifra-cp-swatches').forEach(s => s.classList.add('d-none'));
+});
 
 // Inicializar aplicación
 document.addEventListener('DOMContentLoaded', () => {
@@ -354,11 +402,6 @@ function renderizarDatos() {
     const totalCuentasUSD  = (app.cuentas || []).filter(c => c.moneda === 'USD').reduce((s, c) => s + parseFloat(c.saldo_actual || 0), 0);
     const disponibleARS    = totalCuentasARS - (resARS.total_gastos - resARS.gastos_pagados);
     const disponibleUSD    = totalCuentasUSD;
-    const pctPagado        = resARS.total_gastos > 0 ? Math.min(100, (resARS.gastos_pagados / resARS.total_gastos) * 100) : 0;
-
-    document.getElementById('totalIngresos').textContent   = formatearMoneda(resARS.total_ingresos);
-    document.getElementById('totalGastos').textContent     = formatearMoneda(resARS.total_gastos);
-    document.getElementById('saldoDisponible').textContent = formatearMoneda(disponibleARS);
 
     // Topbar ARS
     const elSFH = document.getElementById('saldoFiltroHeader');
@@ -382,22 +425,6 @@ function renderizarDatos() {
     if (elGPH) elGPH.textContent = formatearMoneda(resARS.gastos_pagados);
     const elPPH = document.getElementById('gastosPorPagarHeader');
     if (elPPH) elPPH.textContent = formatearMoneda(resARS.total_gastos - resARS.gastos_pagados);
-    document.getElementById('barraProgreso').style.width   = pctPagado + '%';
-    document.getElementById('barraProgreso').title         = `${pctPagado.toFixed(0)}% de gastos pagados`;
-
-    // Color de la card según disponible ARS
-    const cardSaldo = document.getElementById('cardSaldo');
-    const iconSaldo = document.getElementById('iconSaldo');
-
-    if (disponibleARS < 0) {
-        cardSaldo.classList.add('negativo');
-        iconSaldo.classList.remove('bi-bar-chart-steps');
-        iconSaldo.classList.add('bi-exclamation-triangle-fill', 'text-danger');
-    } else {
-        cardSaldo.classList.remove('negativo');
-        iconSaldo.classList.remove('bi-exclamation-triangle-fill', 'text-danger');
-        iconSaldo.classList.add('bi-bar-chart-steps');
-    }
 
     // Destruir DataTable gastos antes de limpiar tbody
     if (app.dtGastos) { app.dtGastos.destroy(); app.dtGastos = null; }
@@ -420,9 +447,6 @@ function renderizarDatos() {
     renderizarCatNav();
     mostrarBannerPeriodo();
     mostrarBannerVencimientos();
-    renderizarResumenCategorias();
-    renderizarResumenPendientes();
-    renderizarResumenIngresos();
     renderizarCuentas();
     renderizarCardCuentasHome();
 
@@ -430,7 +454,7 @@ function renderizarDatos() {
     if (document.getElementById('modalIngresos')?.classList.contains('show')) {
         renderizarModalIngresos();
     }
-    if (document.getElementById('modalGerencial')?.classList.contains('show')) {
+    if (document.getElementById('modalResumen')?.classList.contains('show')) {
         renderizarGerencial();
     }
 }
@@ -881,6 +905,7 @@ function crearFilaSimple(concepto, tipo) {
     wrapVenc.className = 'vencimiento-wrap';
     const icoVenc = document.createElement('i');
     icoVenc.className = 'bi bi-calendar-x';
+    icoVenc.title = 'Fecha de vencimiento — el registro se moverá al mes correspondiente';
     const spanVenc = document.createElement('span');
     spanVenc.className = 'vencimiento-texto';
     spanVenc.textContent = concepto.fecha_vencimiento
@@ -996,7 +1021,10 @@ function crearFilaSimple(concepto, tipo) {
             inputGroup.appendChild(btnYt);
         }
 
-        inputGroup.appendChild(input);
+        const wrap = document.createElement('div');
+        wrap.className = 'importe-input-wrap';
+        wrap.appendChild(input);
+        inputGroup.appendChild(wrap);
     }
 
     tdImporte.appendChild(inputGroup);
@@ -1678,11 +1706,16 @@ async function guardarVencimiento(registroId, fecha, trElement) {
         const result = await response.json();
         if (!result.success) throw new Error(result.message);
 
-        const hoy = new Date().toISOString().split('T')[0];
-        if (trElement) {
-            const isPaid = trElement.classList.contains('tr-pagado');
-            const vencido = fecha && fecha < hoy && !isPaid;
-            trElement.classList.toggle('tr-vencido', vencido);
+        if (result.data?.mes) {
+            const nombreMes = obtenerNombreMes(result.data.mes);
+            mostrarToast(`Movido a ${nombreMes} ${result.data.anio}`, 'success');
+            await cargarDatos();
+        } else {
+            const hoy = new Date().toISOString().split('T')[0];
+            if (trElement) {
+                const isPaid = trElement.classList.contains('tr-pagado');
+                trElement.classList.toggle('tr-vencido', fecha && fecha < hoy && !isPaid);
+            }
         }
     } catch (error) {
         mostrarError('Error al guardar vencimiento: ' + error.message);
@@ -1769,32 +1802,6 @@ function actualizarLabelFiltro() {
     if (el) el.textContent = `${obtenerNombreMes(app.mesActual)} ${app.anioActual}`;
 }
 
-function renderizarResumenIngresos() {
-    const el = document.getElementById('resumenIngresosDetalle');
-    if (!el || !app.datos) return;
-
-    const ingresos = (app.datos.conceptos || []).filter(c => c.tipo === 'ingreso');
-
-    if (!ingresos.length) {
-        el.innerHTML = '<div class="px-3 py-2 text-muted small">Sin ingresos registrados</div>';
-        return;
-    }
-
-    el.innerHTML = ingresos.map(c => {
-        const cobrado = c.pagado === 1;
-        const imp     = parseFloat(c.importe || 0);
-        const moneda  = c.moneda || 'ARS';
-        return `
-        <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
-            <span class="small ${cobrado ? '' : 'text-muted'}">
-                <i class="bi ${cobrado ? 'bi-check-circle-fill' : 'bi-circle'} me-1" style="font-size:.75rem;color:${cobrado ? 'var(--cifra-pos)' : 'inherit'}"></i>
-                ${c.nombre}
-            </span>
-            <span class="small fw-medium" style="color:${cobrado ? 'var(--cifra-pos)' : 'var(--bs-secondary-color)'}">${imp > 0 ? formatearMoneda(imp, moneda) : '—'}</span>
-        </div>`;
-    }).join('');
-}
-
 function renderizarResumenPendientes() {
     const el = document.getElementById('resumenPendientes');
     if (!el || !app.datos) return;
@@ -1841,60 +1848,6 @@ function renderizarResumenPendientes() {
         ${totalUSDHtml}`;
 }
 
-function renderizarResumenCategorias() {
-    const el = document.getElementById('resumenCategorias');
-    if (!el || !app.datos) return;
-
-    const gastosPorCat = {};
-    app.datos.conceptos
-        .filter(c => c.tipo === 'gasto' && parseFloat(c.importe) > 0)
-        .forEach(c => {
-            const key = c.categoria_id || 0;
-            if (!gastosPorCat[key]) {
-                gastosPorCat[key] = {
-                    nombre: c.categoria_nombre || 'Sin categoría',
-                    color:  c.categoria_color  || '#94a3b8',
-                    icono:  c.categoria_icono   || 'bi-tag',
-                    totalARS: 0,
-                    totalUSD: 0,
-                };
-            }
-            const m = c.moneda || 'ARS';
-            if (m === 'USD') gastosPorCat[key].totalUSD += parseFloat(c.importe);
-            else             gastosPorCat[key].totalARS += parseFloat(c.importe);
-        });
-
-    const cats = Object.values(gastosPorCat).sort((a, b) => b.totalARS - a.totalARS);
-    if (!cats.length) { el.innerHTML = ''; return; }
-
-    const totalGastosARS = cats.reduce((s, c) => s + c.totalARS, 0);
-
-    el.innerHTML = `
-        <div class="resumen-cats-header">
-            <span>Gastos por categoría</span>
-        </div>
-        ${cats.map(cat => {
-            const pct = totalGastosARS > 0 ? (cat.totalARS / totalGastosARS * 100) : 0;
-            const partes = [];
-            if (cat.totalARS > 0) partes.push(formatearMoneda(cat.totalARS, 'ARS'));
-            if (cat.totalUSD > 0) partes.push(formatearMoneda(cat.totalUSD, 'USD'));
-            const importeStr = partes.join(' + ') || '—';
-            return `
-            <div class="resumen-cat-row">
-                <div class="resumen-cat-info">
-                    <span class="resumen-cat-dot" style="background:${cat.color}"></span>
-                    <span class="resumen-cat-nombre">${cat.nombre}</span>
-                </div>
-                <div class="resumen-cat-barra-wrap">
-                    <div class="resumen-cat-barra" style="width:${pct.toFixed(1)}%;background:${cat.color}"></div>
-                </div>
-                <div class="resumen-cat-cifras">
-                    <span class="resumen-cat-importe">${importeStr}</span>
-                    <span class="resumen-cat-pct">${cat.totalARS > 0 ? pct.toFixed(0) + '%' : ''}</span>
-                </div>
-            </div>`;
-        }).join('')}`;
-}
 
 function toggleStatsExtra() {
     const extra = document.getElementById('statsExtra');
@@ -1920,14 +1873,8 @@ function _cerrarStatsExtra(e) {
 }
 
 // ============================================================
-// Panel Gerencial
+// Panel Gerencial (integrado en modal Resumen)
 // ============================================================
-function abrirModalGerencial() {
-    document.getElementById('mesAnioGerencial').textContent =
-        `${String(app.mesActual).padStart(2, '0')}/${app.anioActual}`;
-    renderizarGerencial();
-    new bootstrap.Modal(document.getElementById('modalGerencial')).show();
-}
 
 function renderizarGerencial() {
     const body = document.getElementById('modalGerencialBody');
@@ -1947,7 +1894,9 @@ function renderizarGerencial() {
     const resultadoARS   = resARS.ingresos_cobrados - resARS.gastos_pagados;
     const pctGastos      = resARS.total_gastos > 0 ? Math.min(100, resARS.gastos_pagados / resARS.total_gastos * 100) : 0;
     const pctIngresos    = resARS.total_ingresos > 0 ? Math.min(100, resARS.ingresos_cobrados / resARS.total_ingresos * 100) : 0;
-    const cantPend       = app.datos.conceptos.filter(c => c.tipo === 'gasto' && c.pagado !== 1 && parseFloat(c.importe) > 0).length;
+    const listaPend      = app.datos.conceptos.filter(c => c.tipo === 'gasto' && c.pagado !== 1 && parseFloat(c.importe) > 0)
+                             .sort((a, b) => parseFloat(b.importe) - parseFloat(a.importe));
+    const cantPend       = listaPend.length;
 
     // Semáforo
     let semColor, semLabel;
@@ -2008,36 +1957,47 @@ function renderizarGerencial() {
     // Sección 1 — KPIs
     const kpisHtml = `
     <div class="ger-section">
+        <div class="ger-section-title"><i class="bi bi-calendar3 me-1"></i>Flujo del mes</div>
         <div class="row g-2">
             <div class="col-6 col-md-3">
                 <div class="ger-kpi">
-                    <div class="ger-kpi-label"><i class="bi bi-arrow-up-circle me-1"></i>Ingresos cobrados</div>
+                    <div class="ger-kpi-label"><i class="bi bi-arrow-up-circle me-1"></i>Cobrado</div>
                     <div class="ger-kpi-valor" style="color:var(--cifra-pos)">${formatearMoneda(resARS.ingresos_cobrados)}</div>
                     <div class="ger-prog"><div class="ger-prog-bar" style="width:${pctIngresos.toFixed(1)}%;background:var(--color-success)"></div></div>
-                    <div class="ger-kpi-sub">${pctIngresos.toFixed(0)}% de ${formatearMoneda(resARS.total_ingresos)}</div>
+                    <div class="ger-kpi-sub">${pctIngresos.toFixed(0)}% de ${formatearMoneda(resARS.total_ingresos)} esperado</div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="ger-kpi">
-                    <div class="ger-kpi-label"><i class="bi bi-arrow-down-circle me-1"></i>Gastos pagados</div>
+                    <div class="ger-kpi-label"><i class="bi bi-arrow-down-circle me-1"></i>Pagado</div>
                     <div class="ger-kpi-valor" style="color:var(--cifra-neg)">${formatearMoneda(resARS.gastos_pagados)}</div>
                     <div class="ger-prog"><div class="ger-prog-bar" style="width:${pctGastos.toFixed(1)}%;background:var(--color-danger)"></div></div>
-                    <div class="ger-kpi-sub">${pctGastos.toFixed(0)}% de ${formatearMoneda(resARS.total_gastos)}</div>
+                    <div class="ger-kpi-sub">${pctGastos.toFixed(0)}% de ${formatearMoneda(resARS.total_gastos)} total</div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
-                <div class="ger-kpi">
-                    <div class="ger-kpi-label"><i class="bi bi-hourglass-split me-1"></i>Por pagar</div>
+                <div class="ger-kpi ger-kpi-clickable" data-bs-toggle="collapse" data-bs-target="#gerPendDetalles" aria-expanded="false">
+                    <div class="ger-kpi-label"><i class="bi bi-hourglass-split me-1"></i>Por pagar <i class="bi bi-chevron-down ms-1 ger-pend-chevron" style="font-size:0.6rem;opacity:0.6;transition:transform .2s"></i></div>
                     <div class="ger-kpi-valor" style="color:var(--color-warning)">${formatearMoneda(pendientesARS)}</div>
                     <div class="ger-kpi-sub">${cantPend} concepto${cantPend !== 1 ? 's' : ''} pendiente${cantPend !== 1 ? 's' : ''}</div>
                     ${pendientesUSD > 0 ? `<div class="ger-kpi-sub">${formatearMoneda(pendientesUSD,'USD')}</div>` : ''}
+                    <div class="collapse" id="gerPendDetalles">
+                        <div class="ger-pend-lista">
+                            ${listaPend.map(c => `
+                            <div class="ger-pend-fila">
+                                <span class="ger-pend-nombre">${c.nombre}</span>
+                                <span class="ger-pend-importe">${formatearMoneda(c.importe, c.moneda || 'ARS')}</span>
+                            </div>`).join('')}
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="ger-kpi">
-                    <div class="ger-kpi-label"><i class="bi bi-balance-scale me-1"></i>Resultado neto</div>
+                    <div class="ger-kpi-label"><i class="bi bi-calculator me-1"></i>Resultado del mes</div>
                     <div class="ger-kpi-valor" style="color:${resColor}">${resultadoARS >= 0 ? '+' : ''}${formatearMoneda(resultadoARS)}</div>
-                    <div class="ger-semaforo">
+                    <div class="ger-kpi-sub">Cobrado − Pagado este mes</div>
+                    <div class="ger-semaforo mt-1">
                         <span class="ger-sem-dot" style="background:${semColor}"></span>
                         <span style="color:${semColor};font-size:0.68rem;font-weight:600">${semLabel}</span>
                     </div>
@@ -2046,59 +2006,55 @@ function renderizarGerencial() {
         </div>
     </div>`;
 
-    // Sección 2 — Liquidez
-    const cuentasRows = (app.cuentas || []).map(c => {
-        const m = c.moneda || 'ARS';
-        return `<div class="ger-fila">
-            <span class="ger-dot" style="background:${c.color || '#6B7280'}"></span>
-            <span class="ger-fila-nombre">${c.nombre}</span>
-            <span class="ger-fila-valor">${formatearMoneda(c.saldo_actual, m)}</span>
+    // Sección 2 — Distribución con donut chart SVG
+    const R_d = 55, CX_d = 75, CY_d = 75, SW_d = 20;
+    const circ_d = 2 * Math.PI * R_d;
+    const catsConGastos = cats.filter(c => c.totalARS > 0);
+    let cumPct = 0;
+    const donutSegs = catsConGastos.map(cat => {
+        const pct = cat.totalARS / totalCatARS;
+        const dashLen = pct * circ_d;
+        const dashOff = circ_d * (1 - cumPct);
+        cumPct += pct;
+        return `<circle cx="${CX_d}" cy="${CY_d}" r="${R_d}" fill="none"
+            stroke="${cat.color}" stroke-width="${SW_d}"
+            stroke-dasharray="${dashLen.toFixed(2)} ${(circ_d - dashLen).toFixed(2)}"
+            stroke-dashoffset="${dashOff.toFixed(2)}"
+            transform="rotate(-90 ${CX_d} ${CY_d})"/>`;
+    }).join('');
+    const donutSvg = catsConGastos.length ? `
+        <svg viewBox="0 0 150 150" class="ger-donut-svg">
+            <circle cx="${CX_d}" cy="${CY_d}" r="${R_d}" fill="none"
+                stroke="rgba(100,116,139,0.1)" stroke-width="${SW_d}"/>
+            ${donutSegs}
+            <text x="${CX_d}" y="${CY_d - 8}" text-anchor="middle"
+                font-family="Inter,sans-serif" font-size="9" fill="#6b7280">Total ARS</text>
+            <text x="${CX_d}" y="${CY_d + 9}" text-anchor="middle"
+                font-family="Montserrat,sans-serif" font-size="10" font-weight="700"
+                fill="currentColor">${formatearMoneda(totalCatARS)}</text>
+        </svg>` : '';
+    const donutLegend = cats.map(cat => {
+        const pct = totalCatARS > 0 ? cat.totalARS / totalCatARS * 100 : 0;
+        const parts = [];
+        if (cat.totalARS > 0) parts.push(formatearMoneda(cat.totalARS));
+        if (cat.totalUSD > 0) parts.push(formatearMoneda(cat.totalUSD, 'USD'));
+        return `<div class="ger-leg-item">
+            <span class="ger-leg-dot" style="background:${cat.color}"></span>
+            <span class="ger-leg-nombre">${cat.nombre}</span>
+            <div class="ger-leg-bar-wrap">
+                <div class="ger-leg-bar" style="width:${pct.toFixed(1)}%;background:${cat.color}"></div>
+            </div>
+            <span class="ger-leg-importe">${parts.join(' + ') || '—'}</span>
+            <span class="ger-leg-pct">${pct > 0 ? pct.toFixed(0) + '%' : ''}</span>
         </div>`;
     }).join('');
-
-    const liquidezHtml = `
-    <div class="ger-section">
-        <div class="ger-section-title">Liquidez</div>
-        ${cuentasRows}
-        <div class="ger-totales-block">
-            <div class="ger-total-fila">
-                <span>Total ARS</span>
-                <span>${formatearMoneda(totalCtasARS)}</span>
-            </div>
-            ${totalCtasUSD > 0 ? `<div class="ger-total-fila">
-                <span>Total USD</span>
-                <span>${formatearMoneda(totalCtasUSD,'USD')}</span>
-            </div>` : ''}
-            <div class="ger-total-fila" style="color:var(--color-warning)">
-                <span>Pendiente mes</span>
-                <span>− ${formatearMoneda(pendientesARS)}</span>
-            </div>
-        </div>
-        <div class="ger-disponible-row" style="background:${dispBg}">
-            <span>Disponible real</span>
-            <span style="color:${dispColor}">${formatearMoneda(disponibleARS)}</span>
-        </div>
-    </div>`;
-
-    // Sección 3 — Distribución
     const distribHtml = `
-    <div class="ger-section ger-distrib">
-        <div class="ger-section-title">Distribución de gastos</div>
-        ${cats.length ? cats.map(cat => {
-            const pct = totalCatARS > 0 ? cat.totalARS / totalCatARS * 100 : 0;
-            const parts = [];
-            if (cat.totalARS > 0) parts.push(formatearMoneda(cat.totalARS));
-            if (cat.totalUSD > 0) parts.push(formatearMoneda(cat.totalUSD, 'USD'));
-            return `<div class="ger-cat-row">
-                <span class="ger-dot" style="background:${cat.color}"></span>
-                <span class="ger-cat-nombre" title="${cat.nombre}">${cat.nombre}</span>
-                <div class="ger-cat-bar-wrap">
-                    <div class="ger-cat-bar" style="width:${pct.toFixed(1)}%;background:${cat.color}"></div>
-                </div>
-                <span class="ger-cat-importe">${parts.join(' + ') || '—'}</span>
-                <span class="ger-cat-pct">${pct > 0 ? pct.toFixed(0) + '%' : ''}</span>
-            </div>`;
-        }).join('') : '<p class="text-muted small mb-0">Sin gastos este período.</p>'}
+    <div class="ger-section ger-distrib-new">
+        <div class="ger-section-title"><i class="bi bi-pie-chart-fill me-1"></i>Distribución de gastos</div>
+        ${cats.length ? `<div class="ger-distrib-layout">
+            <div class="ger-donut-wrap">${donutSvg}</div>
+            <div class="ger-donut-legend">${donutLegend}</div>
+        </div>` : '<p class="text-muted small mb-0 mt-2">Sin gastos este período.</p>'}
     </div>`;
 
     // Sección 4 — Alertas
@@ -2128,18 +2084,27 @@ function renderizarGerencial() {
 
     body.innerHTML = kpisHtml
         + `<div class="row g-0 ger-mid-row">
-               <div class="col-md-5 ger-col-border">${liquidezHtml}</div>
-               <div class="col-md-7">${distribHtml}</div>
+               <div class="col-12 col-md-5 ger-col-border"><div id="resumenPendientes"></div></div>
+               <div class="col-12 col-md-7">${distribHtml}</div>
            </div>`
         + `<div class="ger-section"><div class="ger-section-title"><i class="bi bi-bell me-1"></i>Alertas</div>${alertasInner}</div>`;
+
+    renderizarResumenPendientes();
 }
 
 function abrirModalResumen() {
     const modal = document.getElementById('modalResumen');
+    renderizarGerencial();
     modal.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el =>
         bootstrap.Tooltip.getOrCreateInstance(el, { trigger: 'hover focus' })
     );
     new bootstrap.Modal(modal).show();
+}
+
+function descargarResumenPDF() {
+    document.body.classList.add('cifra-printing');
+    window.onafterprint = () => document.body.classList.remove('cifra-printing');
+    window.print();
 }
 
 function abrirModalCuentas() {
@@ -2194,16 +2159,6 @@ function renderizarModalIngresos() {
                             onclick="mostrarEditConceptoIngreso(${c.id})">
                         <i class="bi bi-pencil-fill"></i>
                     </button>
-                    <input type="text" inputmode="decimal"
-                           class="ingreso-importe input-importe form-control form-control-sm"
-                           value="${imp}"
-                           data-concepto-id="${c.id}"
-                           data-registro-id="${c.registro_id || ''}"
-                           placeholder="0,00"
-                           onfocus="const v=parsearImporte(this.value);this.value=v>0?String(v).replace('.',','):'';this.select()"
-                           onblur="guardarImporteIngreso(this)"
-                           onkeypress="if(event.key==='Enter')this.blur()"
-                           oninput="this.classList.add('unsaved');this.classList.remove('saved')">
                 </div>
                 <div class="ingreso-linea2">
                     <select class="ingreso-cuenta form-select form-select-sm"
@@ -2216,6 +2171,18 @@ function renderizarModalIngresos() {
                            value="${fechaVal}"
                            ${!hasReg ? 'disabled title="Ingresá el importe primero"' : `onchange="guardarFechaIngreso(${c.registro_id}, this.value, this)"`}>
                 </div>
+            </div>
+            <div class="ingreso-importe-col">
+                <div class="importe-input-wrap"><input type="text" inputmode="decimal"
+                       class="ingreso-importe input-importe form-control form-control-sm"
+                       value="${imp}"
+                       data-concepto-id="${c.id}"
+                       data-registro-id="${c.registro_id || ''}"
+                       placeholder="0,00"
+                       onfocus="const v=parsearImporte(this.value);this.value=v>0?String(v).replace('.',','):'';this.select()"
+                       onblur="guardarImporteIngreso(this)"
+                       onkeypress="if(event.key==='Enter')this.blur()"
+                       oninput="this.classList.add('unsaved');this.classList.remove('saved')"></div>
             </div>
         </div>`;
     }).join('');
@@ -2239,7 +2206,7 @@ function renderizarModalIngresos() {
 
     const tooltips = [
         { label: 'Total',     valor: total,     cls: '',           title: 'Suma de todos los ingresos del mes, cobrados o no' },
-        { label: 'Cobrado',   valor: cobrado,   cls: 'cifra-pos-text', title: 'Ingresos ya recibidos (marcados con ✓)' },
+        { label: 'Cobrado',   valor: cobrado,   cls: 'ingreso-cobrado-valor', title: 'Ingresos ya recibidos (marcados con ✓)' },
         { label: 'Pendiente', valor: pendiente, cls: 'text-muted', title: 'Ingresos que todavía no cobraste' },
     ];
 
@@ -2877,7 +2844,7 @@ function renderizarListaCategorias(categorias) {
                     <span class="cat-orden-texto text-muted small me-1">${cat.orden}</span>
                 </span>
                 <div class="cat-nombre-edit d-none d-flex flex-wrap gap-1 align-items-center">
-                    <input type="color" id="edit-cat-color-${cat.id}" class="form-control form-control-sm form-control-color flex-shrink-0" style="width:32px;padding:2px" value="${cat.color}">
+                    ${_cifraColorPickerHtml(`edit-cat-color-${cat.id}`, cat.color)}
                     <input type="text" id="edit-cat-nombre-${cat.id}" class="form-control form-control-sm flex-grow-1" style="min-width:80px" value="${cat.nombre}">
                     <input type="text" id="edit-cat-icono-${cat.id}" class="form-control form-control-sm flex-shrink-0" style="width:90px" placeholder="bi-house-fill" value="${cat.icono || ''}">
                     <input type="number" id="edit-cat-orden-${cat.id}" class="form-control form-control-sm text-center flex-shrink-0" style="width:50px" value="${cat.orden}" min="1">
@@ -3236,7 +3203,7 @@ function mostrarFormNuevaCuenta() {
             </select>
             <div class="nueva-cuenta-color">
                 <label class="nueva-cuenta-color-label">Color</label>
-                <input type="color" id="nc-color" class="form-control form-control-color form-control-sm" value="#6c757d">
+                ${_cifraColorPickerHtml('nc-color', '#6b7280')}
             </div>
             <input type="text" inputmode="decimal" id="nc-saldo" class="form-control form-control-sm" placeholder="Saldo inicial (0)">
         </div>
