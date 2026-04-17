@@ -1942,9 +1942,15 @@ function renderizarGerencial() {
             nombre: c.categoria_nombre || 'Sin cat.',
             color:  _colorCategoria(c.categoria_color || '#94a3b8'),
             totalARS: 0, totalUSD: 0,
+            presupuesto: 0,
         };
         (c.moneda || 'ARS') === 'USD' ? (catMap[k].totalUSD += parseFloat(c.importe))
                                        : (catMap[k].totalARS += parseFloat(c.importe));
+    });
+    // Enriquecer con presupuesto desde app.categorias
+    Object.keys(catMap).forEach(k => {
+        const catData = (app.categorias || []).find(c => c.id === parseInt(k));
+        if (catData) catMap[k].presupuesto = parseFloat(catData.presupuesto) || 0;
     });
     const cats        = Object.values(catMap).sort((a, b) => b.totalARS - a.totalARS);
     const totalCatARS = cats.reduce((s, c) => s + c.totalARS, 0);
@@ -2038,14 +2044,24 @@ function renderizarGerencial() {
         const parts = [];
         if (cat.totalARS > 0) parts.push(formatearMoneda(cat.totalARS));
         if (cat.totalUSD > 0) parts.push(formatearMoneda(cat.totalUSD, 'USD'));
+        // Presupuesto
+        let barColor = cat.color;
+        let presupHtml = '';
+        if (cat.presupuesto > 0) {
+            const pctPres = Math.round(cat.totalARS / cat.presupuesto * 100);
+            barColor = pctPres > 100 ? 'var(--color-danger)' : pctPres > 80 ? '#f59e0b' : cat.color;
+            const presupColor = pctPres > 100 ? 'var(--color-danger)' : pctPres > 80 ? '#f59e0b' : 'var(--color-gray)';
+            presupHtml = `<span class="ger-leg-presup" style="color:${presupColor}" title="Presupuesto: ${formatearMoneda(cat.presupuesto)}">${pctPres}%&nbsp;presup.</span>`;
+        }
         return `<div class="ger-leg-item">
             <span class="ger-leg-dot" style="background:${cat.color}"></span>
             <span class="ger-leg-nombre">${cat.nombre}</span>
             <div class="ger-leg-bar-wrap">
-                <div class="ger-leg-bar" style="width:${pct.toFixed(1)}%;background:${cat.color}"></div>
+                <div class="ger-leg-bar" style="width:${pct.toFixed(1)}%;background:${barColor}"></div>
             </div>
             <span class="ger-leg-importe">${parts.join(' + ') || '—'}</span>
             <span class="ger-leg-pct">${pct > 0 ? pct.toFixed(0) + '%' : ''}</span>
+            ${presupHtml}
         </div>`;
     }).join('');
     const distribHtml = `
@@ -2848,6 +2864,7 @@ function renderizarListaCategorias(categorias) {
                     <input type="text" id="edit-cat-nombre-${cat.id}" class="form-control form-control-sm flex-grow-1" style="min-width:80px" value="${cat.nombre}">
                     <input type="text" id="edit-cat-icono-${cat.id}" class="form-control form-control-sm flex-shrink-0" style="width:90px" placeholder="bi-house-fill" value="${cat.icono || ''}">
                     <input type="number" id="edit-cat-orden-${cat.id}" class="form-control form-control-sm text-center flex-shrink-0" style="width:50px" value="${cat.orden}" min="1">
+                    <input type="number" id="edit-cat-presupuesto-${cat.id}" class="form-control form-control-sm flex-shrink-0" style="width:90px" placeholder="Presup." title="Presupuesto mensual (opcional)" min="0" step="1000" value="${cat.presupuesto > 0 ? cat.presupuesto : ''}">
                     <button class="btn btn-success btn-sm flex-shrink-0" onclick="guardarEdicionCategoria(${cat.id})"><i class="bi bi-check-lg"></i></button>
                     <button class="btn btn-outline-secondary btn-sm flex-shrink-0" onclick="cancelarEdicionCategoria(${cat.id})"><i class="bi bi-x-lg"></i></button>
                 </div>
@@ -2929,10 +2946,11 @@ async function guardarOrdenCategorias(tbody) {
 }
 
 function mostrarFormNuevaCategoria() {
-    document.getElementById('catNombre').value = '';
-    document.getElementById('catColor').value  = '#2563EB';
-    document.getElementById('catIcono').value  = '';
-    document.getElementById('catOrden').value  = '';
+    document.getElementById('catNombre').value       = '';
+    document.getElementById('catColor').value        = '#2563EB';
+    document.getElementById('catIcono').value        = '';
+    document.getElementById('catOrden').value        = '';
+    document.getElementById('catPresupuesto').value  = '';
     document.getElementById('formNuevaCategoria').classList.remove('d-none');
     document.getElementById('catNombre').focus();
 }
@@ -2942,10 +2960,11 @@ function cancelarNuevaCategoria() {
 }
 
 async function guardarNuevaCategoria() {
-    const nombre = document.getElementById('catNombre').value.trim();
-    const color  = document.getElementById('catColor').value;
-    const icono  = document.getElementById('catIcono').value.trim();
-    const orden  = document.getElementById('catOrden').value;
+    const nombre      = document.getElementById('catNombre').value.trim();
+    const color       = document.getElementById('catColor').value;
+    const icono       = document.getElementById('catIcono').value.trim();
+    const orden       = document.getElementById('catOrden').value;
+    const presupuesto = document.getElementById('catPresupuesto').value;
 
     if (!nombre) {
         mostrarError('El nombre de la categoría no puede estar vacío.');
@@ -2956,7 +2975,7 @@ async function guardarNuevaCategoria() {
         const response = await fetch(CATEGORIAS_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nombre, color, icono: icono || '', orden: orden || undefined })
+            body: JSON.stringify({ nombre, color, icono: icono || '', orden: orden || undefined, presupuesto: presupuesto !== '' ? parseFloat(presupuesto) : null })
         });
         const result = await response.json();
         if (!result.success) throw new Error(result.message);
@@ -2983,10 +3002,11 @@ function cancelarEdicionCategoria(id) {
 }
 
 async function guardarEdicionCategoria(id) {
-    const nombre = document.getElementById(`edit-cat-nombre-${id}`).value.trim();
-    const color  = document.getElementById(`edit-cat-color-${id}`).value;
-    const icono  = document.getElementById(`edit-cat-icono-${id}`).value.trim();
-    const orden  = document.getElementById(`edit-cat-orden-${id}`).value;
+    const nombre      = document.getElementById(`edit-cat-nombre-${id}`).value.trim();
+    const color       = document.getElementById(`edit-cat-color-${id}`).value;
+    const icono       = document.getElementById(`edit-cat-icono-${id}`).value.trim();
+    const orden       = document.getElementById(`edit-cat-orden-${id}`).value;
+    const presupuesto = document.getElementById(`edit-cat-presupuesto-${id}`).value;
 
     if (!nombre) {
         mostrarError('El nombre no puede estar vacío.');
@@ -2997,7 +3017,7 @@ async function guardarEdicionCategoria(id) {
         const response = await fetch(CATEGORIAS_API_URL, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, nombre, color, icono, orden: parseInt(orden) || 0 })
+            body: JSON.stringify({ id, nombre, color, icono, orden: parseInt(orden) || 0, presupuesto: presupuesto !== '' ? parseFloat(presupuesto) : null })
         });
         const result = await response.json();
         if (!result.success) throw new Error(result.message);
@@ -3519,4 +3539,91 @@ function mostrarToast(mensaje, tipo = 'success') {
     toast.show();
 
     toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
+}
+
+// ============================================================
+// VISTA ANUAL
+// ============================================================
+
+const ANUAL_API_URL = 'api/anual_api.php';
+
+function abrirModalAnual() {
+    new bootstrap.Modal(document.getElementById('modalAnual')).show();
+    cargarVistaAnual(new Date().getFullYear());
+}
+
+async function cargarVistaAnual(anio) {
+    const body = document.getElementById('modalAnualBody');
+    body.innerHTML = '<div class="text-center py-5 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>Cargando...</div>';
+    try {
+        const resp   = await fetch(`${ANUAL_API_URL}?anio=${anio}`);
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.message);
+        _renderizarTablaAnual(result.data);
+    } catch (e) {
+        body.innerHTML = `<div class="text-center py-5 text-danger"><i class="bi bi-exclamation-circle me-2"></i>${e.message}</div>`;
+    }
+}
+
+function _formatCompacto(v) {
+    if (!v || v === 0) return '—';
+    if (v >= 1000000) return '$\u00a0' + (v / 1000000).toFixed(1).replace('.', ',') + 'M';
+    if (v >= 1000)    return '$\u00a0' + Math.round(v / 1000) + 'k';
+    return '$\u00a0' + Math.round(v);
+}
+
+function _renderizarTablaAnual(data) {
+    const body       = document.getElementById('modalAnualBody');
+    const meses      = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const anioActual = new Date().getFullYear();
+    const mesActual  = new Date().getMonth(); // 0-indexed
+    const anio       = data.anio;
+
+    const btnNext = anio >= anioActual
+        ? `<button class="btn btn-sm btn-outline-secondary" disabled><i class="bi bi-chevron-right"></i></button>`
+        : `<button class="btn btn-sm btn-outline-secondary" onclick="cargarVistaAnual(${anio + 1})"><i class="bi bi-chevron-right"></i></button>`;
+
+    let html = `
+    <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+        <button class="btn btn-sm btn-outline-secondary" onclick="cargarVistaAnual(${anio - 1})"><i class="bi bi-chevron-left"></i></button>
+        <span class="fw-bold">${anio}</span>
+        ${btnNext}
+    </div>
+    <div class="anual-table-wrap">
+    <table class="table table-sm anual-table mb-0">
+    <thead><tr>
+        <th class="anual-cat-col">Categoría</th>
+        ${meses.map((m, i) => `<th class="anual-mes-col text-end${i === mesActual && anio === anioActual ? ' anual-mes-actual' : ''}">${m}</th>`).join('')}
+        <th class="anual-mes-col anual-total-col text-end">Total</th>
+    </tr></thead>
+    <tbody>`;
+
+    data.categorias.forEach(cat => {
+        const maxVal = Math.max(...cat.meses.filter(v => v > 0), 0);
+        html += `<tr>
+            <td class="anual-cat-col"><span class="anual-cat-dot" style="background:${cat.color}"></span>${cat.nombre}</td>
+            ${cat.meses.map((v, i) => {
+                const cls = [
+                    'text-end',
+                    (i === mesActual && anio === anioActual) ? 'anual-mes-actual' : '',
+                    (v > 0 && v === maxVal) ? 'anual-cel-max' : '',
+                    v === 0 ? 'text-muted' : '',
+                ].filter(Boolean).join(' ');
+                return `<td class="${cls}">${_formatCompacto(v)}</td>`;
+            }).join('')}
+            <td class="text-end anual-total-col fw-medium">${_formatCompacto(cat.total)}</td>
+        </tr>`;
+    });
+
+    html += `<tr class="anual-total-row">
+        <td class="anual-cat-col fw-bold">Total</td>
+        ${data.totales_mes.map((v, i) => {
+            const cls = ['text-end', 'fw-bold', (i === mesActual && anio === anioActual) ? 'anual-mes-actual' : ''].filter(Boolean).join(' ');
+            return `<td class="${cls}">${_formatCompacto(v)}</td>`;
+        }).join('')}
+        <td class="text-end anual-total-col fw-bold">${_formatCompacto(data.total_anual)}</td>
+    </tr>`;
+
+    html += `</tbody></table></div>`;
+    body.innerHTML = html;
 }

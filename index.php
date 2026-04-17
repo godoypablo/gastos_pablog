@@ -1,7 +1,7 @@
 <?php
 require_once 'config/auth_check.php';
 require_auth_or_redirect();
-define('APP_VERSION', '20260416-13');
+define('APP_VERSION', '20260417-1');
 $meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
 ?>
@@ -93,6 +93,12 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                             </a>
                         </li>
                         <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalAnual();return false;">
+                                <i class="bi bi-calendar3-range menu-icon"></i>
+                                Vista anual
+                            </a>
+                        </li>
                         <li>
                             <a class="dropdown-item d-flex align-items-center gap-2" href="#" onclick="abrirModalMovimientos();return false;">
                                 <i class="bi bi-journal-text menu-icon"></i>
@@ -281,6 +287,26 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                             onclick="descargarResumenPDF()">
                         <i class="bi bi-file-earmark-pdf me-1"></i>Descargar PDF
                     </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Vista Anual -->
+    <div class="modal fade" id="modalAnual" tabindex="-1" aria-labelledby="modalAnualLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalAnualLabel">
+                        <i class="bi bi-calendar3-range me-2 text-info"></i>Vista anual
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0" id="modalAnualBody">
+                    <!-- renderizado por renderizarAnual() -->
+                </div>
+                <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                 </div>
             </div>
@@ -552,7 +578,7 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                                 <div class="card-body">
                                     <h6 class="card-title">Nueva Categoría</h6>
                                     <div class="row g-2 align-items-end">
-                                        <div class="col-sm-4">
+                                        <div class="col-sm-3">
                                             <label class="form-label small">Nombre</label>
                                             <input type="text" id="catNombre" class="form-control form-control-sm" placeholder="Nombre de la categoría">
                                         </div>
@@ -560,15 +586,19 @@ $labelFiltro = $meses[(int)date('n') - 1] . ' ' . date('Y');
                                             <label class="form-label small">Color</label>
                                             <input type="color" id="catColor" class="form-control form-control-sm form-control-color w-100" value="#2563EB">
                                         </div>
-                                        <div class="col-sm-3">
-                                            <label class="form-label small">Ícono Bootstrap <span class="text-muted">(opcional)</span></label>
+                                        <div class="col-sm-2">
+                                            <label class="form-label small">Ícono Bootstrap <span class="text-muted">(opc.)</span></label>
                                             <input type="text" id="catIcono" class="form-control form-control-sm" placeholder="bi-house-fill">
                                         </div>
                                         <div class="col-sm-1">
                                             <label class="form-label small">Orden</label>
                                             <input type="number" id="catOrden" class="form-control form-control-sm" placeholder="Auto" min="1">
                                         </div>
-                                        <div class="col-sm-2 d-flex gap-1">
+                                        <div class="col-sm-2">
+                                            <label class="form-label small">Presupuesto <span class="text-muted">(opc.)</span></label>
+                                            <input type="number" id="catPresupuesto" class="form-control form-control-sm" placeholder="$ mensual" min="0" step="1000">
+                                        </div>
+                                        <div class="col-sm-2 d-flex gap-1 align-items-end">
                                             <button class="btn btn-primary btn-sm flex-fill" onclick="guardarNuevaCategoria()">
                                                 <i class="bi bi-check-lg"></i>
                                             </button>

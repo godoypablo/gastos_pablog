@@ -29,7 +29,7 @@ try {
 
         case 'GET':
             $stmt = $db->query(
-                "SELECT id, nombre, color, icono, orden, activo
+                "SELECT id, nombre, color, icono, orden, activo, presupuesto
                  FROM categorias
                  WHERE activo = 1
                  ORDER BY orden ASC, nombre ASC"
@@ -86,6 +86,10 @@ try {
             }
             if (isset($input['activo'])) {
                 $fields[] = 'activo = :activo'; $params['activo'] = $input['activo'] ? 1 : 0;
+            }
+            if (array_key_exists('presupuesto', $input)) {
+                $fields[] = 'presupuesto = :presupuesto';
+                $params['presupuesto'] = ($input['presupuesto'] !== null && $input['presupuesto'] !== '') ? (float)$input['presupuesto'] : null;
             }
 
             if (empty($fields)) {

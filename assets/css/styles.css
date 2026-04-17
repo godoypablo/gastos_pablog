@@ -2093,6 +2093,9 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     border-color: var(--bs-border-color);
 }
 /* Botón expandir stats secundarios (solo mobile) */
+#btnOcultarImportes {
+    display: inline-flex;
+}
 .topbar-more-btn {
     display: none;
     align-items: center;
@@ -2208,6 +2211,12 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     position: relative;
     display: inline-block;
     width: 100%;
+}
+/* En la tabla desktop, el wrapper no debe expandirse — el flex justify-end lo alinea a la derecha */
+@media (min-width: 768px) {
+    table .importe-input-wrap {
+        width: auto;
+    }
 }
 .cifra-oculto .importe-input-wrap::after {
     content: '* * *';
@@ -2543,6 +2552,25 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     gap: 1rem;
     flex-wrap: wrap;
 }
+@media (max-width: 575.98px) {
+    .ger-donut-wrap { display: none; }
+    .ger-donut-legend {
+        flex: 0 0 100%;
+        gap: 0;
+    }
+    .ger-leg-item {
+        flex-wrap: wrap;
+        row-gap: 0.15rem;
+        padding: 0.45rem 0;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+    .ger-leg-item:last-child { border-bottom: none; }
+    .ger-leg-dot     { order: 1; }
+    .ger-leg-nombre  { order: 2; flex: 1 1 auto; }
+    .ger-leg-pct     { order: 3; min-width: auto; }
+    .ger-leg-importe { order: 4; font-size: 0.78rem; min-width: 0; }
+    .ger-leg-bar-wrap{ order: 5; flex: 0 0 100%; height: 4px; margin-top: 0.15rem; }
+}
 .ger-donut-wrap {
     flex-shrink: 0;
     display: flex;
@@ -2678,4 +2706,76 @@ table.dataTable > tbody > tr.tr-pagado .concepto-nombre {
     /* Forzar colores legibles */
     body.cifra-printing { background: white !important; }
     body.cifra-printing .ger-kpi { background: #f8fafc !important; }
+}
+
+/* ==================== VISTA ANUAL ==================== */
+.anual-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.anual-table {
+    min-width: 680px;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.anual-table thead th {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.5rem 0.4rem;
+    background: var(--bs-body-bg);
+}
+.anual-table tbody td {
+    padding: 0.4rem 0.4rem;
+    vertical-align: middle;
+}
+.anual-cat-col {
+    position: sticky;
+    left: 0;
+    background: var(--bs-body-bg);
+    z-index: 2;
+    min-width: 120px;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.anual-table thead .anual-cat-col { z-index: 3; }
+.anual-mes-col  { min-width: 50px; }
+.anual-total-col {
+    min-width: 62px;
+    border-left: 1px solid var(--bs-border-color);
+}
+.anual-mes-actual {
+    background: rgba(99,102,241,0.07) !important;
+}
+.anual-cel-max {
+    color: var(--color-danger) !important;
+    font-weight: 600;
+}
+.anual-total-row td {
+    border-top: 2px solid var(--bs-border-color) !important;
+    background: var(--bs-tertiary-bg);
+}
+.anual-total-row .anual-cat-col {
+    background: var(--bs-tertiary-bg);
+}
+.anual-cat-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+/* ==================== PRESUPUESTO (leyenda distribución) ==================== */
+.ger-leg-presup {
+    font-size: 0.62rem;
+    font-weight: 600;
+    white-space: nowrap;
+    min-width: 4rem;
+    text-align: right;
 }

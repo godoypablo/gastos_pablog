@@ -186,3 +186,22 @@ Resumen/Cuentas → modales | Vencimientos → modal+badges | Ingresos → modal
 - Play Store: TWA via PWABuilder (USD 25, HTTPS) | App Store: Capacitor.js (USD 99/año)
 - Monetización: multi-tenant + suscripciones | IA descartada (privacidad)
 - Android: para limpiar caché de SW → Chrome → ⋮ → Configuración del sitio → Almacenamiento → Borrar
+
+## Pendiente de deploy (2026-04-17)
+
+### 1. Migración SQL — ✅ ya ejecutada (2026-04-17)
+```sql
+ALTER TABLE categorias ADD COLUMN presupuesto DECIMAL(12,2) NULL DEFAULT NULL;
+```
+
+### 2. Archivos a subir por FTP
+- `api/anual_api.php` ← archivo nuevo
+- `api/categorias_api.php`
+- `index.php`
+- `assets/js/app.js`
+- `assets/css/styles.css`
+- `sw.js`
+
+### 3. Qué se implementó
+- **Vista anual**: menú → "Vista anual" → tabla 12 meses × categorías, columna sticky, mes actual resaltado, máximo por fila en rojo, totales al pie, navegación entre años, montos compactos ($1,2M / $450k)
+- **Presupuesto por categoría**: campo `presupuesto` en alta y edición de categorías; en modal Resumen → Distribución la barra cambia a amarillo/rojo según % consumido y muestra "XX% presup."
